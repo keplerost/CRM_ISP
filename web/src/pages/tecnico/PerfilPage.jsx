@@ -126,7 +126,7 @@ export default function PerfilPage() {
 }
 
 const Dato = ({ icono: Icono, label, valor, aviso }) => (
-  <div className="flex items-center gap-2 rounded-lg bg-slate-950/50 px-3 py-2">
+  <div className="flex items-center gap-2 t-panel px-3 py-2">
     <Icono size={14} className="shrink-0 text-slate-600" />
     <span className="text-slate-500">{label}</span>
     <span className="ml-auto text-right text-slate-200">
@@ -137,7 +137,7 @@ const Dato = ({ icono: Icono, label, valor, aviso }) => (
 )
 
 const Umbral = ({ titulo, texto }) => (
-  <div className="rounded-lg bg-slate-950/50 px-3 py-2">
+  <div className="t-panel px-3 py-2">
     <p className="text-slate-300">{titulo}</p>
     <p className="text-[11px] text-slate-500">{texto}</p>
   </div>

@@ -226,7 +226,7 @@ function Tarjeta({ t }) {
   const est = ESTADOS[t.estado]
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+    <div className="t-card p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           {/* El abonado primero: es a quién va a ver. El tipo de incidencia

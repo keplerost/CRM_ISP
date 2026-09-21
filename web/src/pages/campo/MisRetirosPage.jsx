@@ -193,11 +193,11 @@ function Contacto({ o, onError }) {
   }
 
   return (
-    <div className="space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+    <div className="space-y-1.5 t-panel p-2">
       <select
         value={plantilla}
         onChange={(e) => setPlantilla(e.target.value)}
-        className="w-full rounded border border-slate-700 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-200"
+        className="w-full rounded border border-slate-700 bg-[#F6F8FB] px-2 py-1 text-[11px] text-slate-200"
       >
         {PLANTILLAS.map((p) => (
           <option key={p.clave} value={p.clave}>

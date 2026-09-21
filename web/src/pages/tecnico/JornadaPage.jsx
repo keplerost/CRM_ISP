@@ -308,7 +308,7 @@ export default function JornadaPage() {
 }
 
 const Dato = ({ label, valor }) => (
-  <div className="rounded-xl border border-slate-800 bg-slate-950/50 py-3">
+  <div className="t-panel py-3">
     <p className="text-lg font-semibold tabular-nums text-slate-100">{valor}</p>
     <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
   </div>

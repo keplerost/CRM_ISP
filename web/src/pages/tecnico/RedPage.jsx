@@ -162,7 +162,7 @@ export default function RedPage() {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 const Cifra = ({ n, label, color }) => (
-  <div className="rounded-xl border border-slate-800 bg-slate-900/50 py-3 text-center">
+  <div className="t-card py-3 text-center">
     <p className={`text-2xl font-semibold tabular-nums ${color}`}>{n}</p>
     <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
   </div>
@@ -174,7 +174,7 @@ function Fila({ n, onAbrir }) {
     <button
       type="button"
       onClick={onAbrir}
-      className="w-full rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-left active:bg-slate-800"
+      className="w-full t-card p-3 text-left active:bg-slate-800"
     >
       <div className="flex items-center gap-2">
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.punto}`} />
@@ -308,7 +308,7 @@ function Detalle({ nodo, novedades, onVolver }) {
 }
 
 const Dato = ({ label, valor, icono: Icono }) => (
-  <div className="flex items-center gap-2 rounded-lg bg-slate-950/50 px-3 py-2">
+  <div className="flex items-center gap-2 t-panel px-3 py-2">
     {Icono && <Icono size={13} className="shrink-0 text-slate-600" />}
     <span className="text-slate-500">{label}</span>
     <span className="ml-auto text-right text-slate-200">{valor}</span>
