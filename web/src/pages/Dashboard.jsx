@@ -236,12 +236,22 @@ export default function Dashboard() {
       supabase.from('v_pagos').select('*').order('created_at', { ascending: false }).limit(12),
       supabase.from('v_facturas_por_cobrar').select('client_id, saldo, fecha_vencimiento'),
       supabase.from('v_clientes_ficha').select('id, estado'),
+      /* La MISMA vista y el MISMO filtro que usa el listado de ONUs.
+         `senal_baja` se calcula en la base —migración 44— justamente para que
+         la regla viva en un solo lugar: si el umbral cambia, cambia para el
+         número de esta tarjeta y para la lista que abre, a la vez. */
       supabase
-        .from('onus')
-        .select('id, sn, nombre_cliente, rx_power_dbm, estado')
-        .not('rx_power_dbm', 'is', null)
-        .lt('rx_power_dbm', UMBRAL_RX_DBM)
-        .order('rx_power_dbm'),
+        .from('v_onus_clientes')
+        .select('onu_id, sn, cliente, nombre_en_la_olt, rx_power_dbm, olt, ruta_onu', {
+          count: 'exact',
+        })
+        .eq('senal_baja', true)
+        .order('rx_power_dbm')
+        /* Se cuenta en la base y se bajan solo las que se dibujan. Sin esto,
+           un ISP con doscientas ONUs degradadas se las bajaba TODAS para
+           mostrar un número y cuatro filas — y además el número habría quedado
+           tapado por el tope de mil filas de la API. */
+        .limit(6),
       supabase
         .from('v_instalaciones')
         .select('id, numero, cliente, nombre, tecnico_nombre, estado, hora')
@@ -254,6 +264,9 @@ export default function Dashboard() {
       if (!vivo) return
       // Una vista que falla devuelve lista vacía y el resto del panel sigue.
       const filas = (i) => (res[i].status === 'fulfilled' ? (res[i].value.data ?? []) : [])
+      // El total que informa la base, para las consultas que no bajan todo.
+      const cuantas = (i) =>
+        res[i].status === 'fulfilled' ? (res[i].value.count ?? filas(i).length) : 0
 
       // Si TODAS fallaron no es una vista faltante, es la conexión: ahí sí
       // conviene decirlo en vez de mostrar un panel lleno de ceros.
@@ -272,6 +285,7 @@ export default function Dashboard() {
         facturas: filas(4),
         clientes: filas(5),
         onusBajas: filas(6),
+        onusBajasTotal: cuantas(6),
         instalaciones: filas(7),
         tecnicos: filas(8),
         expedientes: filas(9),
@@ -367,14 +381,14 @@ export default function Dashboard() {
             tono={m.vencidoMonto > 0 ? 'critico' : 'ok'}
           />
         )}
-        {abre('/metricas') && (
+        {abre('/onus') && (
           <KpiCard
             icon={Waves}
             etiqueta="ONUs con señal baja"
-            valor={numero(d.onusBajas.length)}
+            valor={numero(d.onusBajasTotal)}
             pista={`por debajo de ${UMBRAL_RX_DBM} dBm`}
-            a="/metricas"
-            tono={d.onusBajas.length ? 'critico' : 'ok'}
+            a="/onus?senal=baja"
+            tono={d.onusBajasTotal ? 'critico' : 'ok'}
           />
         )}
         {abre('/clientes/instalaciones') && (
@@ -490,7 +504,7 @@ export default function Dashboard() {
 
         {abre('/monitoreo') && (
           <Seccion titulo="Alertas técnicas" subtitulo="Lo que hay que mirar ahora" a="/monitoreo/incidencias">
-            {d.onusBajas.length === 0 && d.nodos.filter((n) => n.estado === 'down').length === 0 ? (
+            {d.onusBajasTotal === 0 && d.nodos.filter((n) => n.estado === 'down').length === 0 ? (
               <Vacio titulo="Sin alertas activas" sub="Todo operando con normalidad" />
             ) : (
               <ul className="space-y-2">
@@ -512,16 +526,27 @@ export default function Dashboard() {
                       </Link>
                     </li>
                   ))}
-                {d.onusBajas.slice(0, 4).map((o) => (
-                  <li key={`o-${o.id}`}>
-                    <Link to="/metricas" className="t-panel t-lift flex items-start gap-2.5 p-3">
+                {abre('/onus') &&
+                  d.onusBajas.slice(0, 4).map((o) => (
+                  <li key={`o-${o.onu_id}`}>
+                    {/* A la ficha de ESA ONU. Antes iba a Métricas ópticas, que
+                        es la herramienta de diagnóstico en vivo: obligaba a
+                        elegir OLT y puerto y volver a buscar la que la alerta
+                        ya había nombrado. */}
+                    <Link
+                      to={`/onus/${o.onu_id}`}
+                      className="t-panel t-lift flex items-start gap-2.5 p-3"
+                    >
                       <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-400" />
                       <div className="min-w-0">
                         <p className="truncate text-xs font-semibold text-slate-200">
-                          Señal degradada{o.nombre_cliente ? ` · ${o.nombre_cliente}` : ''}
+                          Señal degradada
+                          {o.cliente || o.nombre_en_la_olt
+                            ? ` · ${o.cliente ?? o.nombre_en_la_olt}`
+                            : ''}
                         </p>
                         <p className="t-dato mt-0.5 truncate text-[11px] text-slate-500">
-                          {o.sn} · {o.rx_power_dbm} dBm
+                          {o.sn} · {o.rx_power_dbm} dBm{o.ruta_onu ? ` · ${o.ruta_onu}` : ''}
                         </p>
                       </div>
                     </Link>

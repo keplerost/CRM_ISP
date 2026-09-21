@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Download, Eye, RefreshCw, Search, X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { dbm, nivel } from '../../lib/optica'
@@ -36,18 +36,37 @@ export default function OnusPage() {
   const [olts, setOlts] = useState([])
   const [opciones, setOpciones] = useState({})
 
-  const [f, setF] = useState({
-    q: '',
-    olt_id: '',
-    slot: '',
-    puerto: '',
-    zona: '',
-    vlan: '',
-    modelo: '',
-    odb: '',
-    estado: '',
-    senal: '',
-    abonado: '',
+  /**
+   * Los filtros arrancan vacíos, salvo los que vengan en la dirección.
+   *
+   * El panel de inicio enlaza acá con `?senal=baja` para que su tarjeta de
+   * señal baja abra la lista hecha. Antes esa tarjeta llevaba a Métricas
+   * ópticas, que es otra cosa: ahí hay que elegir OLT y puerto y mandar a leer
+   * el equipo en vivo, una ONU por vez. Para saber cuáles están bajas no hace
+   * falta escanear nada — el dato ya está guardado y esta pantalla ya lo
+   * filtra para todas las OLTs a la vez.
+   *
+   * Se acepta cualquiera de los filtros, no solo la señal: así una alerta
+   * puede enlazar a una OLT o a un puerto concreto sin tocar más código.
+   */
+  const [params] = useSearchParams()
+  const [f, setF] = useState(() => {
+    const vacio = {
+      q: '',
+      olt_id: '',
+      slot: '',
+      puerto: '',
+      zona: '',
+      vlan: '',
+      modelo: '',
+      odb: '',
+      estado: '',
+      senal: '',
+      abonado: '',
+    }
+    return Object.fromEntries(
+      Object.keys(vacio).map((k) => [k, params.get(k) ?? vacio[k]]),
+    )
   })
 
   useEffect(() => {
