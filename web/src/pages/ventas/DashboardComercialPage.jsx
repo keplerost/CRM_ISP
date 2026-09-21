@@ -840,7 +840,7 @@ const Vacio = ({ texto }) => (
 function Globo({ active, payload, formato = (v) => v }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[12px] text-slate-100 shadow-lg">
+    <div className="t-card-sm px-2.5 py-1.5 text-[12px] text-slate-100 shadow-lg">
       {payload[0].name}: {formato(payload[0].value)}
     </div>
   )

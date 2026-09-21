@@ -110,7 +110,7 @@ export default function PortalLogin({ onEntrar }) {
                 onChange={(e) => setClave(e.target.value)}
                 required
                 autoFocus
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-lg text-slate-100 outline-none focus:border-sky-500"
+                className="w-full t-card-sm px-4 py-3.5 text-lg text-slate-100 outline-none focus:border-sky-500"
               />
             </div>
 
@@ -150,7 +150,7 @@ export default function PortalLogin({ onEntrar }) {
                 onChange={(e) => setIdentificacion(e.target.value.replace(/\D/g, ''))}
                 placeholder="1712345678"
                 required
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-lg text-slate-100 outline-none focus:border-sky-500"
+                className="w-full t-card-sm px-4 py-3.5 text-lg text-slate-100 outline-none focus:border-sky-500"
               />
             </div>
 
@@ -210,7 +210,7 @@ export default function PortalLogin({ onEntrar }) {
                 placeholder="000000"
                 required
                 autoFocus
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-center font-mono text-3xl tracking-[0.4em] text-slate-100 outline-none focus:border-sky-500"
+                className="w-full t-card-sm px-4 py-3.5 text-center font-mono text-3xl tracking-[0.4em] text-slate-100 outline-none focus:border-sky-500"
               />
             </div>
 

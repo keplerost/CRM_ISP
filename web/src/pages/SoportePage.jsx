@@ -177,7 +177,7 @@ export default function SoportePage() {
               <li key={t.id}>
                 <button
                   onClick={() => navegar(`/soporte/${t.id}`)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900/40 p-4 text-left transition hover:border-sky-500/50 hover:bg-slate-900/70"
+                  className="w-full t-card-sm p-4 text-left transition hover:border-sky-500/50 hover:bg-[#F6F8FB]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

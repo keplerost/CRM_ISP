@@ -195,7 +195,7 @@ export default function RepararRouter({ router }) {
 }
 
 const Dato = ({ n, t, color }) => (
-  <div className="rounded border border-slate-800 bg-slate-900/40 p-2">
+  <div className="rounded border border-slate-800 bg-[#F6F8FB] p-2">
     <p className={`text-lg font-semibold ${n ? (color ?? 'text-slate-100') : 'text-slate-600'}`}>{n}</p>
     <p className="text-[11px] text-slate-500">{t}</p>
   </div>

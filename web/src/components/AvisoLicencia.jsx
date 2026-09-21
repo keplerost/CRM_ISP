@@ -15,7 +15,7 @@ export default function AvisoLicencia({ licencia }) {
   if (!licencia || licencia.habilitada !== false) return null
 
   return (
-    <div className="fixed right-4 top-4 z-50 max-w-sm rounded-lg border border-red-500/60 bg-red-950/95 p-4 shadow-xl backdrop-blur">
+    <div className="fixed right-4 top-4 z-50 max-w-sm rounded-lg border border-red-500/60 bg-[#FEF2F2] p-4 shadow-xl backdrop-blur">
       <div className="flex gap-3">
         <AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-400" />
         <div className="space-y-1.5">

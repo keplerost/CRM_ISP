@@ -183,8 +183,8 @@ export default function ArcotelPage() {
               key={r.forma_pago}
               className={`rounded-lg border p-4 ${
                 r.forma_pago === 'sin cobrar'
-                  ? 'border-amber-900/50 bg-amber-950/20'
-                  : 'border-slate-800 bg-slate-900/40'
+                  ? 'border-amber-900/50 bg-[#FFFBEB]'
+                  : 'border-slate-800 bg-[#F6F8FB]'
               }`}
             >
               <p className="text-[11px] uppercase tracking-wider text-slate-500">

@@ -570,7 +570,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
 
       {/* Adónde van. Es la línea que hay que leer antes que ninguna otra. */}
       {revision.comunes?.router && (
-        <div className="rounded-lg border border-sky-900/60 bg-sky-950/30 p-3 text-xs text-slate-300">
+        <div className="rounded-lg border border-sky-900/60 bg-[#F0F9FF] p-3 text-xs text-slate-300">
           <Router size={13} className="mr-1 inline text-sky-400" />
           Van al router <b className="text-slate-100">{revision.comunes.router}</b>
           {revision.comunes.plan && <> · plan por defecto <b>{revision.comunes.plan}</b></>}

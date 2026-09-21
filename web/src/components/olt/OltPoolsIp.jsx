@@ -326,7 +326,7 @@ function FilaPool({ pool, abierto, ips, onVer, onBorrar }) {
 
       {abierto && (
         <tr>
-          <td colSpan={9} className="bg-slate-900/60 px-3 py-3">
+          <td colSpan={9} className="bg-[#F6F8FB] px-3 py-3">
             {ips === null ? (
               <p className="text-xs text-slate-500">Cargando las direcciones…</p>
             ) : (

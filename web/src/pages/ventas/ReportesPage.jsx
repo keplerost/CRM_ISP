@@ -409,7 +409,7 @@ const Vacio = () => (
 function Globo({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] shadow-lg">
+    <div className="t-card-sm px-3 py-2 text-[12px] shadow-lg">
       <p className="mb-0.5 text-slate-200">{label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} className="text-slate-400">

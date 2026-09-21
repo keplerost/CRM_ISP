@@ -92,8 +92,8 @@ export default function AdoptarCorte({ routerId, onListo }) {
                 key={o.modo}
                 className={`rounded-lg border p-3 ${
                   o.riesgo === 'ninguno'
-                    ? 'border-emerald-900/60 bg-emerald-950/20'
-                    : 'border-amber-900/60 bg-amber-950/10'
+                    ? 'border-emerald-900/60 bg-[#ECFDF5]'
+                    : 'border-amber-900/60 bg-[#FFFBEB]'
                 }`}
               >
                 <p className="text-sm font-medium text-slate-100">{o.titulo}</p>

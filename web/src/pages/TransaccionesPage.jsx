@@ -545,7 +545,7 @@ function Caja({ titulo, valor, nota = null, destacado = false }) {
   return (
     <div
       className={`rounded-lg border p-4 ${
-        destacado ? 'border-sky-800/60 bg-sky-950/30' : 'border-slate-800 bg-slate-900/40'
+        destacado ? 'border-sky-800/60 bg-[#F0F9FF]' : 'border-slate-800 bg-[#F6F8FB]'
       }`}
     >
       <p className="text-[11px] uppercase tracking-wider text-slate-500">{titulo}</p>

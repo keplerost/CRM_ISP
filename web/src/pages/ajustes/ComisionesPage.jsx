@@ -263,7 +263,7 @@ export default function ComisionesPage() {
               className={`rounded-xl border p-3 text-left transition disabled:opacity-60 ${
                 form.modo === k
                   ? 'border-sky-500/60 bg-sky-500/10'
-                  : 'border-slate-800 bg-slate-900/40 hover:border-slate-700'
+                  : 'border-slate-800 bg-[#F6F8FB] hover:border-slate-700'
               }`}
             >
               <p className="flex items-center gap-2 text-sm font-medium text-slate-100">
@@ -655,7 +655,7 @@ export default function ComisionesPage() {
             <div
               key={v.id}
               className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
-                v.activo ? 'border-sky-500/40 bg-sky-500/5' : 'border-slate-800 bg-slate-900/40'
+                v.activo ? 'border-sky-500/40 bg-sky-500/5' : 'border-slate-800 bg-[#F6F8FB]'
               }`}
             >
               <div className="min-w-0">
@@ -796,7 +796,7 @@ function Revision() {
                 key={f.res_prueba}
                 className={`flex flex-wrap items-start justify-between gap-2 rounded-lg border px-3 py-2 ${
                   f.res_estado === 'ok'
-                    ? 'border-slate-800 bg-slate-900/40'
+                    ? 'border-slate-800 bg-[#F6F8FB]'
                     : 'border-amber-600/40 bg-amber-500/5'
                 }`}
               >

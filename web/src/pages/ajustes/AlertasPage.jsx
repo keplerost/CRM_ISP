@@ -460,7 +460,7 @@ function Regla({ r, onGuardar }) {
 
       {/* Cómo se va a leer en el teléfono. Es lo que permite darse cuenta de que
           un mensaje no dice dónde antes de la primera noche mala. */}
-      <pre className="mt-2 whitespace-pre-wrap rounded bg-slate-900/60 p-2 text-[11px] leading-snug text-slate-400">
+      <pre className="mt-2 whitespace-pre-wrap rounded bg-[#F6F8FB] p-2 text-[11px] leading-snug text-slate-400">
         {vistaPrevia}
       </pre>
     </div>

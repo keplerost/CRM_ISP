@@ -64,7 +64,7 @@ export default function AntecedentesAbonado({ identificacion }) {
       className={`rounded-lg border p-3 sm:col-span-2 ${
         conDeuda.length
           ? 'border-amber-500/40 bg-amber-500/10'
-          : 'border-slate-700 bg-slate-900/40'
+          : 'border-slate-700 bg-[#F6F8FB]'
       }`}
     >
       <div className="flex items-start gap-2">

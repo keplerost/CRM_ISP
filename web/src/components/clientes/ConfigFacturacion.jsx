@@ -235,7 +235,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
         </div>
 
         {/* --- Descuento de ley -------------------------------------------- */}
-        <section className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+        <section className="space-y-3 t-card-sm p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <Accessibility size={16} className="text-emerald-400" />
             Descuento por grupo prioritario
@@ -299,7 +299,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
         </section>
 
         {/* --- Promoción comercial ------------------------------------------ */}
-        <section className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+        <section className="space-y-3 t-card-sm p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <Tag size={16} className="text-fuchsia-400" />
             Promoción por tiempo limitado
@@ -380,7 +380,7 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
         </section>
 
         {/* --- Acuerdo en plata ---------------------------------------------- */}
-        <section className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/40 p-4">
+        <section className="space-y-3 t-card-sm p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <HandCoins size={16} className="text-sky-400" />
             Descuento acordado, en dólares

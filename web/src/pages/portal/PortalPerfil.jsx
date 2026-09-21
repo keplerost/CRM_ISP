@@ -168,7 +168,7 @@ function CambiarClave({ tiene, onListo }) {
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+    <div className="space-y-4 t-card p-4">
       <h2 className="text-xs font-medium uppercase tracking-wider text-slate-500">
         {tiene ? 'Cambiar contraseña' : 'Crear contraseña'}
       </h2>
@@ -181,7 +181,7 @@ function CambiarClave({ tiene, onListo }) {
             autoComplete="current-password"
             value={actual}
             onChange={(e) => setActual(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
+            className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
           />
         </div>
       )}
@@ -194,7 +194,7 @@ function CambiarClave({ tiene, onListo }) {
           minLength={8}
           value={nueva}
           onChange={(e) => setNueva(e.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
+          className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
         />
         <p className="mt-1.5 text-xs text-slate-500">
           Al menos 8 caracteres. Una frase larga que recuerdes es mejor que algo corto y retorcido.
@@ -239,7 +239,7 @@ const Campo = ({ etiqueta, valor, onChange, tipo = 'text' }) => (
       type={tipo}
       value={valor ?? ''}
       onChange={onChange}
-      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
+      className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
     />
   </div>
 )

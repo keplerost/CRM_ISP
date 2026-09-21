@@ -146,7 +146,7 @@ export default function PortalWifi({ cuenta }) {
                   minLength={8}
                   maxLength={63}
                   autoComplete="new-password"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pr-12 text-base text-slate-100 outline-none focus:border-sky-500"
+                  className="w-full t-card-sm px-4 py-3 pr-12 text-base text-slate-100 outline-none focus:border-sky-500"
                 />
                 {/* Poder verla no es un lujo: una clave de WiFi se escribe una
                     vez y después se dicta a las visitas. Escribirla a ciegas en
@@ -174,7 +174,7 @@ export default function PortalWifi({ cuenta }) {
                 onChange={(e) => setSsid(e.target.value)}
                 placeholder={equipo.redes?.[0]?.ssid || cuenta.equipo?.ssid || 'Mi WiFi'}
                 maxLength={32}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
+                className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
               />
             </div>
           </div>

@@ -475,7 +475,7 @@ function Embudo({ embudo }) {
             className={`rounded-lg border p-3 ${
               i === pasos.length - 1
                 ? 'border-emerald-600/40 bg-emerald-500/5'
-                : 'border-slate-800 bg-slate-900/40'
+                : 'border-slate-800 bg-[#F6F8FB]'
             }`}
           >
             <p className="text-[11px] leading-tight text-slate-500">{label}</p>

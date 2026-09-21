@@ -60,7 +60,7 @@ function TooltipOscuro({ active, payload, label }) {
   if (!active || !payload?.length) return null
 
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs shadow-xl">
+    <div className="t-card-sm px-3 py-2 text-xs shadow-xl">
       <p className="mb-1 font-medium text-slate-200">{label}</p>
       {payload.map((p) => (
         <p key={p.name} className="flex items-center gap-2 text-slate-300">

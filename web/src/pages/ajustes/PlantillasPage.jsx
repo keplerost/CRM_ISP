@@ -314,7 +314,7 @@ function Editor({ plantilla, onCerrar, onGuardado, onError }) {
                   onClick={() => cambiar('cuerpo', `${form.cuerpo ?? ''}{{${v}}}`)}
                   className={`rounded border px-1.5 py-0.5 font-mono text-[10px] ${
                     usados.includes(v)
-                      ? 'border-sky-800 bg-sky-950/40 text-sky-300'
+                      ? 'border-sky-800 bg-[#F0F9FF] text-sky-300'
                       : 'border-slate-700 text-slate-400 hover:bg-slate-800'
                   }`}
                 >

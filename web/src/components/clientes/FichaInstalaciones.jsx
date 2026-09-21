@@ -210,7 +210,7 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
         <form onSubmit={crear} className="space-y-4">
           {!cliente &&
             (destino ? (
-              <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+              <div className="flex items-center justify-between t-card-sm px-3 py-2">
                 <span className="text-sm text-slate-100">{destino.nombre}</span>
                 <Button type="button" variante="fantasma" icon={X} onClick={() => setDestino(null)}>
                   Cambiar

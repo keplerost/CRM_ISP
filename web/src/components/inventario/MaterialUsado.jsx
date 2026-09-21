@@ -245,7 +245,7 @@ export default function MaterialUsado({
                         setLineas(ls)
                       }}
                       inputMode="decimal"
-                      className="w-16 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-center text-sm text-slate-100"
+                      className="w-16 t-card-sm px-2 py-1.5 text-center text-sm text-slate-100"
                     />
                     <Button
                       variante="fantasma"

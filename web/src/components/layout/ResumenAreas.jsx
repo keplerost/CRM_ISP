@@ -274,7 +274,7 @@ function Area({ titulo, icon: Icon, color, borde, a, enlace, partes, cargando, a
   const parteAbierta = partes.find((p) => p.clave === abierto)
 
   return (
-    <div className={`rounded-xl border bg-slate-900/40 p-4 ${borde}`}>
+    <div className={`rounded-xl border bg-[#F6F8FB] p-4 ${borde}`}>
       <div className="flex items-center gap-2">
         <Icon size={17} className={color} />
         <h2 className="text-sm font-semibold text-slate-100">{titulo}</h2>

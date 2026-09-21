@@ -40,7 +40,7 @@ export default function PerfilPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-3">
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-center">
+      <section className="t-card p-4 text-center">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-sky-600/20 text-xl font-semibold text-sky-300">
           {iniciales || <User size={26} />}
         </div>
@@ -67,7 +67,7 @@ export default function PerfilPage() {
           salir a una zona sin cobertura, no después. */}
       <EstadoSinConexion />
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <section className="t-card p-4">
         <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           <Shield size={12} /> Con qué se mide tu trabajo
         </p>
@@ -86,7 +86,7 @@ export default function PerfilPage() {
         </p>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-2">
+      <section className="t-card p-2">
         <Link
           to="/campo/jornada"
           className="flex items-center gap-3 rounded-xl px-3 py-3 text-[14px] text-slate-300 active:bg-slate-800"

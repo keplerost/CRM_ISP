@@ -167,7 +167,7 @@ export default function CambioDeEquipo({ ticket, instalacionId, onCambio, onErro
             {/* La ficha manual: cuando el ACS no pudo configurar la ONT sola, es
                 lo que el técnico tiene que escribirle al equipo ahí mismo. */}
             {resultado.ficha_manual && (
-              <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-sm">
+              <div className="t-card-sm p-3 text-sm">
                 <p className="font-medium text-slate-200">Configurar a mano</p>
                 <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">
                   <dt className="text-slate-500">VLAN</dt>
@@ -302,7 +302,7 @@ export default function CambioDeEquipo({ ticket, instalacionId, onCambio, onErro
               />
             </Field>
 
-            <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-2.5 text-[12px] text-slate-400">
+            <div className="t-card-sm p-2.5 text-[12px] text-slate-400">
               La ONT nueva se autoriza en el mismo puerto y con el mismo perfil que tenía la
               anterior. No hay nada de red que elegir acá.
             </div>

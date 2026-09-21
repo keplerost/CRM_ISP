@@ -391,7 +391,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
         </p>
 
         {t.visita_atrasada && (
-          <p className="mt-2 rounded-lg bg-rose-950/40 px-3 py-2 text-xs text-rose-200">
+          <p className="mt-2 rounded-lg bg-[#FEF2F2] px-3 py-2 text-xs text-rose-200">
             La visita estaba para el {fecha(t.fecha_visita)} y sigue sin resolverse.
           </p>
         )}
@@ -509,7 +509,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
 
       {/* ------------------------------------------------ Salida y llegada */}
       {(t.salida_at || t.llegada_at) && (
-        <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-3">
+        <div className="t-card-sm p-3">
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <dt className="text-[11px] uppercase tracking-wide text-slate-500">Salió</dt>
@@ -779,7 +779,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
           </dl>
 
           {t.solucion && (
-            <p className="mt-3 whitespace-pre-wrap rounded-lg bg-slate-900/60 p-3 text-sm text-slate-200">
+            <p className="mt-3 whitespace-pre-wrap rounded-lg bg-[#F6F8FB] p-3 text-sm text-slate-200">
               {t.solucion}
             </p>
           )}

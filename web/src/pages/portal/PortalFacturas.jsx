@@ -68,8 +68,8 @@ const fecha = (f) =>
 function Factura({ f }) {
   const color = {
     vencida: 'border-rose-500/30 bg-rose-500/5',
-    pendiente: 'border-slate-800 bg-slate-900/50',
-    pagada: 'border-slate-800/60 bg-slate-900/30',
+    pendiente: 'border-slate-800 bg-[#F6F8FB]',
+    pagada: 'border-slate-800/60 bg-[#F6F8FB]',
   }[f.estado]
 
   return (

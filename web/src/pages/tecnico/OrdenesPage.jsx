@@ -80,7 +80,7 @@ export default function OrdenesPage() {
     return (
       <div className="space-y-2">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-900/60" />
+          <div key={i} className="h-20 animate-pulse rounded-xl bg-[#F6F8FB]" />
         ))}
       </div>
     )

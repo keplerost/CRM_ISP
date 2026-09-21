@@ -144,7 +144,7 @@ function Caja({ titulo, valor, nota, alerta = null, destacado = false }) {
   return (
     <div
       className={`rounded-lg border p-5 ${
-        destacado ? 'border-emerald-800/60 bg-emerald-950/25' : 'border-slate-800 bg-slate-900/40'
+        destacado ? 'border-emerald-800/60 bg-[#ECFDF5]' : 'border-slate-800 bg-[#F6F8FB]'
       }`}
     >
       <div className="flex items-center gap-2">

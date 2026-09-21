@@ -16,7 +16,7 @@ export default function SinPermiso({ que = 'esta pantalla' }) {
 
   return (
     <div className="mx-auto max-w-lg py-16 text-center">
-      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-slate-800 bg-slate-900">
+      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center t-card">
         <Lock size={24} className="text-slate-500" />
       </div>
       <h1 className="t-titulo text-lg font-bold text-slate-100">No tenés acceso a {que}</h1>

@@ -156,7 +156,7 @@ export default function PortalApp() {
 /** Compartida por todas las pantallas del portal. */
 export function Tarjeta({ titulo, children, className = '' }) {
   return (
-    <section className={`rounded-2xl border border-slate-800 bg-slate-900/50 p-4 ${className}`}>
+    <section className={`t-card p-4 ${className}`}>
       {titulo && (
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">
           {titulo}

@@ -349,7 +349,7 @@ export default function CoberturaPage() {
                     {resultado.cercanas.slice(0, 3).map((c) => (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-slate-900/60 px-2 py-1.5 text-[12px]"
+                        className="flex items-center justify-between gap-2 rounded-lg bg-[#F6F8FB] px-2 py-1.5 text-[12px]"
                       >
                         <span className="text-slate-200">{c.nombre}</span>
                         <span className="tabular-nums text-slate-400">

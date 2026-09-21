@@ -51,7 +51,7 @@ export default function AvisosPage() {
     return (
       <div className="space-y-2">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-900/60" />
+          <div key={i} className="h-16 animate-pulse rounded-xl bg-[#F6F8FB]" />
         ))}
       </div>
     )
@@ -83,8 +83,8 @@ export default function AvisosPage() {
           key={a.id}
           className={`rounded-xl border p-3 ${
             a.leida_en
-              ? 'border-slate-800/60 bg-slate-900/30'
-              : 'border-slate-700 bg-slate-900/70'
+              ? 'border-slate-800/60 bg-[#F6F8FB]'
+              : 'border-slate-700 bg-[#F6F8FB]'
           }`}
         >
           <div className="flex items-start gap-2.5">

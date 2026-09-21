@@ -292,7 +292,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
       {/* ---------------------------------------------------- Paso 1 */}
       {paso === 0 && (
         <div className="space-y-4">
-          <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+          <div className="t-card-sm p-3">
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 value={busqueda}
@@ -394,7 +394,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
             </Field>
           </div>
 
-          <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3">
+          <div className="t-card-sm p-3">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Latitud">
                 <Input value={form.latitud} onChange={set('latitud')} placeholder="-0.9312500" />

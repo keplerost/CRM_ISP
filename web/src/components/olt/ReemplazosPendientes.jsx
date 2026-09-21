@@ -71,7 +71,7 @@ export default function ReemplazosPendientes({ onError }) {
             {filas.map((r) => (
               <li
                 key={r.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/70 bg-slate-900/60 px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/70 bg-[#F6F8FB] px-3 py-2"
               >
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-medium text-slate-100">{r.cliente}</p>

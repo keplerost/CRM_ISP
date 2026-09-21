@@ -154,7 +154,7 @@ function Nuevo({ onListo, onCancelar }) {
               className={`rounded-xl border p-3 text-left transition ${
                 tipo === t.valor
                   ? 'border-sky-500 bg-sky-500/10'
-                  : 'border-slate-800 bg-slate-900/50'
+                  : 'border-slate-800 bg-[#F6F8FB]'
               }`}
             >
               <p className="text-sm font-medium text-slate-200">{t.titulo}</p>
@@ -173,7 +173,7 @@ function Nuevo({ onListo, onCancelar }) {
             onChange={(e) => setDescripcion(e.target.value)}
             placeholder="Desde cuándo pasa, si probaste reiniciar el equipo, a qué hora se nota más…"
             required
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
+            className="w-full t-card-sm px-4 py-3 text-base text-slate-100 outline-none focus:border-sky-500"
           />
           <p className="mt-1.5 text-xs text-slate-500">
             Cuanto más nos cuentes, mejor preparado va el técnico.

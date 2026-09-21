@@ -225,7 +225,7 @@ export default function Trasladar({ cliente, onError, onGuardado }) {
               />
             </Field>
 
-            <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-2.5 text-[12px] text-slate-400">
+            <div className="t-card-sm p-2.5 text-[12px] text-slate-400">
               No se pregunta puerto PON, VLAN ni segmento: salen solos de dónde aparezca la ONT
               cuando el técnico mida en el domicilio nuevo. Vale igual si el sector nuevo cuelga de
               otra OLT.

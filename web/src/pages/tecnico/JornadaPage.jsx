@@ -129,7 +129,7 @@ export default function JornadaPage() {
     }
   }
 
-  if (cargando) return <div className="h-40 animate-pulse rounded-2xl bg-slate-900/60" />
+  if (cargando) return <div className="h-40 animate-pulse rounded-2xl bg-[#F6F8FB]" />
 
   if (!perfil?.tecnico_id) {
     return (
@@ -167,7 +167,7 @@ export default function JornadaPage() {
           className={`flex items-start gap-2.5 rounded-2xl border p-4 ${
             estado.km_para_cargar <= 50
               ? 'border-amber-500/40 bg-amber-500/10'
-              : 'border-slate-800 bg-slate-900/60'
+              : 'border-slate-800 bg-[#F6F8FB]'
           }`}
         >
           <Fuel
@@ -190,7 +190,7 @@ export default function JornadaPage() {
         </div>
       )}
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <section className="t-card p-4">
         <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           <Gauge size={12} /> Jornada de hoy
         </p>
@@ -374,7 +374,7 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
   }
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+    <section className="t-card p-4">
       <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
         <Fuel size={12} /> Carga de combustible
       </p>

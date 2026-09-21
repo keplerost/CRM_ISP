@@ -126,7 +126,7 @@ export default function SoporteCampoPage() {
     return (
       <div className="space-y-2">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-20 animate-pulse rounded-xl bg-slate-900/60" />
+          <div key={i} className="h-20 animate-pulse rounded-xl bg-[#F6F8FB]" />
         ))}
       </div>
     )
@@ -173,7 +173,7 @@ export default function SoporteCampoPage() {
               className={`flex-1 rounded-xl border px-2 py-2.5 text-center transition ${
                 sel
                   ? 'border-slate-600 bg-slate-800'
-                  : 'border-slate-800 bg-slate-900/40 active:bg-slate-800/60'
+                  : 'border-slate-800 bg-[#F6F8FB] active:bg-slate-800/60'
               }`}
             >
               <span

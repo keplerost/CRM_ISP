@@ -83,7 +83,7 @@ export default function RedPage() {
     return (
       <div className="space-y-2">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-900/60" />
+          <div key={i} className="h-16 animate-pulse rounded-xl bg-[#F6F8FB]" />
         ))}
       </div>
     )
@@ -210,7 +210,7 @@ function Detalle({ nodo, novedades, onVolver }) {
         <ArrowLeft size={16} /> Estado de la red
       </button>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+      <section className="t-card p-4">
         <div className="flex items-center gap-2.5">
           {nodo.estado === 'up' ? (
             <Wifi size={20} className={t.texto} />
@@ -273,7 +273,7 @@ function Detalle({ nodo, novedades, onVolver }) {
       </section>
 
       {suyas.length > 0 && (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
+        <section className="t-card p-3">
           <p className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             <Activity size={12} /> Historial reciente
           </p>

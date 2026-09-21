@@ -433,7 +433,7 @@ export default function ComprasPage() {
               {(recibiendo.compra_items ?? []).map((i) => (
                 <div
                   key={i.id}
-                  className="flex justify-between rounded-lg bg-slate-900/60 px-2 py-1.5 text-[13px]"
+                  className="flex justify-between rounded-lg bg-[#F6F8FB] px-2 py-1.5 text-[13px]"
                 >
                   <span className="text-slate-200">{i.articulos?.nombre}</span>
                   <span className="tabular-nums text-slate-400">

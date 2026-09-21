@@ -151,7 +151,7 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
         )}
 
         {(resultados.length > 0 || buscando || error || limpiar(texto).length >= 2) && (
-          <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-xl">
+          <div className="absolute z-20 mt-1 w-full overflow-hidden t-card-sm shadow-xl">
             {error && <p className="px-3 py-2 text-xs text-red-300">{error.message}</p>}
 
             {!error && buscando && <p className="px-3 py-2 text-xs text-slate-500">Buscando…</p>}

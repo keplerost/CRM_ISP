@@ -26,7 +26,7 @@ const SEVERIDADES = {
   baja: {
     color: 'gris',
     label: 'Baja',
-    borde: 'border-slate-700 bg-slate-900/40',
+    borde: 'border-slate-700 bg-[#F6F8FB]',
     ayuda: 'Prolijidad: ensucia listados y reportes.',
   },
 }
