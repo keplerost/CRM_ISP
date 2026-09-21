@@ -154,7 +154,7 @@ export default function MiComisionPage() {
     <div className="campo campo-fondo -m-6 space-y-5 p-6" data-tema={tema}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Mi comisión</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Mi comisión</h1>
           <p className="mt-0.5 text-xs text-slate-500">
             Lo que llevás ganado este mes, y qué te falta para el escalón siguiente.
           </p>
@@ -419,7 +419,7 @@ function Hero({ delMes, proy }) {
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+        <div className="t-card p-4">
           <p className="text-xs text-slate-400">Comisión proyectada</p>
           <p className="mt-1 text-3xl font-semibold text-emerald-300">{dinero(monto)}</p>
 
@@ -559,7 +559,7 @@ function Calidad({ cohorte }) {
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+        <div className="t-card p-4">
           <p className="text-xs text-slate-400">
             {abierta ? 'Bono proyectado' : 'Bono de esta cohorte'}
           </p>

@@ -323,7 +323,7 @@ export default function CoberturaPage() {
             </Button>
 
             {R && (
-              <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+              <div className="space-y-3 t-card p-3">
                 {/* El resultado va con icono Y texto: el color solo no alcanza,
                     y este es justo el dato del que depende una promesa. */}
                 <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ export default function CoberturaPage() {
             {zonas.map((z) => (
               <div
                 key={z.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-[13px]"
+                className="flex flex-wrap items-center justify-between gap-2 t-card-sm p-2 text-[13px]"
               >
                 <div className="flex items-center gap-2">
                   <i

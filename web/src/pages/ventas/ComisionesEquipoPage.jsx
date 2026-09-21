@@ -170,7 +170,7 @@ export default function ComisionesEquipoPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Comisiones del equipo</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Comisiones del equipo</h1>
           <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
             Lo que cuesta el canal comercial, cómo se comporta la cartera que trae cada uno y qué
             está esperando autorización.
@@ -588,7 +588,7 @@ export default function ComisionesEquipoPage() {
 /** Una cifra chica con su explicación. */
 function Mini({ label, valor, nota, tono = 'text-slate-200' }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+    <div className="t-card-sm p-3">
       <p className="text-[11px] leading-tight text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-semibold ${tono}`}>{valor ?? 0}</p>
       <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{nota}</p>

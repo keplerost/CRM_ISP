@@ -694,7 +694,7 @@ function FichaProspecto({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-3 text-[13px] md:grid-cols-2">
+      <div className="grid gap-2 t-card p-3 text-[13px] md:grid-cols-2">
         <Dato etiqueta="Teléfono" valor={prospecto.telefono} />
         <Dato etiqueta="WhatsApp" valor={prospecto.telefono_whatsapp} />
         <Dato etiqueta="Dirección" valor={prospecto.direccion} />
@@ -824,7 +824,7 @@ function FichaProspecto({
               return (
                 <div
                   key={s.id}
-                  className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-[13px]"
+                  className="flex flex-wrap items-center gap-2 t-card-sm p-2 text-[13px]"
                 >
                   <span
                     className={`flex items-center gap-1.5 text-[11px] font-medium ${
@@ -876,7 +876,7 @@ function FichaProspecto({
         ) : (
           <div className="max-h-56 space-y-1.5 overflow-y-auto">
             {historial.map((a) => (
-              <div key={a.id} className="rounded-lg border border-slate-800 bg-slate-900/40 p-2">
+              <div key={a.id} className="t-card-sm p-2">
                 <div className="flex flex-wrap items-center gap-2 text-[13px]">
                   <span className="text-slate-200">{TIPOS_ACTIVIDAD[a.tipo]}</span>
                   {a.resultado && <Badge color="gris">{RESULTADOS[a.resultado]}</Badge>}
@@ -924,7 +924,7 @@ function FichaProspecto({
             {cotizaciones.map((c) => (
               <div
                 key={c.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-[13px]"
+                className="flex flex-wrap items-center justify-between gap-2 t-card-sm p-2 text-[13px]"
               >
                 <div>
                   <span className="text-slate-200">
