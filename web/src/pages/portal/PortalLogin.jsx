@@ -77,7 +77,7 @@ export default function PortalLogin({ onEntrar }) {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-slate-950 p-5">
+    <div className="flex min-h-dvh items-center justify-center bg-[#F6F8FB] p-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           {marca.logo_b64 ? (

@@ -92,7 +92,7 @@ export default function PortalApp() {
 
   if (cargando) {
     return (
-      <div className="grid min-h-dvh place-items-center bg-slate-950">
+      <div className="grid min-h-dvh place-items-center bg-[#F6F8FB]">
         <Loader2 size={28} className="animate-spin text-slate-600" />
       </div>
     )
@@ -102,7 +102,7 @@ export default function PortalApp() {
   const Pantalla = actual.Pantalla
 
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-950">
+    <div className="flex min-h-dvh flex-col bg-[#F6F8FB]">
       <header className="flex items-center gap-3 border-b border-slate-800 px-4 py-3">
         {marca.logo_b64 ? (
           <img src={marca.logo_b64} alt="" className="max-h-7" />
@@ -135,7 +135,7 @@ export default function PortalApp() {
 
       {/* Fija abajo: es donde llega el pulgar. Un menú arriba en un celular
           grande obliga a usar las dos manos. */}
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-slate-800 bg-slate-950/95 backdrop-blur">
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-slate-800 bg-white/95 backdrop-blur">
         {SECCIONES.map((s) => (
           <button
             key={s.clave}

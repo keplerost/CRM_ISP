@@ -19,7 +19,7 @@ export default function SinPermiso({ que = 'esta pantalla' }) {
       <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-slate-800 bg-slate-900">
         <Lock size={24} className="text-slate-500" />
       </div>
-      <h1 className="text-lg font-semibold text-slate-100">No tenés acceso a {que}</h1>
+      <h1 className="t-titulo text-lg font-bold text-slate-100">No tenés acceso a {que}</h1>
       <p className="mt-2 text-sm text-slate-400">
         Tu usuario entra como <span className="text-slate-200">{nombreRol(rol) || 'sin rol'}</span> y
         ese rol no incluye esta sección. Si la necesitás para trabajar, pedile a un administrador que

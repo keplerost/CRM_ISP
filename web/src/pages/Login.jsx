@@ -55,7 +55,7 @@ export default function Login() {
               {marca.nombre_sistema.trim().charAt(0).toUpperCase()}
             </div>
           )}
-          <h1 className="text-lg font-semibold text-slate-100">{marca.nombre_sistema}</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">{marca.nombre_sistema}</h1>
           {marca.lema && <p className="mt-1 text-xs text-slate-500">{marca.lema}</p>}
         </div>
 
@@ -83,7 +83,7 @@ export default function Login() {
 
         <form
           onSubmit={entrar}
-          className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-6"
+          className="space-y-4 t-card p-6"
         >
           <Field label="Email">
             <Input
