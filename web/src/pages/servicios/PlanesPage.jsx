@@ -53,7 +53,7 @@ const TAMANOS = [15, 30, 50]
 const COLOR_CATEGORIA = {
   residencial: 'bg-sky-500 text-sky-950',
   corporativo: 'bg-violet-500 text-violet-950',
-  otro: 'bg-slate-500 text-slate-950',
+  otro: 'bg-slate-500 text-white',
 }
 
 export default function PlanesPage() {

@@ -31,7 +31,7 @@ const VARIANTES = {
   peligro: 'bg-red-600/90 hover:bg-red-500 text-white border-red-500',
   fantasma: 'bg-transparent hover:bg-slate-800 text-slate-300 border-transparent',
   exito: 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500',
-  alerta: 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400',
+  alerta: 'bg-amber-500 hover:bg-amber-600 text-[#0F172A] border-amber-500',
 }
 
 export function Button({

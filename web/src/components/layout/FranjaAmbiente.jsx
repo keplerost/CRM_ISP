@@ -36,7 +36,7 @@ export default function FranjaAmbiente() {
       // `fixed` la franja se comería la primera fila de cualquier tabla.
       className="sticky top-0 z-[60] flex items-center justify-center gap-2
                  border-b border-amber-400/40 bg-amber-500 px-4 py-1.5
-                 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-950"
+                 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#0F172A]"
       role="status"
     >
       <AlertTriangle size={14} className="flex-none" />

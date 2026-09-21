@@ -1,0 +1,432 @@
+/* ===========================================================================
+   TEMA DEL SISTEMA
+   ===========================================================================
+
+   Un solo archivo con todo el lenguaje visual: los tokens de color, las
+   tipografías y las clases reutilizables de tarjeta, badge, botón, tabla y
+   encabezado de sección.
+
+   Se carga desde `index.css`, que es el único CSS que importan las DOS
+   aplicaciones —el sistema del personal (`main.jsx`) y el portal del abonado
+   (`portalMain.jsx`)—. Por eso alcanza con tocar esto para que el tema llegue
+   a todas las pantallas.
+
+   ── Por qué el tema se aplica remapeando la paleta y no reescribiendo clases ──
+
+   El sistema venía en oscuro y usa la convención de Tailwind para expresarlo:
+   `bg-slate-900` es una superficie, `text-slate-100` es el texto principal,
+   `border-slate-800` es un borde. Son 1.714 usos repartidos en 204 de los 235
+   archivos .jsx.
+
+   Reescribir esos 1.714 usos a mano es semanas de trabajo y, sobre todo, es
+   irreversible: cuando la pantalla número ciento veinte quede a medias no hay
+   forma de volver atrás sin deshacer todo. Y una clase que se escape queda
+   como un rectángulo negro en medio de una pantalla clara.
+
+   Tailwind v4 compila `.bg-slate-900 { background-color: var(--color-slate-900) }`
+   —o sea, la clase no lleva el color adentro, lo pide—. Así que redefiniendo la
+   escala acá abajo, las 204 pantallas cambian de tema a la vez, de forma
+   consistente y reversible: si algo sale mal, se revierte este archivo y el
+   sistema vuelve a como estaba.
+
+   Es la misma idea que este proyecto ya venía usando en `.campo[data-tema='claro']`
+   de `index.css`, pero hecha en el token en lugar de parche por parche.
+
+   ── Cómo leer el remapeo ──
+
+   La escala se INVIERTE: lo que era el fondo más profundo (950) pasa a ser la
+   superficie más clara (blanco), y lo que era el texto más claro (100) pasa a
+   ser el texto más oscuro. Los tonos del medio (500) casi no se mueven porque
+   un gris medio se lee igual de bien sobre negro que sobre blanco.
+
+   Lo único que NO se invierte son los colores de estado en su tono saturado
+   (verde, ámbar y rojo en 500/600): significan lo mismo en los dos temas y
+   cambiarlos rompería la lectura que ya aprendió quien usa el sistema. Sí se
+   oscurecen sus tonos claros (200/300/400), que antes eran texto sobre fondo
+   negro y ahora tienen que leerse sobre blanco.
+   ======================================================================== */
+
+@theme {
+  /* ---------------------------------------------------------------------
+     Tipografías
+
+     Sora para títulos y números, Inter para el texto, JetBrains Mono para
+     lo que hay que leer carácter por carácter: IPs, seriales de ONU, dBm,
+     montos y códigos.
+
+     Las tres van con fallback completo. Si Google Fonts no responde —una
+     instalación detrás de un firewall, un ISP sin salida a internet— la
+     pantalla se ve con la tipografía del sistema y no en blanco.
+
+     Remapear `--font-mono` acá arriba hace que los ~200 `font-mono` que ya
+     existen en el código pasen a JetBrains Mono solos, sin tocar ni un .jsx.
+     --------------------------------------------------------------------- */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+  --font-titulo: 'Sora', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* ---------------------------------------------------------------------
+     Superficies y bordes — la escala slate, invertida
+
+     950/900 son las superficies (tarjeta blanca), 800/700/600 los bordes y
+     las superficies secundarias, 500 para abajo el texto.
+     --------------------------------------------------------------------- */
+  --color-slate-950: #ffffff; /* era el fondo más profundo → ahora la tarjeta */
+  --color-slate-900: #ffffff; /* superficie de tarjeta */
+  --color-slate-800: #e8edf3; /* superficie secundaria / borde suave */
+  --color-slate-700: #d3dbe5; /* borde de input y de botón */
+  --color-slate-600: #94a3b8; /* texto muy tenue (pistas, ayudas) */
+  --color-slate-500: #64748b; /* texto tenue — 4,8:1 sobre blanco */
+  --color-slate-400: #5a6a7f; /* texto secundario — 5,9:1 */
+  --color-slate-300: #475569; /* texto secundario fuerte */
+  --color-slate-200: #334155; /* texto fuerte */
+  --color-slate-100: #0f172a; /* texto principal */
+  --color-slate-50: #0f172a;
+
+  /* ---------------------------------------------------------------------
+     La marca — un solo color para todo lo neutral
+
+     Íconos, franjas, botones primarios, ítem activo del menú, anillos de
+     foco. La escala `sky` es la que el sistema ya usaba para eso, así que
+     remapearla alcanza para que todo lo neutral quede del color de marca.
+
+     Los tonos 200/300/400 eran acentos sobre fondo negro; sobre blanco
+     tienen que ser el azul oscuro de marca o no se leen.
+     --------------------------------------------------------------------- */
+  --color-sky-950: #f0f9ff; /* era un panel teñido oscuro → tinte muy suave */
+  --color-sky-900: #e0f2fe;
+  --color-sky-800: #075985;
+  --color-sky-700: #075985;
+  --color-sky-600: #0369a1; /* base del botón primario */
+  --color-sky-500: #0284c7; /* hover del primario, bordes y anillos */
+  --color-sky-400: #0369a1; /* íconos y acentos — el color de marca */
+  --color-sky-300: #0284c7;
+  --color-sky-200: #075985;
+  --color-sky-100: #e0f2fe;
+  --color-sky-50: #f0f9ff;
+
+  /* ---------------------------------------------------------------------
+     Estados
+
+     El tono saturado (500/600) NO se toca: es el punto verde del equipo en
+     línea y el rojo del crítico, y significa lo mismo en cualquier tema.
+
+     Los tonos claros sí, porque eran texto sobre negro. Se eligieron para
+     dar como mínimo 4,5:1 sobre blanco, que es lo que hace que un "vencido"
+     en rojo se lea también en la pantalla de un celular al sol.
+     --------------------------------------------------------------------- */
+  --color-emerald-400: #047857;
+  --color-emerald-300: #065f46;
+  --color-emerald-200: #064e3b;
+  --color-emerald-100: #064e3b;
+
+  --color-amber-400: #b45309;
+  --color-amber-300: #92400e;
+  --color-amber-200: #78350f;
+  --color-amber-100: #78350f;
+
+  --color-red-400: #b91c1c;
+  --color-red-300: #991b1b;
+  --color-red-200: #7f1d1d;
+  --color-red-100: #7f1d1d;
+
+  --color-rose-400: #b91c1c;
+  --color-rose-300: #991b1b;
+  --color-rose-200: #7f1d1d;
+
+  /* Los colores propios que ya declaraba `index.css`. No se usan en ningún
+     .jsx —solo los lee el `body`— pero se remapean igual para que nadie los
+     tome del valor viejo si mañana los usa. */
+  --color-fondo: #e4e9f0;
+  --color-panel: #ffffff;
+  --color-panel-alt: #f8fafc;
+  --color-borde: rgba(15, 23, 42, 0.06);
+}
+
+/* ===========================================================================
+   TOKENS DE DISEÑO
+
+   Lo que no es un color de Tailwind: sombras, radios y el degradado de marca.
+   Van en `:root` como variables normales para poder usarlos tanto desde las
+   clases de acá abajo como desde un `style` puntual en un .jsx.
+   ======================================================================== */
+:root {
+  --marca: #0369a1;
+  --marca-claro: #38bdf8;
+  --marca-degradado: linear-gradient(90deg, #0369a1, #38bdf8);
+
+  --tema-fondo: #e4e9f0;
+  --tema-superficie: #ffffff;
+  --tema-superficie-2: #f8fafc;
+  --tema-borde: rgba(15, 23, 42, 0.06);
+
+  --tema-radio: 18px;
+  --tema-radio-chico: 11px;
+
+  /* La sombra de tarjeta es de dos capas a propósito: una corta y dura que
+     apoya la tarjeta sobre el fondo, y una larga y difusa que le da la
+     altura. Con una sola, o queda pegada o queda flotando. */
+  --tema-sombra: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 28px -12px rgba(15, 23, 42, 0.22);
+  --tema-sombra-hover: 0 8px 16px rgba(15, 23, 42, 0.08), 0 24px 44px -16px rgba(3, 105, 161, 0.35);
+  --tema-sombra-suave: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --tema-sombra-lift: 0 6px 14px rgba(15, 23, 42, 0.1), 0 14px 28px -14px rgba(3, 105, 161, 0.35);
+}
+
+/* ===========================================================================
+   CLASES REUTILIZABLES
+   ======================================================================== */
+
+/* ── Tarjeta ───────────────────────────────────────────────────────────── */
+
+.t-card {
+  background: var(--tema-superficie);
+  border-radius: var(--tema-radio);
+  border: 1px solid var(--tema-borde);
+  box-shadow: var(--tema-sombra);
+}
+
+/* El hover de una tarjeta que se puede abrir. La sombra se tiñe de celeste
+   —no es solo más grande— para que el movimiento diga "esto lleva a algún
+   lado" y no solo "esto se levantó". */
+.t-card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.t-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--tema-sombra-hover);
+}
+
+/* La versión chica, para filas y tarjetitas dentro de una sección. */
+.t-lift {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.t-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tema-sombra-lift);
+}
+
+.t-soft {
+  box-shadow: var(--tema-sombra-suave);
+}
+
+/* Quien navega con teclado tiene que ver dónde está parado. Se respeta
+   `prefers-reduced-motion`: el movimiento de las tarjetas es decorativo y
+   para algunas personas es mareo, no elegancia. */
+@media (prefers-reduced-motion: reduce) {
+  .t-card-hover,
+  .t-lift {
+    transition: none;
+  }
+
+  .t-card-hover:hover,
+  .t-lift:hover {
+    transform: none;
+  }
+}
+
+/* ── KPI ──────────────────────────────────────────────────────────────── */
+
+/* La franja de 3px arriba de la tarjeta. Va en degradado de marca y es lo
+   que hace que la fila de KPIs se lea como una sola familia. */
+.t-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--marca-degradado);
+}
+
+.t-kpi-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--tema-radio-chico);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Números tabulares: sin eso el ancho "baila" mientras el contador anima o
+   cuando llega un dato nuevo, y la fila entera se mueve. */
+.t-kpi-valor {
+  font-family: var(--font-titulo);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+/* ── Encabezado de sección ────────────────────────────────────────────── */
+
+/* Título con barrita vertical celeste y divisor fino abajo. La barrita es un
+   pseudo-elemento para que el encabezado siga siendo un solo nodo en el JSX. */
+.t-seccion {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--tema-borde);
+}
+
+.t-seccion-titulo {
+  position: relative;
+  padding-left: 0.75rem;
+  font-family: var(--font-titulo);
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.t-seccion-titulo::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.1em;
+  bottom: 0.1em;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--marca-degradado);
+}
+
+.t-seccion-sub {
+  margin-top: 0.15rem;
+  padding-left: 0.75rem;
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────── */
+
+/* Sin borde: fondo suave y texto del color. Y SIEMPRE con texto —nunca solo
+   un punto de color— porque un estado que se distingue solo por el color no
+   existe para quien no distingue ese color, ni en una pantalla al sol. */
+.t-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.t-badge-ok {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.t-badge-aviso {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.t-badge-critico {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.t-badge-marca {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+
+.t-badge-neutro {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* ── Botones ──────────────────────────────────────────────────────────── */
+
+.t-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+  font-family: var(--font-titulo);
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.t-btn-marca {
+  background: linear-gradient(90deg, #075985, #0284c7);
+  color: #ffffff;
+  box-shadow: 0 6px 16px -6px rgba(3, 105, 161, 0.6);
+}
+
+.t-btn-marca:hover {
+  background: linear-gradient(90deg, #0c4a6e, #0369a1);
+}
+
+/* ── Tablas ───────────────────────────────────────────────────────────── */
+
+.t-tabla {
+  width: 100%;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+
+.t-tabla thead th {
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  border-bottom: 1px solid var(--tema-borde);
+  white-space: nowrap;
+}
+
+.t-tabla tbody tr {
+  border-bottom: 1px solid var(--tema-borde);
+}
+
+.t-tabla tbody tr:last-child {
+  border-bottom: none;
+}
+
+.t-tabla tbody tr:hover {
+  background: var(--tema-superficie-2);
+}
+
+.t-tabla tbody td {
+  padding: 0.625rem 0.75rem;
+  color: #334155;
+}
+
+/* ── Tipografía de apoyo ──────────────────────────────────────────────── */
+
+.t-titulo {
+  font-family: var(--font-titulo);
+  letter-spacing: -0.01em;
+}
+
+/* Lo que se lee carácter por carácter: IPs, seriales, dBm, montos, códigos.
+   Tabular para que una columna de montos quede alineada por la coma. */
+.t-dato {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Foco visible ─────────────────────────────────────────────────────── */
+
+/* El panel es un hub: casi todo lo que se ve es un enlace. Si el foco no se
+   ve, quien navega con teclado queda perdido. Se aplica a todo lo enfocable
+   y no solo a los botones. */
+:where(a, button, [role='button'], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}

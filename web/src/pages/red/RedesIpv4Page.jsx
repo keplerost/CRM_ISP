@@ -69,7 +69,7 @@ const COLOR_TIPO = {
   estatica: 'bg-emerald-500 text-emerald-950',
   pool_pppoe: 'bg-amber-500 text-amber-950',
   cgnat: 'bg-violet-500 text-violet-950',
-  nodos: 'bg-slate-500 text-slate-950',
+  nodos: 'bg-slate-500 text-white',
 }
 
 const ETIQUETA_TIPO = {

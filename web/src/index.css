@@ -1,11 +1,17 @@
+/* Las tipografías del tema. Van primero porque CSS exige que todo `@import`
+   preceda a cualquier otra regla.
+
+   Con fallback completo en `tema.css`: si Google Fonts no responde —una
+   instalación detrás de un firewall, un ISP sin salida a internet— las
+   pantallas se ven con la tipografía del sistema, no en blanco. */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @import 'tailwindcss';
 
-@theme {
-  --color-fondo: #0b1220;
-  --color-panel: #111a2b;
-  --color-panel-alt: #16203450;
-  --color-borde: #1e2a42;
-}
+/* El tema: tokens de color, tipografías y clases reutilizables.
+   Va DESPUÉS de tailwindcss para que su bloque `@theme` pise la paleta
+   por defecto. Ver el encabezado de ese archivo para el porqué del enfoque. */
+@import './tema.css';
 
 html,
 body,
@@ -14,54 +20,61 @@ body,
 }
 
 body {
-  background-color: var(--color-fondo);
-  color: #e2e8f0;
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background-color: var(--tema-fondo);
+  color: #0f172a;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Scrollbar discreta para las tablas largas de ONUs */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #334155 transparent;
+  scrollbar-color: #cbd5e1 transparent;
 }
 
 /* ---------------------------------------------------------------------------
    Tema de las pantallas de campo
    ---------------------------------------------------------------------------
-   El sistema es oscuro, y para alguien sentado ocho horas mirando OLTs está
-   bien. Pero el expediente de venta y la bandeja de cobros se usan en el
-   celular, parado en la vereda, con sol de frente — y ahí una pantalla oscura
-   se convierte en un espejo.
+   El expediente de venta y la bandeja de cobros se usan en el celular, parado
+   en la vereda, con sol de frente. Por eso estas pantallas tienen su propio
+   interruptor —`lib/temaCampo.js`, guardado por dispositivo— y no siguen sin
+   más al resto del sistema.
 
-   Estas variables dejan que esas dos pantallas cambien de tema sin tocar el
-   resto del sistema. Solo se declaran los colores estructurales: fondo,
-   superficie, borde y los tres niveles de texto. Los colores de estado —verde
-   de "listo", ámbar de "pendiente", rojo de "vencido"— NO están acá a
-   propósito: significan lo mismo en los dos temas y cambiarlos rompería la
-   lectura que ya aprendió quien usa el sistema.
+   Con el sistema entero en claro, lo que cambia es qué significa cada posición
+   del interruptor. Antes era oscuro contra claro; ahora es el tema normal
+   contra una versión de MÁXIMO CONTRASTE para el sol: blanco puro y texto casi
+   negro, 16:1, que es lo que se lee cuando el brillo del ambiente compite con
+   el de la pantalla.
+
+   El interruptor no cambió: sigue guardando 'claro' u 'oscuro' y sigue
+   viviendo en el dispositivo. Lo único que se tocó son los colores detrás de
+   cada valor.
+
+   Los colores de estado —verde de "listo", ámbar de "pendiente", rojo de
+   "vencido"— NO están acá a propósito: significan lo mismo en las dos
+   variantes y cambiarlos rompería la lectura que ya aprendió quien usa el
+   sistema.
 --------------------------------------------------------------------------- */
 .campo {
-  --campo-fondo: #020617;
-  --campo-sup: #0f172a;
-  --campo-borde: #1e293b;
-  --campo-texto: #f1f5f9;
-  --campo-suave: #94a3b8;
+  --campo-fondo: #e4e9f0;
+  --campo-sup: #ffffff;
+  --campo-borde: rgba(15, 23, 42, 0.08);
+  --campo-texto: #0f172a;
+  --campo-suave: #475569;
   --campo-tenue: #64748b;
-  --campo-acento: #0284c7;
+  --campo-acento: #0369a1;
 }
 
-/* Blanco puro y texto casi negro: 16:1 de contraste. Es lo que se lee bajo sol
-   directo, donde el brillo del ambiente compite con el de la pantalla. */
+/* La variante de sol: blanco puro y borde marcado. El gris del fondo normal
+   es lo primero que se pierde con reflejo. */
 .campo[data-tema='claro'] {
   --campo-fondo: #ffffff;
   --campo-sup: #f1f5f9;
   --campo-borde: #cbd5e1;
   --campo-texto: #0f172a;
-  --campo-suave: #475569;
-  --campo-tenue: #64748b;
-  /* Un tono más oscuro que el del tema oscuro: el mismo azul que resalta sobre
-     negro queda lavado sobre blanco. */
-  --campo-acento: #0369a1;
+  --campo-suave: #334155;
+  --campo-tenue: #475569;
+  --campo-acento: #075985;
 }
 
 .campo-fondo { background-color: var(--campo-fondo); }
@@ -72,64 +85,24 @@ body {
 .campo-tenue { color: var(--campo-tenue); }
 .campo-acento { background-color: var(--campo-acento); color: #ffffff; }
 
-/* Los campos de formulario también: un input oscuro sobre fondo blanco es lo
-   que hace que una pantalla a medio adaptar se vea rota. */
-.campo[data-tema='claro'] input,
-.campo[data-tema='claro'] textarea,
-.campo[data-tema='claro'] select {
+.campo input,
+.campo textarea,
+.campo select {
   background-color: #ffffff;
   border-color: var(--campo-borde);
   color: var(--campo-texto);
 }
 
 /* ---------------------------------------------------------------------------
-   Los componentes compartidos, en claro
+   Nota sobre el bloque que se borró
    ---------------------------------------------------------------------------
-   `Aviso`, `Button`, `Field` y el resto de components/ui están escritos con la
-   paleta oscura fija: `bg-slate-800`, `text-slate-100`. Sobre fondo blanco
-   quedan ilegibles.
+   Acá había veinte reglas que reasignaban la paleta oscura a una clara SOLO
+   dentro de `.campo[data-tema='claro']` (`.bg-slate-800 { background: #e2e8f0 }`
+   y así). Existían porque los componentes de `components/ui` estaban escritos
+   con la paleta oscura fija y quedaban ilegibles sobre blanco.
 
-   La alternativa era reescribir toda la librería para que fuera consciente del
-   tema. Se descartó: son quince componentes que usa el sistema entero, y
-   tocarlos para resolver dos pantallas es cambiar mucho para arreglar poco —
-   con el riesgo de romper las otras cuarenta pantallas de paso.
-
-   Esto reasigna la paleta oscura a una clara SOLO dentro del ámbito `.campo` en
-   tema claro. Es puntual y reversible: si mañana la librería se vuelve
-   temática, este bloque se borra y no queda deuda.
-
-   Los colores de estado no se tocan — verde, ámbar y rojo significan lo mismo
-   en los dos temas.
+   Ya no hacen falta: `tema.css` remapea esa misma paleta para el sistema
+   entero, así que `bg-slate-800` ya es un gris claro en todas partes. Dejarlas
+   sería pisar el tema con valores que después habría que mantener en dos
+   lugares.
 --------------------------------------------------------------------------- */
-.campo[data-tema='claro'] .bg-slate-800 { background-color: #e2e8f0; }
-.campo[data-tema='claro'] .bg-slate-800\/40,
-.campo[data-tema='claro'] .bg-slate-800\/50,
-.campo[data-tema='claro'] .bg-slate-800\/60 { background-color: #f1f5f9; }
-.campo[data-tema='claro'] .bg-slate-900,
-.campo[data-tema='claro'] .bg-slate-900\/40,
-.campo[data-tema='claro'] .bg-slate-900\/50,
-.campo[data-tema='claro'] .bg-slate-900\/60 { background-color: #f8fafc; }
-
-.campo[data-tema='claro'] .text-slate-100 { color: #0f172a; }
-.campo[data-tema='claro'] .text-slate-200 { color: #1e293b; }
-.campo[data-tema='claro'] .text-slate-300 { color: #334155; }
-.campo[data-tema='claro'] .text-slate-400 { color: #475569; }
-.campo[data-tema='claro'] .text-slate-500 { color: #64748b; }
-.campo[data-tema='claro'] .text-slate-600 { color: #94a3b8; }
-
-.campo[data-tema='claro'] .border-slate-700,
-.campo[data-tema='claro'] .border-slate-800 { border-color: #cbd5e1; }
-
-/* Los avisos: el mismo tono que se lee sobre negro queda lavado sobre blanco. */
-.campo[data-tema='claro'] .text-sky-200,
-.campo[data-tema='claro'] .text-sky-300 { color: #075985; }
-.campo[data-tema='claro'] .text-amber-200,
-.campo[data-tema='claro'] .text-amber-300,
-.campo[data-tema='claro'] .text-amber-400 { color: #92400e; }
-.campo[data-tema='claro'] .text-emerald-300,
-.campo[data-tema='claro'] .text-emerald-400 { color: #047857; }
-.campo[data-tema='claro'] .text-red-300,
-.campo[data-tema='claro'] .text-red-400 { color: #b91c1c; }
-
-/* El botón primario mantiene su azul: es la acción, y tiene que gritar. */
-.campo[data-tema='claro'] .bg-sky-600 { background-color: #0369a1; }
