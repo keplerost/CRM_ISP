@@ -242,7 +242,7 @@ export default function DocumentosVenta({ instalacion, onError }) {
                     {archivos.map((d) => (
                       <li
                         key={d.id}
-                        className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-1.5"
+                        className="flex items-center gap-2 t-panel px-3 py-1.5"
                       >
                         <button
                           type="button"

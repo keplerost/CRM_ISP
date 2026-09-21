@@ -808,7 +808,7 @@ export default function FichaServicio({ cliente, onError, onGuardado }) {
             </Field>
 
             {/* La ONU es de solo lectura: se da de alta desde la OLT. */}
-            <div className="sm:col-span-2 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+            <div className="sm:col-span-2 t-panel p-3">
               <p className="mb-2 text-xs font-semibold text-slate-400">Fibra / ONU</p>
               {cliente.onu_serial ? (
                 <div className="space-y-1 text-xs text-slate-400">

@@ -189,7 +189,7 @@ export default function FichaAuditoria({ cliente, onError }) {
               const campos = l.campos ?? []
 
               return (
-                <li key={l.id} className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                <li key={l.id} className="t-card-sm p-3">
                   <div className="flex flex-wrap items-baseline gap-2 text-sm">
                     {l.titulo ? (
                       <span className="text-amber-300">{l.titulo}</span>

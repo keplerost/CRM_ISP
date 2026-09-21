@@ -468,7 +468,7 @@ function RevisionExpediente({ orden, perfil, onError, onEstado }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-3 text-[13px] md:grid-cols-2">
+      <div className="grid gap-2 t-card p-3 text-[13px] md:grid-cols-2">
         <Dato etiqueta="Titular" valor={orden.titular} />
         <Dato etiqueta="Cédula" valor={orden.cedula} />
         <Dato etiqueta="Teléfono" valor={orden.telefono} />
@@ -481,7 +481,7 @@ function RevisionExpediente({ orden, perfil, onError, onEstado }) {
 
       {/* La ubicación, con su procedencia. Una cargada a mano merece una mirada
           antes de mandar a alguien: puede estar a dos cuadras. */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+      <div className="flex flex-wrap items-center gap-2 t-card p-3">
         <MapPin size={16} className="text-sky-400" />
         {orden.latitud ? (
           <>
@@ -532,7 +532,7 @@ function RevisionExpediente({ orden, perfil, onError, onEstado }) {
                       onError(err)
                     }
                   }}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-left hover:border-sky-500/50"
+                  className="flex items-center justify-between gap-2 t-card-sm p-2.5 text-left hover:border-sky-500/50"
                 >
                   <span className="text-[13px] text-slate-200">{TIPOS_DOCUMENTO[d.tipo]}</span>
                   <Eye size={15} className="shrink-0 text-slate-400" />

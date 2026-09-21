@@ -41,7 +41,7 @@ export default function ImportarAbonadosPage() {
       </Link>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Importar de otro sistema</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Importar de otro sistema</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Generá la plantilla para un router, llenala con tus abonados y subila. También podés subir
           directamente el archivo que exporta tu sistema actual, en Excel o en CSV.
@@ -770,7 +770,7 @@ function Revision({ revision, trabajando, onAplicar, onVolver }) {
 
 function Metrica({ titulo, valor, color, ayuda }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3" title={ayuda}>
+    <div className="t-card-sm p-3" title={ayuda}>
       <p className="text-[11px] uppercase tracking-wider text-slate-500">{titulo}</p>
       <p className={`mt-1 text-xl font-semibold ${color ?? 'text-slate-100'}`}>{valor}</p>
       {ayuda && <p className="text-[11px] text-slate-500">{ayuda}</p>}

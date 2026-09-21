@@ -162,7 +162,7 @@ export default function ResumenServicio({
         {cliente.onu_serial || onu ? (
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-4">
-              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              <div className="t-panel p-3">
                 <p className="text-[11px] text-slate-500">Estado</p>
                 <div className="mt-1.5">
                   <Badge color={estado.color}>{estado.label}</Badge>
@@ -174,7 +174,7 @@ export default function ResumenServicio({
                 )}
               </div>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              <div className="t-panel p-3">
                 <p className="text-[11px] text-slate-500">Rx de la ONU</p>
                 <p
                   className={`mt-1 text-lg font-semibold ${rxBajo ? 'text-red-400' : 'text-emerald-400'}`}
@@ -184,7 +184,7 @@ export default function ResumenServicio({
                 <p className="text-[11px] text-slate-500">lo que le llega al abonado</p>
               </div>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              <div className="t-panel p-3">
                 <p className="text-[11px] text-slate-500">Tx de la ONU</p>
                 <p className="mt-1 text-lg font-semibold text-slate-200">
                   {tx != null ? `${Number(tx).toFixed(2)} dBm` : '—'}
@@ -192,7 +192,7 @@ export default function ResumenServicio({
                 <p className="text-[11px] text-slate-500">lo que recibe la OLT</p>
               </div>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              <div className="t-panel p-3">
                 <p className="text-[11px] text-slate-500">Serial / distancia</p>
                 <p className="mt-1 break-all font-mono text-xs text-slate-200">
                   {onu?.sn ?? cliente.onu_serial ?? '—'}

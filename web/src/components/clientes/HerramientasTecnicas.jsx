@@ -744,7 +744,7 @@ function ResultadoComando({ datos }) {
   }
 
   return (
-    <pre className="max-h-80 overflow-auto rounded-lg bg-slate-950 p-3 font-mono text-[11px] text-slate-300">
+    <pre className="max-h-80 overflow-auto t-panel p-3 font-mono text-[11px] text-slate-300">
       {JSON.stringify(datos, null, 2)}
     </pre>
   )

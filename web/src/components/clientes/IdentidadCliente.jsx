@@ -95,7 +95,7 @@ export default function IdentidadCliente({ cliente, promesa, onGuardado, onError
   }
 
   return (
-    <div className="mb-4 grid gap-x-6 gap-y-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3 sm:grid-cols-2">
+    <div className="mb-4 grid gap-x-6 gap-y-3 t-panel p-3 sm:grid-cols-2">
       {/* Estado y desde cuándo -------------------------------------------- */}
       <Dato etiqueta="Estado">
         <div className="flex flex-wrap items-center gap-2">
@@ -119,7 +119,7 @@ export default function IdentidadCliente({ cliente, promesa, onGuardado, onError
             día que el vendedor reclama por su cliente, "está en el sistema" no
             es una respuesta si no se puede leer. */}
         {cliente.estado === 'baja' && (cliente.baja_nota || cliente.baja_en) && (
-          <div className="mt-1.5 rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+          <div className="mt-1.5 t-panel p-2">
             <div className="text-[11px] font-medium text-slate-400">
               Retirado{cliente.baja_en ? ` el ${fechaHora(cliente.baja_en)}` : ''}
             </div>
@@ -316,7 +316,7 @@ function SaldarDeuda({ abierto, cliente, onCerrar, onListo, onError }) {
   return (
     <Modal abierto={abierto} titulo="Saldar la deuda del equipo" onCerrar={onCerrar}>
       <div className="space-y-4">
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+        <div className="t-panel p-3">
           <div className="text-xs text-slate-400">{cliente.nombre}</div>
           <div className="mt-0.5 text-2xl font-semibold text-amber-400">
             {dinero(cliente.deuda_equipo)}

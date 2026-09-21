@@ -607,7 +607,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
             {sinImputar.map((p) => (
               <div
                 key={p.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs"
+                className="flex flex-wrap items-center justify-between gap-2 t-panel px-3 py-2 text-xs"
               >
                 <span className="text-slate-400">
                   Recibo N° {String(p.numero ?? '').padStart(6, '0')} · {fecha(p.fecha_pago)} ·{' '}
@@ -1153,7 +1153,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
               </Field>
             </div>
 
-            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
+            <div className="t-card-sm p-3 text-xs text-slate-400">
               <div className="flex justify-between py-0.5">
                 <span>Subtotal</span>
                 <span>{dinero(creando.subtotal)}</span>

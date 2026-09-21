@@ -282,7 +282,7 @@ export default function ClientesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Clientes</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Clientes</h1>
           <p className="text-xs text-slate-500">Abonados registrados en el sistema</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -401,7 +401,7 @@ export default function ClientesPage() {
               {/* El panel del botón: filtrar por una columna que no se tiene
                   puesta, sin tener que encenderla para escribir en su casilla. */}
               {filtroAbierto ? (
-                <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                <div className="mb-3 flex flex-wrap items-end gap-2 t-panel p-3">
                   <label className="w-48 text-[11px] uppercase tracking-wide text-slate-500">
                     Seleccionar campo
                     <Select
@@ -631,7 +631,7 @@ function Desplegable({ etiqueta, ayuda, icono: Icono, marcado, ancho = 'w-64', c
       {abierto && (
         <div
           onClick={(e) => e.target.closest('button') && setAbierto(false)}
-          className={`absolute left-0 z-30 mt-1 max-h-[70vh] ${ancho} overflow-y-auto rounded-xl border border-slate-800 bg-slate-900 p-1.5 shadow-xl`}
+          className={`absolute left-0 z-30 mt-1 max-h-[70vh] ${ancho} overflow-y-auto t-card p-1.5 shadow-xl`}
         >
           {children}
         </div>
@@ -1009,7 +1009,7 @@ function ExportarAbonados({ abierto, clientes, onCerrar }) {
           )}
         </div>
 
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+        <div className="t-panel p-3 text-xs text-slate-400">
           {modo === 'antiguedad' ? (
             <>
               Los que están <b>{estado ? (ESTADO[estado]?.label ?? estado) : 'en cualquier estado'}</b>

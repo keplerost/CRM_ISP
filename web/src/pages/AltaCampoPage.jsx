@@ -306,7 +306,7 @@ export default function AltaCampoPage() {
           <p className="text-[11px] uppercase tracking-wider text-slate-500">
             Paso {actual.n} de {PASOS.length}
           </p>
-          <h1 className="text-lg font-semibold text-slate-100">{actual.titulo}</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">{actual.titulo}</h1>
         </div>
 
         <ErrorBanner error={error} onCerrar={() => setError(null)} />

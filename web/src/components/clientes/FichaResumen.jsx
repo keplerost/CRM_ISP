@@ -276,7 +276,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
             {/* Decide si sus cobros entran a la cola de facturación
                 electrónica. Hay abonados que no quieren factura y se llevan
                 solo el recibo. */}
-            <div className="sm:col-span-2 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+            <div className="sm:col-span-2 t-panel p-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
                 <input
                   type="checkbox"

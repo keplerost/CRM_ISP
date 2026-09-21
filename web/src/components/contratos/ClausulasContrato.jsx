@@ -161,7 +161,7 @@ export default function ClausulasContrato({ prestador, onError }) {
         {clausulas.map((c) => (
           <li
             key={c.clausula_id}
-            className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2"
+            className="t-panel px-3 py-2"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-slate-200">

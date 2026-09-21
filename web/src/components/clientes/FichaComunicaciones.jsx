@@ -240,7 +240,7 @@ export default function FichaComunicaciones({ cliente, onError }) {
               return (
                 <li
                   key={m.id}
-                  className="rounded-lg border border-slate-800 bg-slate-900/40 p-3"
+                  className="t-card-sm p-3"
                 >
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <Icon size={14} className={canal.color} />

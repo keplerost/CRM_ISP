@@ -145,7 +145,7 @@ export default function ProspectoForm({ onError, onCreado }) {
       icon={UserPlus}
     >
       <form onSubmit={crear} className="space-y-4">
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+        <div className="t-panel p-3">
           {cliente ? (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
