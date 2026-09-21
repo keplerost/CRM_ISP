@@ -69,26 +69,64 @@ export function enlace(cliente) {
 }
 
 /**
+ * Hoy, en hora local.
+ *
+ * `toISOString()` da UTC, y en Ecuador eso hace que después de las 19:00 el
+ * sistema empiece a contar el día siguiente: el síntoma es una cartera que a
+ * la tarde muestra vencido lo que vence mañana. Vive acá y no en cada pantalla
+ * para que el panel y el listado no puedan discrepar en qué día es.
+ */
+export function fechaLocal(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+/**
+ * Quiénes tienen deuda VENCIDA.
+ *
+ * ── Por qué esto es una función compartida y no dos filtros parecidos ──
+ *
+ * El panel cuenta cuánto hay vencido y el listado de abonados muestra a
+ * quiénes. Son la misma pregunta hecha en dos pantallas, y si cada una
+ * decidiera por su cuenta qué cuenta como vencido, el día que una cambie de
+ * criterio el número del panel dejaría de coincidir con la lista que abre —y
+ * nadie se enteraría hasta que alguien los sume a mano.
+ *
+ * La regla, una sola vez: una factura cuenta si todavía tiene saldo Y su fecha
+ * de vencimiento ya pasó. La comparación es de texto porque las fechas vienen
+ * en ISO `AAAA-MM-DD`, donde el orden alfabético es el cronológico.
+ *
+ * @param facturas  filas de `v_facturas_por_cobrar`
+ * @returns         Set con los `client_id` que deben algo vencido
+ */
+export function clientesConVencido(facturas, hoy = fechaLocal()) {
+  return new Set(
+    (facturas ?? [])
+      .filter((f) => Number(f.saldo ?? 0) > 0 && f.fecha_vencimiento && f.fecha_vencimiento < hoy)
+      .map((f) => f.client_id),
+  )
+}
+
+/**
  * El filtro del listado. Todo lo vacío no filtra.
  *
- * `deuda` es el único que no compara contra un valor: es un sí o no. Vale
- * "si" para dejar solo a los que tienen saldo pendiente.
+ * `vencidos` es el único que no compara contra un valor: es el conjunto de
+ * abonados con deuda vencida, tal como lo arma `clientesConVencido`. En
+ * `null` no filtra; con un Set, deja solo a los que están adentro.
  *
- * Es saldo PENDIENTE, no saldo VENCIDO. La ficha del abonado trae el total
- * por cobrar —la suma de todas sus facturas con saldo, hayan vencido o no— y
- * no publica cuánto de eso está vencido. Distinguirlo pediría consultar las
- * facturas una por una, así que el filtro dice lo que de verdad puede decir.
- * Quien tiene deuda vencida está siempre adentro de este conjunto.
+ * Se recibe ya resuelto y no se calcula acá a propósito: sale de las facturas,
+ * que son otra consulta, y este archivo no habla con la base.
  */
 export function filtrarAbonados(
   filas,
-  { busqueda = '', estado = '', router = '', zona = '', plan = '', deuda = '' } = {},
+  { busqueda = '', estado = '', router = '', zona = '', plan = '', vencidos = null } = {},
 ) {
   const q = String(busqueda).trim().toLowerCase()
 
   return (filas ?? []).filter((c) => {
     if (estado && c.estado !== estado) return false
-    if (deuda === 'si' && !(Number(c.saldo ?? 0) > 0)) return false
+    if (vencidos && !vencidos.has(c.id)) return false
     if (router && String(c.router_id) !== String(router)) return false
     if (zona && (c.zona ?? '') !== zona) return false
     if (plan && String(c.plan_id) !== String(plan)) return false

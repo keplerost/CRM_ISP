@@ -30,6 +30,7 @@ import {
   aCSV,
   antiguedad,
   enlace,
+  clientesConVencido,
   filtrarAbonados,
   filtrarPorCampo,
   filtrarPorColumnas,
@@ -121,19 +122,58 @@ export default function ClientesPage() {
   const [filtroEstado, setFiltroEstado] = useState('')
 
   /**
-   * "Solo con deuda", encendible desde la URL.
+   * "Solo deuda vencida", encendible desde la URL.
    *
-   * El panel de inicio enlaza acá con `?deuda=si` para que el KPI de cartera
-   * abra la lista y no la bandeja entera: un número que obliga a volver a
-   * filtrar a mano lo que ya decía no sirve para decidir.
+   * El panel de inicio enlaza acá con `?deuda=vencida` para que el KPI de
+   * cartera abra exactamente a la gente que contó: un número que obliga a
+   * volver a filtrar a mano lo que ya decía no sirve para decidir, y uno que
+   * abre una lista distinta de la que contó es peor todavía.
    *
    * Se siembra al arrancar y después vive en la pantalla, como el resto de los
    * filtros. Y tiene interruptor a la vista a propósito: un filtro que solo se
    * enciende por la URL deja a alguien mirando una lista recortada sin nada en
    * pantalla que explique por qué faltan abonados ni cómo traerlos de vuelta.
+   *
+   * `si` se sigue aceptando: es como se llamaba antes y puede haber un enlace
+   * guardado. Cuesta una comparación y evita que ese enlace abra sin filtro.
    */
   const [params] = useSearchParams()
-  const [soloDeuda, setSoloDeuda] = useState(() => params.get('deuda') === 'si')
+  const [soloVencida, setSoloVencida] = useState(() =>
+    ['vencida', 'si'].includes(params.get('deuda')),
+  )
+
+  /**
+   * Quiénes deben algo vencido.
+   *
+   * Es una consulta aparte porque el dato no está en la ficha del abonado: la
+   * ficha trae el total por cobrar —todas sus facturas con saldo, hayan
+   * vencido o no— y no distingue lo uno de lo otro. Para saber quién está
+   * vencido hay que mirar las fechas de vencimiento, que viven en las
+   * facturas.
+   *
+   * Solo se pide con el filtro encendido. Son las facturas impagas de todos
+   * los abonados; traerlas siempre, para un filtro que la mayoría de las veces
+   * está apagado, es un viaje al pedo — el mismo criterio que ya usan las
+   * cuentas de acá abajo.
+   *
+   * `null` significa "todavía no llegó", y es distinto de un conjunto vacío:
+   * vacío quiere decir que nadie debe nada vencido.
+   */
+  const [vencidos, setVencidos] = useState(null)
+
+  useEffect(() => {
+    if (!soloVencida) return undefined
+    let vigente = true
+
+    supabase
+      .from('v_facturas_por_cobrar')
+      .select('client_id, saldo, fecha_vencimiento')
+      .then(({ data }) => vigente && setVencidos(clientesConVencido(data ?? [])))
+
+    return () => {
+      vigente = false
+    }
+  }, [soloVencida])
   const [enFormulario, setEnFormulario] = useState(null)
   const [exportando, setExportando] = useState(false)
 
@@ -222,7 +262,7 @@ export default function ClientesPage() {
           filtrarAbonados(clientes, {
             busqueda,
             estado: filtroEstado,
-            deuda: soloDeuda ? 'si' : '',
+            vencidos: soloVencida ? vencidos : null,
           }),
           filtrosVigentes,
           ctx,
@@ -230,7 +270,7 @@ export default function ClientesPage() {
         { campo, valor },
         ctx,
       ),
-    [clientes, busqueda, filtroEstado, soloDeuda, filtrosVigentes, campo, valor, ctx],
+    [clientes, busqueda, filtroEstado, soloVencida, vencidos, filtrosVigentes, campo, valor, ctx],
   )
 
   /* El orden lo manda el catálogo, no el orden en que se marcaron: si no, la
@@ -249,7 +289,7 @@ export default function ClientesPage() {
    */
   useEffect(
     () => setPagina(1),
-    [busqueda, filtroEstado, soloDeuda, filtrosVigentes, campo, valor, porPagina],
+    [busqueda, filtroEstado, soloVencida, filtrosVigentes, campo, valor, porPagina],
   )
 
   /* Y si la lista se achicó por debajo de la página en la que estábamos —se
@@ -327,7 +367,9 @@ export default function ClientesPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      {cargando ? (
+      {/* El filtro de vencidas también carga: entre que se enciende y llegan
+          las facturas, mostrar la lista entera sería decir que nadie debe. */}
+      {cargando || (soloVencida && vencidos === null) ? (
         <Cargando />
       ) : (
         <>
@@ -419,17 +461,17 @@ export default function ClientesPage() {
                     explica por ninguna parte. */}
                 <button
                   type="button"
-                  onClick={() => setSoloDeuda((v) => !v)}
-                  aria-pressed={soloDeuda}
-                  title="Dejar solo los abonados con saldo pendiente"
+                  onClick={() => setSoloVencida((v) => !v)}
+                  aria-pressed={soloVencida}
+                  title="Dejar solo los abonados con al menos una factura vencida e impaga"
                   className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                    soloDeuda
+                    soloVencida
                       ? 'bg-[#FEF2F2] text-red-400'
                       : 'bg-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <DollarSign size={13} />
-                  Con deuda
+                  Deuda vencida
                 </button>
 
                 {/* `ml-auto` lo empuja hasta el borde derecho de la fila. */}

@@ -24,6 +24,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
 import { usePermisos } from '../lib/AuthContext'
 import { puedeEntrar } from '../lib/rutasPermisos'
+import { clientesConVencido, fechaLocal } from '../lib/abonados'
 import { UMBRAL_RX_DBM } from '../components/olt/ONUStatsCard'
 import { ErrorBanner, Skeleton } from '../components/ui'
 import ResumenAreas from '../components/layout/ResumenAreas'
@@ -59,17 +60,6 @@ import ResumenAreas from '../components/layout/ResumenAreas'
  * bloque muestra lo suyo y el que no pudo cargar se dice a sí mismo, sin
  * arrastrar a los demás.
  */
-
-/* ── El día de hoy, en hora local ──────────────────────────────────────────
-   `toISOString()` da UTC, y en Ecuador eso hace que después de las 19:00 el
-   sistema empiece a contar el día siguiente. El síntoma es un panel en cero a
-   la tarde. Ya pasó una vez en el resumen de áreas; se resuelve igual acá. */
-const hoyLocal = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-    d.getDate(),
-  ).padStart(2, '0')}`
-}
 
 const ABIERTO = (t) => !['resuelto', 'cancelado'].includes(t.estado)
 
@@ -232,7 +222,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     let vivo = true
-    const hoy = hoyLocal()
+    const hoy = fechaLocal()
 
     // Todas de solo lectura y todas contra vistas que el sistema ya usaba en
     // otras pantallas. El panel no consulta nada que no se consultara ya.
@@ -295,21 +285,26 @@ export default function Dashboard() {
 
   const m = useMemo(() => {
     if (!d) return null
-    const hoy = hoyLocal()
+    const hoy = fechaLocal()
 
     const conSaldo = d.facturas.filter((f) => Number(f.saldo) > 0)
-    const vencidas = conSaldo.filter((f) => f.fecha_vencimiento && f.fecha_vencimiento < hoy)
     const porVencer = conSaldo.filter((f) => f.fecha_vencimiento && f.fecha_vencimiento >= hoy)
+
+    /* La MISMA función que usa el listado de abonados para su filtro. Es lo
+       que garantiza que el número de esta tarjeta y la lista que abre hablen
+       de la misma gente: si el criterio cambia, cambia para los dos. */
+    const idsVencidos = clientesConVencido(d.facturas, hoy)
+    const vencidas = conSaldo.filter((f) => idsVencidos.has(f.client_id))
 
     return {
       activos: d.clientes.filter((c) => c.estado === 'activo').length,
       abiertos: d.tickets.filter(ABIERTO),
       vencidoMonto: vencidas.reduce((s, f) => s + Number(f.saldo || 0), 0),
-      vencidasCuentas: new Set(vencidas.map((f) => f.client_id)).size,
+      vencidasCuentas: idsVencidos.size,
       cartera: [
         { nombre: 'Al día', valor: d.clientes.filter((c) => c.estado === 'activo').length - new Set(conSaldo.map((f) => f.client_id)).size, color: '#10B981' },
         { nombre: 'Por vencer', valor: new Set(porVencer.map((f) => f.client_id)).size, color: '#F59E0B' },
-        { nombre: 'Vencido', valor: new Set(vencidas.map((f) => f.client_id)).size, color: '#EF4444' },
+        { nombre: 'Vencido', valor: idsVencidos.size, color: '#EF4444' },
       ].map((x) => ({ ...x, valor: Math.max(0, x.valor) })),
       visitasHoy: d.instalaciones,
       enCurso: d.instalaciones.filter((i) => i.estado === 'en_curso').length,
@@ -359,17 +354,16 @@ export default function Dashboard() {
             tono={m.abiertos.length ? 'aviso' : 'ok'}
           />
         )}
-        {/* Abre el listado ya filtrado por deuda. Es un conjunto un poco más
-            ancho que el número de arriba —el saldo de la ficha es el total por
-            cobrar y no distingue lo vencido de lo que todavía no venció— pero
-            contiene a todos los vencidos, que es lo que uno va a buscar. */}
+        {/* Abre exactamente a la gente que este número contó: el listado
+            filtra con `clientesConVencido`, la misma función que se usa acá
+            arriba para calcularlo. */}
         {abre('/clientes') && (
           <KpiCard
             icon={DollarSign}
             etiqueta="Cartera vencida"
             valor={moneda(m.vencidoMonto)}
             pista={`${numero(m.vencidasCuentas)} cuentas con saldo vencido`}
-            a="/clientes?deuda=si"
+            a="/clientes?deuda=vencida"
             tono={m.vencidoMonto > 0 ? 'critico' : 'ok'}
           />
         )}
