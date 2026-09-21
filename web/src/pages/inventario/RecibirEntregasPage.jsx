@@ -239,7 +239,7 @@ function Firmar({ acta, almacenes, onCerrar, onListo, onError }) {
             lista que no se leyó es lo mismo que no firmar nada. */}
         <div>
           <p className="mb-1 text-xs text-slate-400">Contá y revisá antes de firmar:</p>
-          <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+          <div className="max-h-48 space-y-1 overflow-y-auto t-panel p-2">
             {items.map((i) => (
               <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
                 <span className="font-mono text-slate-200">{i.serie ?? 'sin serie'}</span>

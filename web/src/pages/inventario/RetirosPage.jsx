@@ -301,7 +301,7 @@ export default function RetirosPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Retiros de equipo</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Retiros de equipo</h1>
           <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
             Los equipos que quedaron en casas que dejaron de renovar. La orden se abre sola cuando el
             abonado llega a la condición configurada en Comisiones e Incentivos.
@@ -594,7 +594,7 @@ export default function RetirosPage() {
         {intento && (
           <form onSubmit={guardarIntento} className="space-y-4">
             {intento.previos?.length > 0 && (
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+              <div className="t-card-sm p-3">
                 <p className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">
                   Visitas anteriores
                 </p>
@@ -910,12 +910,12 @@ function CerrarFicha({ ficha, onCerrar, onListo, onError }) {
           <p className="mb-1 text-xs font-medium text-slate-300">Qué encontró el técnico</p>
 
           {visitas.length === 0 ? (
-            <p className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-[11px] text-slate-500">
+            <p className="t-panel p-3 text-[11px] text-slate-500">
               No se registró ninguna visita en esta orden. Sin visitas anotadas, dar de baja es la
               palabra de alguien: conviene preguntar antes de cerrar.
             </p>
           ) : (
-            <div className="max-h-52 space-y-1.5 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+            <div className="max-h-52 space-y-1.5 overflow-y-auto t-panel p-2">
               {visitas.map((v) => (
                 <div key={v.id} className="border-l-2 border-slate-700 pl-2">
                   <div className="flex flex-wrap items-center gap-2 text-[11px]">

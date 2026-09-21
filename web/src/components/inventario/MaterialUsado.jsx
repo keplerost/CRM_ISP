@@ -210,7 +210,7 @@ export default function MaterialUsado({
             {lineas.map((l, i) => (
               <div
                 key={l.clave}
-                className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/50 p-2.5"
+                className="flex items-center gap-2 t-card-sm p-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] text-slate-100">{l.etiqueta}</div>
