@@ -136,7 +136,7 @@ export default function EstadoConexion() {
       {abierto && hayTrabados && (
         <div className="mx-auto mt-2 max-w-6xl space-y-1.5">
           {frenados.map((op) => (
-            <div key={op.id} className="rounded-lg bg-slate-950/40 p-2">
+            <div key={op.id} className="t-panel p-2">
               <p className="font-medium">{DESCRIPCION[op.tipo] ?? op.tipo}</p>
               <p className="mt-0.5 text-[11px] opacity-70">{op.error}</p>
               <p className="text-[10px] opacity-50">
