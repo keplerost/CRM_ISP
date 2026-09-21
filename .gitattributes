@@ -1,0 +1,19 @@
+# Los finales de línea se normalizan a LF en el repositorio.
+#
+# Sin esto, cualquier herramienta que reescriba un archivo —un formateador, un
+# script de migración— puede cambiarle los finales de línea y git registra el
+# archivo ENTERO como modificado. Un cambio de doce líneas aparece como tres
+# mil, y la revisión se vuelve imposible.
+* text=auto
+
+# Binarios: que git no intente normalizar nada adentro.
+*.png binary
+*.jpg binary
+*.JPG binary
+*.jpeg binary
+*.pdf binary
+*.xlsx binary
+*.docx binary
+*.ico binary
+*.woff binary
+*.woff2 binary

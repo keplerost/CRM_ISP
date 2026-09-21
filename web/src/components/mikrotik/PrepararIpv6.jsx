@@ -126,7 +126,7 @@ export default function PrepararIpv6({ router, onCambio }) {
         )}
 
         {plan?.soportaIpv6 && (
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-xs">
+          <div className="t-panel p-3 text-xs">
             <div className="mb-2 text-slate-400">
               Lista de corte: <b className="font-mono text-slate-200">{plan.lista}</b>
               {plan.cortadosAhora > 0 && ` · ${plan.cortadosAhora} bloqueado(s) ahora`}

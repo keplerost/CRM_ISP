@@ -32,7 +32,7 @@ export default function BloqueosPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Cortes y morosos</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Cortes y morosos</h1>
         <p className="text-xs text-slate-500">
           Suspensión de servicio y redirección a la página de aviso de pago
         </p>

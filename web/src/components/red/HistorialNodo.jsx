@@ -162,9 +162,9 @@ export default function HistorialNodo({ nodo }) {
 
 function Dato({ etiqueta, valor }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+    <div className="t-panel px-3 py-2">
       <p className="text-[11px] uppercase tracking-wider text-slate-500">{etiqueta}</p>
-      <p className="text-lg font-semibold text-slate-100">{valor}</p>
+      <p className="t-titulo text-lg font-bold text-slate-100">{valor}</p>
     </div>
   )
 }
