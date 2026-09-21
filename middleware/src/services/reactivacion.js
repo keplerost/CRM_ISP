@@ -116,6 +116,12 @@ export async function reactivarServicio(clientId, { motivo = 'Pago registrado' }
 /** Deja la ficha en `activo`. Devuelve el mensaje de error, o null si salió bien. */
 async function marcarActivo(cliente) {
   if (cliente.estado === 'activo') return null
-  const { error } = await db().from('clientes').update({ estado: 'activo' }).eq('id', cliente.id)
+  // `cortado_en` se limpia junto con el estado: son el mismo hecho contado dos
+  // veces, y dejarla puesta haría que el cuarto aviso le siga llegando a quien
+  // ya tiene servicio.
+  const { error } = await db()
+    .from('clientes')
+    .update({ estado: 'activo', cortado_en: null })
+    .eq('id', cliente.id)
   return error?.message ?? null
 }

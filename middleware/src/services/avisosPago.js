@@ -147,7 +147,7 @@ export async function ejecutarAvisosPago({ soloSimular = false } = {}) {
     enviados: 0,
     sin_canal: [],
     fallidos: [],
-    por_nivel: { 1: 0, 2: 0, 3: 0 },
+    por_nivel: { 1: 0, 2: 0, 3: 0, 4: 0 },
     simulado: soloSimular,
   }
 
@@ -232,7 +232,18 @@ export async function ejecutarAvisosPago({ soloSimular = false } = {}) {
        * mismo: al abonado se le avisa el día que el sistema lo considera en
        * riesgo, no una fecha inventada aparte.
        */
-      fecha_corte: fechaCorta(sumarDias(a.fecha_vencimiento, config?.dias_aviso_3 ?? 5)),
+      /**
+       * Salvo en el nivel 4, donde el corte ya ocurrió.
+       *
+       * Ahí no hay nada que estimar: la vista trae `cortado_en`, que es el día
+       * en que el sistema lo suspendió. Seguir usando la estimación de arriba
+       * le diría "suspendido desde el 12" a alguien cortado el 9, y esa es
+       * justo la clase de detalle que el abonado sí revisa cuando reclama.
+       */
+      fecha_corte:
+        a.nivel === 4 && a.cortado_en
+          ? fechaCorta(a.cortado_en)
+          : fechaCorta(sumarDias(a.fecha_vencimiento, config?.dias_aviso_3 ?? 5)),
       factura: a.factura_numero ? String(a.factura_numero) : '',
       concepto: a.concepto ?? '',
     }
@@ -266,8 +277,17 @@ export async function ejecutarAvisosPago({ soloSimular = false } = {}) {
               saldo: a.saldo,
             },
             cliente: { nombre: a.nombre },
-            // El nivel del aviso decide el tono, nada más.
-            tipo: { 1: 'recordatorio', 2: 'vencida', 3: 'ultimo' }[a.nivel] ?? 'vencida',
+            /**
+             * El nivel del aviso decide el tono, nada más.
+             *
+             * El 4 es `cortado`: ya no avisa de algo que va a pasar, habla de
+             * un servicio que YA está suspendido. Si cayera en el `?? 'vencida'`
+             * le diría al abonado que su factura venció mientras él sabe que
+             * hace semanas que no tiene internet, y ese desajuste es lo que
+             * hace que el próximo mensaje no se lea.
+             */
+            tipo:
+              { 1: 'recordatorio', 2: 'vencida', 3: 'ultimo', 4: 'cortado' }[a.nivel] ?? 'vencida',
             fechaCorte: variables.fecha_corte,
             // Lo que el ISP escribió para este nivel.
             plantilla,
@@ -367,7 +387,8 @@ export function programarAvisosPago({
       estadoAvisosPago.ultimoResultado = r
       console.log(
         `[avisos-pago] ${r.enviados} enviados ` +
-          `(1: ${r.por_nivel?.[1] ?? 0} · 2: ${r.por_nivel?.[2] ?? 0} · 3: ${r.por_nivel?.[3] ?? 0}), ` +
+          `(1: ${r.por_nivel?.[1] ?? 0} · 2: ${r.por_nivel?.[2] ?? 0} · ` +
+          `3: ${r.por_nivel?.[3] ?? 0} · 4: ${r.por_nivel?.[4] ?? 0}), ` +
           `${r.sin_canal?.length ?? 0} sin forma de contacto, ${r.fallidos?.length ?? 0} fallidos`,
       )
     } catch (e) {

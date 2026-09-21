@@ -239,6 +239,27 @@ export async function correoDeFactura({
       ],
       cierre: 'Si ya realizó el pago, escríbanos para regularizar su cuenta.',
     },
+    /**
+     * El que ya está cortado.
+     *
+     * Sin esta entrada el nivel 4 caía en `TONOS.nueva` —"Emitimos su factura,
+     * adjuntamos el detalle"— a alguien que hace semanas no tiene servicio.
+     *
+     * El equipo se nombra acá y no en los otros tonos a propósito: antes del
+     * corte mencionarlo suena a amenaza sobre algo que todavía se está usando.
+     * Después del corte es al revés — la mayoría de los que dejan de contestar
+     * creen que el aparato quedó suyo, y nadie se los dijo nunca.
+     */
+    cortado: {
+      titulo: 'Su servicio continúa suspendido',
+      parrafos: [
+        fechaCorte
+          ? `Su servicio está suspendido desde el <b>${fechaCorte}</b> por un saldo pendiente de <b>${dinero(saldo)}</b>.`
+          : `Su servicio está suspendido por un saldo pendiente de <b>${dinero(saldo)}</b>.`,
+        'Puede reactivarlo regularizando ese saldo. Si decidió no continuar, necesitamos coordinar el retiro del equipo instalado.',
+      ],
+      cierre: 'En cualquiera de los dos casos, le pedimos que se comunique con nosotros.',
+    },
   }
 
   /**

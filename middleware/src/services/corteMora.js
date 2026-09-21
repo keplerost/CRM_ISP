@@ -171,7 +171,12 @@ async function devolverServicio(lista, equipo) {
       }
 
       await db().from('firewall_bloqueos').update({ activo: false }).eq('id', r.bloqueo_id)
-      await db().from('clientes').update({ estado: 'activo' }).eq('id', r.cliente_id)
+      // Y se borra la fecha del corte: el que volvió a estar activo no tiene
+      // que seguir recibiendo el aviso del cortado.
+      await db()
+        .from('clientes')
+        .update({ estado: 'activo', cortado_en: null })
+        .eq('id', r.cliente_id)
 
       reconectados.push({ cliente: r.nombre, ip: r.ip, saldo: r.saldo })
     } catch (err) {
@@ -490,7 +495,19 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
         activo: true,
       })
 
-      await db().from('clientes').update({ estado: 'cortado' }).eq('id', c.cliente_id)
+      /**
+       * Se anota el día del corte, no solo el estado.
+       *
+       * El cuarto aviso de pago cuenta sus días desde acá. Sin esta fecha
+       * habría que deducirla de la factura más vieja más los días de gracia,
+       * que es CUANDO LE CORRESPONDÍA el corte y no cuándo se ejecutó: si la
+       * tarea estuvo apagada un fin de semana, son tres días de diferencia
+       * sobre un mensaje que le dice al abonado desde cuándo está suspendido.
+       */
+      await db()
+        .from('clientes')
+        .update({ estado: 'cortado', cortado_en: fechaLocal() })
+        .eq('id', c.cliente_id)
 
       /**
        * Y se le avisa que se le cortó.
