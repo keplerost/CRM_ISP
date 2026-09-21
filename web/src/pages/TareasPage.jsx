@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Clock } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/apiNetwork'
 import AvisosPagoPrueba from '../components/ajustes/AvisosPagoPrueba'
+import EscalonesAvisoPago from '../components/ajustes/EscalonesAvisoPago'
 import MoraPrueba from '../components/ajustes/MoraPrueba'
 import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input } from '../components/ui'
 
@@ -236,7 +237,16 @@ function Tarea({ tarea, form, set, ultima }) {
             {/* La prueba en seco va SIEMPRE, encendida o apagada: es lo que
                 permite decidir si encenderla. Escondida detrás del interruptor
                 obligaría a encender la tarea para poder mirarla. */}
-            {tarea.clave === 'avisos_pago' && <AvisosPagoPrueba />}
+            {tarea.clave === 'avisos_pago' && (
+              <>
+                <AvisosPagoPrueba />
+                {/* Los días, al lado de la prueba en seco: cambiar un número y
+                    ver en la misma pantalla a cuántos afecta es la diferencia
+                    entre configurar y adivinar. Va también con la tarea
+                    apagada, que es cuando se ajusta. */}
+                <EscalonesAvisoPago />
+              </>
+            )}
             {tarea.clave === 'mora' && <MoraPrueba />}
 
             {encendida && CAMPOS[tarea.clave] && (
