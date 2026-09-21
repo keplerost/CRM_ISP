@@ -317,7 +317,7 @@ function Informe({ informe, onPdf }) {
 
 function Dato({ titulo, valor, nota = null, color = 'text-slate-100' }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+    <div className="t-card-sm p-4">
       <p className="text-[11px] uppercase tracking-wider text-slate-500">{titulo}</p>
       <p className={`mt-1 text-2xl font-semibold tabular-nums ${color}`}>{valor}</p>
       {nota && <p className="mt-0.5 text-[11px] text-slate-500">{nota}</p>}

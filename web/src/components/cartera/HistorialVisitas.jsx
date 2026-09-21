@@ -57,7 +57,7 @@ export default function HistorialVisitas({ retiroId, intentos = 0, abiertoAlPrin
       </button>
 
       {abierto && (
-        <div className="mt-1.5 space-y-1.5 rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+        <div className="mt-1.5 space-y-1.5 t-panel p-2">
           {error && <p className="text-[11px] text-red-400">No se pudo leer el historial.</p>}
           {!visitas && !error && <p className="text-[11px] text-slate-500">Cargando…</p>}
 

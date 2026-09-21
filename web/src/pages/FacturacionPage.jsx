@@ -78,7 +78,7 @@ export default function FacturacionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Facturación electrónica</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Facturación electrónica</h1>
         <p className="text-xs text-slate-500">Comprobantes del SRI — Ecuador</p>
       </div>
 
@@ -900,7 +900,7 @@ function Configuracion({ onError }) {
             </Link>
             .
           </p>
-          <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs">
+          <div className="t-card-sm p-3 text-xs">
             <p className="text-slate-300">{config?.razon_social || '(sin razón social)'}</p>
             <p className="font-mono text-slate-500">{config?.ruc || '(sin RUC)'}</p>
           </div>

@@ -102,7 +102,7 @@ export default function CertificadoFirma() {
 
         {cargado ? (
           <>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-4">
+            <div className="t-panel p-4">
               <div className="mb-3 flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-400" />
                 <span className="text-sm font-medium text-slate-100">Certificado cargado</span>

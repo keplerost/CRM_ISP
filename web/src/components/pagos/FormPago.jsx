@@ -905,7 +905,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
           {/* Un cobro contra una factura ya emitida no genera otra. Solo los
               cobros sin comprobante entran a la cola del cierre. */}
           {!esPromesa && !form.document_id && (
-            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+            <div className="t-panel p-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
                 <input
                   type="checkbox"
@@ -987,7 +987,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                     />
                   </Field>
                   <Field label="Monto de la promesa" hint="Es el saldo de la factura">
-                    <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-300">
+                    <div className="t-panel px-3 py-2 text-sm text-slate-300">
                       {dinero(saldoRestante)}
                     </div>
                   </Field>
@@ -1066,7 +1066,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
               volver a cortarlo.
             </div>
           ) : (
-            <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
+            <div className="t-card-sm p-3 text-xs text-slate-400">
               <div className="flex justify-between py-0.5">
                 <span>Cobrado al cliente</span>
                 <b className="text-slate-200">{dinero(form.monto)}</b>

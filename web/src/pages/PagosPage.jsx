@@ -186,7 +186,7 @@ function Registrar({ onError }) {
       {cliente && (
         // No usa Card porque la barra del cliente va pegada al borde, y Card
         // siempre deja padding alrededor de su contenido.
-        <section className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/20">
+        <section className="overflow-hidden t-card">
           {/* La barra con el nombre y el estado: quien cobra tiene que ver de
               entrada si el cliente está cortado. */}
           <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950 px-4 py-3">
@@ -352,7 +352,7 @@ function PagosDelDia({ onError }) {
             {Object.entries(porCuenta).map(([cuenta, monto]) => (
               <div
                 key={cuenta}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm"
+                className="flex items-center justify-between t-card-sm px-3 py-2 text-sm"
               >
                 <span className="text-slate-400">{cuenta}</span>
                 <b className="text-slate-100">{dinero(monto)}</b>

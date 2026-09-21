@@ -441,7 +441,7 @@ export default function PromesasPago({ onError }) {
                   lo define la factura, no esta pantalla. Cambiarlo acá haría que
                   la promesa dijera una cosa y la cuenta del cliente otra. */}
               <Field label="Monto prometido" hint="Sale de la factura del cliente">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-400">
+                <div className="t-panel px-3 py-2 text-sm text-slate-400">
                   {dinero(editando.monto)}
                 </div>
               </Field>
