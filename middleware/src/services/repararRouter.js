@@ -1,0 +1,226 @@
+import { db, cargarRouter } from '../lib/db.js'
+import { badRequest } from '../lib/errors.js'
+import * as mk from './mikrotikService.js'
+import { extraerIp } from './importador.js'
+
+/**
+ * Dejar el MikroTik igual a lo que dice el sistema.
+ *
+ * Resuelve dos problemas distintos con el mismo mecanismo:
+ *
+ *   DESPUÉS DE UNA MIGRACIÓN. El router quedó armado por el sistema anterior:
+ *   secrets con otros nombres, IPs que no coinciden, perfiles viejos. Esto lo
+ *   reescribe con lo que tiene el sistema nuevo, y el router deja de tener
+ *   rastro del anterior.
+ *
+ *   TODOS LOS DÍAS. Se cobra un pago con el router caído y el abonado queda en
+ *   la lista de morosos aunque ya no deba. O se le cambia la IP en el sistema y
+ *   el secret sigue con la vieja. Son diferencias que nadie ve hasta que el
+ *   cliente llama.
+ *
+ * Lo que NO hace, y es deliberado: borrar lo que no reconoce. Un secret que el
+ * sistema no tiene puede ser un abonado cuya ficha no se migró todavía —
+ * borrarlo lo deja sin internet sin que nadie sepa por qué. Se informa aparte y
+ * se borra solo si se pide explícitamente.
+ */
+
+const LISTA_MOROSOS = mk.LISTA_MOROSOS
+
+/** Qué hay que arreglar, sin tocar nada. */
+export async function revisar(routerId) {
+  const equipo = await cargarRouter(routerId)
+
+  const [{ data: clientes }, secrets, lista, perfiles] = await Promise.all([
+    db()
+      .from('clientes')
+      .select('id, nombre, estado, ip, usuario_ppp, clave_ppp, plan_id, planes_velocidad(nombre, perfil_ppp)')
+      .eq('router_id', routerId),
+    mk.listarPppSecrets(equipo).catch(() => []),
+    mk.listarBloqueos(equipo, LISTA_MOROSOS).catch(() => []),
+    mk.listarPppProfiles(equipo).catch(() => []),
+  ])
+
+  if (!clientes?.length) throw badRequest('Este router no tiene clientes asignados en el sistema')
+
+  const porUsuario = new Map(secrets.filter((s) => s.name).map((s) => [s.name, s]))
+  const nombresDePerfil = new Set(perfiles.map((p) => p.name))
+  const enLista = new Map()
+  for (const e of lista) {
+    const ip = extraerIp(e.address)
+    if (ip) enLista.set(ip, e)
+  }
+
+  const secrets2 = []
+  const morosos = []
+  const sinDatos = []
+
+  for (const c of clientes) {
+    const perfilEsperado = c.planes_velocidad?.perfil_ppp ?? null
+    const ip = extraerIp(c.ip)
+
+    // --- El secret ---
+    if (!c.usuario_ppp) {
+      sinDatos.push({ cliente: c.nombre, id: c.id, falta: 'usuario PPPoE' })
+    } else {
+      const s = porUsuario.get(c.usuario_ppp)
+      const diferencias = []
+
+      if (!s) {
+        secrets2.push({ cliente: c.nombre, id: c.id, usuario: c.usuario_ppp, accion: 'crear', ip, perfil: perfilEsperado })
+      } else {
+        const ipEnRouter = extraerIp(s['remote-address'])
+        if (ip && ipEnRouter !== ip) {
+          diferencias.push({ campo: 'IP', router: ipEnRouter ?? '—', sistema: ip })
+        }
+        // El perfil solo se corrige si el plan dice cuál y ese existe en el
+        // router: cambiarlo por uno que no está dejaría al abonado sin límite.
+        if (perfilEsperado && nombresDePerfil.has(perfilEsperado) && s.profile !== perfilEsperado) {
+          diferencias.push({ campo: 'perfil', router: s.profile ?? '—', sistema: perfilEsperado })
+        }
+        if (perfilEsperado && !nombresDePerfil.has(perfilEsperado)) {
+          sinDatos.push({
+            cliente: c.nombre,
+            id: c.id,
+            falta: `el perfil "${perfilEsperado}" no existe en el router`,
+          })
+        }
+        if (diferencias.length) {
+          secrets2.push({
+            cliente: c.nombre,
+            id: c.id,
+            usuario: c.usuario_ppp,
+            accion: 'corregir',
+            ip,
+            perfil: perfilEsperado,
+            diferencias,
+          })
+        }
+      }
+    }
+
+    // --- La lista de morosos ---
+    if (!ip) {
+      if (c.estado === 'cortado') {
+        sinDatos.push({ cliente: c.nombre, id: c.id, falta: 'IP: sin ella no se puede cortar por lista' })
+      }
+    } else if (c.estado === 'cortado' && !enLista.has(ip)) {
+      morosos.push({ cliente: c.nombre, ip, accion: 'agregar', motivo: 'está cortado y el router no lo bloquea' })
+    } else if (c.estado !== 'cortado' && enLista.has(ip)) {
+      morosos.push({
+        cliente: c.nombre,
+        ip,
+        accion: 'quitar',
+        id: enLista.get(ip)['.id'] ?? enLista.get(ip).id ?? null,
+        // Es el caso que describe el problema: se cobró con el router caído.
+        motivo: `figura como "${c.estado}" y el router lo sigue bloqueando`,
+      })
+    }
+  }
+
+  // Lo que hay en el router y el sistema no conoce. NO se toca por defecto.
+  const usuariosDelSistema = new Set(clientes.map((c) => c.usuario_ppp).filter(Boolean))
+  const ipsDelSistema = new Set(clientes.map((c) => extraerIp(c.ip)).filter(Boolean))
+
+  const desconocidos = {
+    secrets: secrets
+      .filter((s) => s.name && !usuariosDelSistema.has(s.name))
+      .map((s) => ({ usuario: s.name, ip: s['remote-address'] ?? null, perfil: s.profile ?? null })),
+    bloqueos: [...enLista.entries()]
+      .filter(([ip]) => !ipsDelSistema.has(ip))
+      .map(([ip, e]) => ({ ip, comentario: e.comment ?? null, id: e['.id'] ?? e.id ?? null })),
+  }
+
+  return {
+    router: { id: equipo.id, nombre: equipo.nombre },
+    secrets: secrets2,
+    morosos,
+    sin_datos: sinDatos,
+    desconocidos,
+    resumen: {
+      clientes: clientes.length,
+      secrets_a_crear: secrets2.filter((s) => s.accion === 'crear').length,
+      secrets_a_corregir: secrets2.filter((s) => s.accion === 'corregir').length,
+      bloqueos_a_agregar: morosos.filter((m) => m.accion === 'agregar').length,
+      bloqueos_a_quitar: morosos.filter((m) => m.accion === 'quitar').length,
+      sin_datos: sinDatos.length,
+      desconocidos_en_router: desconocidos.secrets.length + desconocidos.bloqueos.length,
+      // Si no hay nada que hacer, decirlo con todas las letras: es el resultado
+      // más frecuente y el más tranquilizador.
+      sin_cambios: secrets2.length === 0 && morosos.length === 0,
+    },
+  }
+}
+
+/**
+ * Aplica las correcciones.
+ *
+ * Cada una va por separado y se informa: si la número doce falla, las once
+ * anteriores quedaron hechas y hay que poder verlo. Deshacerlas
+ * automáticamente sería peor — dejaría a medias un router que ya estaba a
+ * medias.
+ */
+export async function reparar(routerId, { borrarDesconocidos = false } = {}) {
+  const plan = await revisar(routerId)
+  const equipo = await cargarRouter(routerId)
+  const hecho = { secrets: 0, bloqueos: 0, borrados: 0, fallos: [] }
+
+  for (const s of plan.secrets) {
+    try {
+      const { data: c } = await db()
+        .from('clientes')
+        .select('clave_ppp, usuario_ppp')
+        .eq('id', s.id)
+        .maybeSingle()
+
+      await mk.asegurarPppSecret(equipo, {
+        usuario: s.usuario,
+        // Sin clave guardada se repite el usuario, que es lo que ya hacía la
+        // exportación. Es preferible a dejar el secret sin crear: el abonado
+        // conecta y la clave se corrige después.
+        clave: c?.clave_ppp || s.usuario,
+        perfil: s.perfil ?? undefined,
+        ip: s.ip ?? null,
+        comentario: s.cliente,
+      })
+      hecho.secrets++
+    } catch (e) {
+      hecho.fallos.push(`secret ${s.usuario}: ${e.message}`)
+    }
+  }
+
+  for (const m of plan.morosos) {
+    try {
+      if (m.accion === 'agregar') {
+        await mk.bloquearIp(equipo, { address: m.ip, comment: m.cliente, lista: LISTA_MOROSOS })
+      } else if (m.id) {
+        await mk.desbloquear(equipo, m.id)
+      }
+      hecho.bloqueos++
+    } catch (e) {
+      hecho.fallos.push(`${m.accion} ${m.ip}: ${e.message}`)
+    }
+  }
+
+  // Lo que el sistema no conoce, solo si se pidió. Un secret desconocido puede
+  // ser un abonado cuya ficha no se migró: borrarlo lo deja sin internet.
+  if (borrarDesconocidos) {
+    for (const s of plan.desconocidos.secrets) {
+      try {
+        await mk.borrarPppSecret(equipo, s.usuario)
+        hecho.borrados++
+      } catch (e) {
+        hecho.fallos.push(`borrar ${s.usuario}: ${e.message}`)
+      }
+    }
+    for (const b of plan.desconocidos.bloqueos) {
+      try {
+        if (b.id) await mk.desbloquear(equipo, b.id)
+        hecho.borrados++
+      } catch (e) {
+        hecho.fallos.push(`desbloquear ${b.ip}: ${e.message}`)
+      }
+    }
+  }
+
+  return { ...plan, ...hecho, borrar_desconocidos: borrarDesconocidos }
+}

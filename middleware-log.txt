@@ -1,0 +1,21 @@
+[corte] página del abonado cortado en el puerto 8090
+
+  Middleware escuchando en http://localhost:4000
+  CORS permitido para: http://localhost:5173
+  Configuración completa.
+
+GET /api/health → 304 (2ms)
+  Automatismos encendidos: Corte por promesa incumplida · Facturación mensual · Monitoreo de red · Lectura óptica · Alertas en tiempo real · Corte por mora y reconexión automática · ONTs esperando autorización.
+[cortes] 0 cortados, 0 con error, 0 omitidos
+[facturación] 0 facturas creadas, 2 omitidos
+[mora] 0 cortados, 0 reconectados, 0 fallidos
+GET /api/health → 304 (1ms)
+GET /api/health → 200 (1ms)
+GET /api/health → 304 (2ms)
+GET /api/health → 304 (1ms)
+GET /api/health → 304 (1ms)
+GET /api/health → 304 (1ms)
+GET /api/health → 304 (1ms)
+GET /api/health → 304 (1ms)
+GET /api/health → 304 (1ms)
+GET /api/health → 304 (0ms)

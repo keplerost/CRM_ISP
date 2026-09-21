@@ -1,0 +1,747 @@
+<title>TR-069 y GenieACS — Manual del sistema</title>
+
+<style>
+  /* ── Tokens ──────────────────────────────────────────────────────────────
+     Paleta tomada del propio oficio: el ámbar es el amarillo de la fibra
+     monomodo, el verde azulado es el del equipo de medición óptica. El gris
+     lleva una pizca de azul para que no lea como gris de plantilla. */
+  :root {
+    --papel:       #F6F7F9;
+    --papel-hondo: #EDEFF3;
+    --tarjeta:     #FFFFFF;
+    --tinta:       #1A222E;
+    --tinta-suave: #55647A;
+    --tenue:       #8A97A8;
+    --linea:       #DBE0E8;
+    --fibra:       #C8860D;
+    --fibra-piso:  #FDF6E7;
+    --optica:      #1B6F80;
+    --alarma:      #A63A22;
+    --alarma-piso: #FBEEEA;
+    --codigo-piso: #F2F4F7;
+  }
+
+  /* El modo "sistema" no estampa nada en la raíz: ahí solo manda
+     prefers-color-scheme. El :not() deja que una elección explícita de tema
+     claro le gane a un sistema oscuro. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --papel:       #10141A;
+      --papel-hondo: #0B0E13;
+      --tarjeta:     #171C24;
+      --tinta:       #E3E8F0;
+      --tinta-suave: #9FADC0;
+      --tenue:       #6B7889;
+      --linea:       #262E3A;
+      --fibra:       #E5A93A;
+      --fibra-piso:  #241D0E;
+      --optica:      #4FB3C6;
+      --alarma:      #E07A5F;
+      --alarma-piso: #2A1611;
+      --codigo-piso: #0D1117;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --papel:       #10141A;
+    --papel-hondo: #0B0E13;
+    --tarjeta:     #171C24;
+    --tinta:       #E3E8F0;
+    --tinta-suave: #9FADC0;
+    --tenue:       #6B7889;
+    --linea:       #262E3A;
+    --fibra:       #E5A93A;
+    --fibra-piso:  #241D0E;
+    --optica:      #4FB3C6;
+    --alarma:      #E07A5F;
+    --alarma-piso: #2A1611;
+    --codigo-piso: #0D1117;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .envoltura {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 3rem;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+  @media (max-width: 900px) {
+    .envoltura { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 1.1rem 4rem; }
+    .indice { position: static !important; border-right: 0 !important; padding: 1rem 0 2rem !important; }
+  }
+
+  /* ── Portada ── */
+  header.portada {
+    grid-column: 1 / -1;
+    padding: 4.5rem 0 3rem;
+    border-bottom: 1px solid var(--linea);
+    margin-bottom: 2.5rem;
+  }
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--fibra);
+    margin: 0 0 .9rem;
+  }
+  header.portada h1 {
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 3.1rem);
+    line-height: 1.1;
+    letter-spacing: -.015em;
+    margin: 0 0 1rem;
+    text-wrap: balance;
+  }
+  header.portada p {
+    max-width: 62ch;
+    font-size: 1.06rem;
+    color: var(--tinta-suave);
+    margin: 0;
+  }
+
+  /* ── Índice ── */
+  .indice {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 2rem 1.2rem 2rem 0;
+    border-right: 1px solid var(--linea);
+    font-size: .875rem;
+  }
+  .indice p {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--tenue);
+    margin: 0 0 .8rem;
+  }
+  .indice ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .1rem; }
+  .indice a {
+    display: block;
+    padding: .3rem .5rem .3rem 0;
+    color: var(--tinta-suave);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    padding-left: .7rem;
+    transition: color .15s, border-color .15s;
+  }
+  .indice a:hover, .indice a:focus-visible { color: var(--fibra); border-left-color: var(--fibra); }
+  .indice .num {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .74rem;
+    color: var(--tenue);
+    margin-right: .45rem;
+  }
+
+  main { padding-top: .5rem; min-width: 0; }
+
+  section { margin-bottom: 3.4rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    font-family: Georgia, "Iowan Old Style", serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0 0 .3rem;
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+    text-wrap: balance;
+  }
+  h2 .paso {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .8rem;
+    color: var(--fibra);
+    background: var(--fibra-piso);
+    border: 1px solid var(--fibra);
+    border-radius: 4px;
+    padding: .1rem .45rem;
+    flex: none;
+  }
+  h2 + .bajada { color: var(--tinta-suave); margin: 0 0 1.4rem; max-width: 66ch; }
+
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 650;
+    margin: 2rem 0 .5rem;
+    letter-spacing: -.005em;
+  }
+
+  p, li { max-width: 72ch; }
+  p { margin: 0 0 1rem; }
+  ul, ol.lista { margin: 0 0 1rem; padding-left: 1.2rem; }
+  li { margin-bottom: .35rem; }
+
+  a { color: var(--optica); }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .87em;
+    background: var(--codigo-piso);
+    border: 1px solid var(--linea);
+    border-radius: 3px;
+    padding: .08em .35em;
+  }
+  pre {
+    background: var(--codigo-piso);
+    border: 1px solid var(--linea);
+    border-left: 3px solid var(--optica);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .82rem;
+    line-height: 1.6;
+    margin: 0 0 1.2rem;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+  pre .c { color: var(--tenue); }
+
+  .tabla-envoltura { overflow-x: auto; margin: 0 0 1.3rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 460px; }
+  th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid var(--linea); vertical-align: top; }
+  th {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .7rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--tenue);
+    font-weight: 500;
+  }
+  td.mono, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .84rem; font-variant-numeric: tabular-nums; }
+
+  .nota, .cuidado {
+    border-radius: 6px;
+    padding: .95rem 1.1rem;
+    margin: 0 0 1.3rem;
+    font-size: .93rem;
+  }
+  .nota { background: var(--tarjeta); border: 1px solid var(--linea); border-left: 3px solid var(--optica); }
+  .cuidado { background: var(--alarma-piso); border: 1px solid var(--alarma); border-left: 3px solid var(--alarma); }
+  .nota p:last-child, .cuidado p:last-child { margin-bottom: 0; }
+  .etiqueta {
+    display: block;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin-bottom: .35rem;
+  }
+  .nota .etiqueta { color: var(--optica); }
+  .cuidado .etiqueta { color: var(--alarma); }
+
+  .cadena { display: flex; flex-direction: column; gap: .55rem; margin: 0 0 1.3rem; }
+  .eslabon {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: .8rem;
+    align-items: start;
+    background: var(--tarjeta);
+    border: 1px solid var(--linea);
+    border-radius: 6px;
+    padding: .8rem 1rem;
+  }
+  .eslabon b { display: block; font-size: .95rem; }
+  .eslabon span { font-size: .87rem; color: var(--tinta-suave); }
+  .eslabon .n {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 1.1rem;
+    color: var(--fibra);
+    line-height: 1.3;
+  }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--linea);
+    padding-top: 1.5rem;
+    color: var(--tenue);
+    font-size: .84rem;
+  }
+</style>
+
+<div class="envoltura">
+
+<header class="portada">
+  <p class="eyebrow">Manual operativo · OLT Huawei MA5800 · GenieACS 1.2</p>
+  <h1>Gestionar las ONT a distancia con TR-069</h1>
+  <p>
+    Cómo levantar el servidor de gestión, cómo apuntarle las ONT desde la OLT, y —sobre todo— cómo
+    distinguir una ONT que <em>está configurada</em> de una que <em>está hablando</em>. Todo lo que
+    hay acá se midió contra la MA5800-X7 de La Maná y el ACS del taller.
+  </p>
+</header>
+
+<nav class="indice">
+  <p>Contenido</p>
+  <ol>
+    <li><a href="#p1"><span class="num">1</span>Qué resuelve</a></li>
+    <li><a href="#p2"><span class="num">2</span>Instalar GenieACS</a></li>
+    <li><a href="#p3"><span class="num">3</span>Que sobreviva al reinicio</a></li>
+    <li><a href="#p4"><span class="num">4</span>Puertos y firewall</a></li>
+    <li><a href="#p5"><span class="num">5</span>Usuario de la interfaz</a></li>
+    <li><a href="#p6"><span class="num">6</span>Preparar la OLT</a></li>
+    <li><a href="#p7"><span class="num">7</span>Apuntar una ONT</a></li>
+    <li><a href="#p8"><span class="num">8</span>La pantalla del sistema</a></li>
+    <li><a href="#p9"><span class="num">9</span>Diagnóstico</a></li>
+    <li><a href="#p10"><span class="num">10</span>En la nube, por VPN</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="p1">
+  <h2><span class="paso">1</span>Qué resuelve</h2>
+  <p class="bajada">
+    Sin TR-069, cada cambio en la casa del abonado es una visita.
+  </p>
+
+  <p>
+    TR-069 es el protocolo con el que un servidor central —el <b>ACS</b>— configura los equipos de
+    los abonados. Con él andando, desde la oficina se cambia el WiFi, se reinicia una ONT, se lee
+    qué dispositivos tiene conectados y se le empuja usuario y clave de PPPoE. Sin él, todo eso es
+    una camioneta.
+  </p>
+  <p>
+    <b>GenieACS</b> es el ACS que usa este sistema. Es libre, y reemplaza la parte de gestión de
+    ONT que hoy hace SmartOLT.
+  </p>
+
+  <h3>Las tres verdades que no son la misma</h3>
+  <p>
+    Esto es lo que más confunde y lo que más tiempo cuesta. Para que una ONT aparezca en el ACS
+    tienen que pasar tres cosas <em>distintas</em>, y cada una falla por su lado:
+  </p>
+  <div class="cadena">
+    <div class="eslabon"><span class="n">1</span><div><b>El perfil existe en la OLT</b><span>Un perfil dice a qué ACS ir. Es global al equipo: se crea una vez.</span></div></div>
+    <div class="eslabon"><span class="n">2</span><div><b>La ONT está apuntada a ese perfil</b><span>Una línea por ONT. Tener el perfil no apunta a nadie.</span></div></div>
+    <div class="eslabon"><span class="n">3</span><div><b>La ONT levantó su IP de gestión</b><span>Sin dirección propia y viva, las otras dos no sirven de nada.</span></div></div>
+  </div>
+  <p>
+    La tercera es la que engaña, y tiene su propia sección al final.
+  </p>
+</section>
+
+<section id="p2">
+  <h2><span class="paso">2</span>Instalar GenieACS</h2>
+  <p class="bajada">Necesita Node.js y MongoDB. Nada más.</p>
+
+  <h3>En Windows (lo que está andando hoy)</h3>
+  <pre><code><span class="c"># MongoDB tiene que estar corriendo antes que nada</span>
+Get-Service MongoDB
+
+npm install -g genieacs</code></pre>
+
+  <p>
+    GenieACS son <b>cuatro procesos</b> separados. Los cuatro tienen que estar arriba:
+  </p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th>Proceso</th><th class="mono">Puerto</th><th>Para qué</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">genieacs-cwmp</td><td class="mono">7547</td><td>Donde se conectan las ONT. Si falta, el padrón queda mudo aunque todo lo demás ande.</td></tr>
+        <tr><td class="mono">genieacs-nbi</td><td class="mono">7557</td><td>La API que usa nuestro middleware.</td></tr>
+        <tr><td class="mono">genieacs-fs</td><td class="mono">7567</td><td>De donde las ONT bajan firmware y configuración.</td></tr>
+        <tr><td class="mono">genieacs-ui</td><td class="mono">3000</td><td>La pantalla para mirar a mano.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cuidado">
+    <span class="etiqueta">El error número uno</span>
+    <p>
+      <code>genieacs-ui</code> arranca, no dice nada y se muere si no encuentra
+      <code>GENIEACS_UI_JWT_SECRET</code>. No hay mensaje de error: el puerto 3000 simplemente no
+      abre. Generá el secreto una vez y guardalo.
+    </p>
+  </div>
+
+  <pre><code><span class="c"># Un secreto de una sola vez, guardado en disco</span>
+$b = New-Object byte[] 36
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b)
+[Convert]::ToBase64String($b) | Set-Content C:\genieacs\jwt.secret -NoNewline
+
+<span class="c"># Y las dos variables que necesita cada proceso</span>
+$env:GENIEACS_UI_JWT_SECRET          = (Get-Content C:\genieacs\jwt.secret -Raw).Trim()
+$env:GENIEACS_MONGODB_CONNECTION_URL = "mongodb://127.0.0.1:27017/genieacs"</code></pre>
+
+  <h3>Conectarlo al sistema</h3>
+  <p>
+    En <code>middleware/.env</code>, una línea. Es el <b>NBI</b>, no la interfaz web:
+  </p>
+  <pre><code>GENIEACS_URL=http://127.0.0.1:7557</code></pre>
+  <p>Y reiniciar el middleware para que la tome.</p>
+</section>
+
+<section id="p3">
+  <h2><span class="paso">3</span>Que sobreviva al reinicio</h2>
+  <p class="bajada">
+    Lanzado a mano, un corte de luz deja el ACS apagado y nadie se entera hasta que alguien
+    necesita reiniciar una ONT.
+  </p>
+
+  <p>
+    En Windows se resuelve con el Programador de tareas, sin instalar nada. Una tarea
+    <code>GenieACS</code> que corre como SYSTEM, con <b>dos disparadores</b> sobre el mismo script:
+    al arrancar Windows, y cada 5 minutos como perro guardián.
+  </p>
+
+  <p>
+    El script <code>C:\genieacs\iniciar.ps1</code> tiene que ser <b>idempotente</b>: mira si el
+    puerto ya está escuchando y, si está, no hace nada. Sin eso, el disparador de los 5 minutos
+    levantaría una copia nueva cada vez y en una hora habría doce GenieACS peleándose el puerto.
+  </p>
+
+  <div class="nota">
+    <span class="etiqueta">Un detalle que se paga caro</span>
+    <p>
+      Al arrancar la máquina, la tarea suele ganarle a MongoDB. GenieACS sin base no espera:
+      arranca, no conecta y queda inútil. El script espera hasta 90 segundos a que el 27017 esté
+      escuchando antes de levantar nada.
+    </p>
+  </div>
+
+  <p><b>Cómo comprobar que funciona</b> — no alcanza con que la tarea diga "Listo":</p>
+  <pre><code><span class="c"># Se mata uno de los cuatro a propósito...</span>
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+  Where-Object { $_.CommandLine -like '*genieacs-fs*' } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+
+<span class="c"># ...y se dispara el guardián. Tiene que reponer SOLO ese.</span>
+Start-ScheduledTask -TaskName 'GenieACS'</code></pre>
+</section>
+
+<section id="p4">
+  <h2><span class="paso">4</span>Puertos y firewall</h2>
+  <p class="bajada">Solo dos puertos se abren. Los otros dos son de casa.</p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th class="mono">Puerto</th><th>Quién entra</th><th>Regla</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">7547</td><td>Las ONT</td><td>Abierto solo desde redes privadas</td></tr>
+        <tr><td class="mono">7567</td><td>Las ONT (firmware)</td><td>Abierto solo desde redes privadas</td></tr>
+        <tr><td class="mono">7557</td><td>Nuestro middleware</td><td><b>Cerrado.</b> Solo 127.0.0.1</td></tr>
+        <tr><td class="mono">3000</td><td>Personas</td><td>Cerrado al exterior</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cuidado">
+    <span class="etiqueta">Por qué el 7557 nunca se abre</span>
+    <p>
+      El NBI no tiene contraseña. Quien lo alcanza reconfigura cualquier ONT del padrón: le cambia
+      el WiFi, la reinicia, le lee la clave de PPPoE. Si el ACS y el middleware no están en la misma
+      máquina, ese tramo va por túnel, nunca por internet.
+    </p>
+  </div>
+
+  <pre><code>New-NetFirewallRule -DisplayName 'GenieACS CWMP (7547)' `
+  -Direction Inbound -Protocol TCP -LocalPort 7547 `
+  -RemoteAddress 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 `
+  -Action Allow -Profile Any</code></pre>
+</section>
+
+<section id="p5">
+  <h2><span class="paso">5</span>Usuario de la interfaz</h2>
+  <p class="bajada">GenieACS 1.2 no trae ninguno. Recién instalado, la pantalla de login no tiene a quién dejar entrar.</p>
+
+  <p>
+    Primero probá el sembrado propio de GenieACS, que además crea los presets básicos
+    (<code>bootstrap</code>, <code>default</code>, <code>inform</code>):
+  </p>
+  <pre><code>Invoke-WebRequest -Uri "http://127.0.0.1:3000/init" -Method POST `
+  -Body '{"users":true,"presets":true,"filters":true,"device":true,"index":true,"overview":true}' `
+  -ContentType 'application/json'</code></pre>
+
+  <p>
+    Si ya había configuración cargada, ese sembrado <b>no crea el usuario</b>: con configuración
+    presente exige estar autenticado, que es justo lo que todavía no se puede. En ese caso hay que
+    escribirlo en Mongo con el mismo cifrado que valida el login —<b>pbkdf2, 10 000 vueltas, 128
+    bytes, sha512</b>— y darle los permisos del rol. Un hash armado de otra forma se guarda sin
+    error y no deja entrar nunca.
+  </p>
+
+  <div class="nota">
+    <span class="etiqueta">Detalle que cuesta encontrar</span>
+    <p>
+      El campo <code>roles</code> va como <b>texto</b> separado por comas, no como lista: al cargar
+      los usuarios GenieACS hace <code>roles.split(',')</code>. Guardado como arreglo, el usuario
+      entra a un sistema donde no puede ver nada.
+    </p>
+  </div>
+</section>
+
+<section id="p6">
+  <h2><span class="paso">6</span>Preparar la OLT</h2>
+  <p class="bajada">
+    Cada ONT necesita una identidad propia en la red de gestión. Eso no se configura en la ONT:
+    se lo escribe la OLT por OMCI.
+  </p>
+
+  <h3>Cómo está armado hoy en La Maná</h3>
+  <div class="tabla-envoltura">
+    <table>
+      <tbody>
+        <tr><th>VLAN de gestión</th><td class="mono">999</td></tr>
+        <tr><th>Red de las ONT</th><td class="mono">192.168.240.0/24 · puerta .1</td></tr>
+        <tr><th>VLAN de servicio</th><td class="mono">200</td></tr>
+        <tr><th>Gemport de datos</th><td class="mono">1</td></tr>
+        <tr><th>Gemport de gestión</th><td class="mono">2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Los cuatro pedazos por ONT</h3>
+  <pre><code><span class="c"># 1 · Registrarla, con un line profile que traiga TR069 management</span>
+interface gpon 0/6
+  ont add 9 17 sn-auth "534B5957B800528F" omci \
+      ont-lineprofile-id 2 ont-srvprofile-id 11 desc "NOMBRE_DEL_ABONADO"
+quit
+
+<span class="c"># 2 · El service-port de internet</span>
+service-port vlan 200 gpon 0/6/9 ont 17 gemport 1 multi-service user-vlan 200 \
+    tag-transform translate inbound traffic-table index 10 outbound traffic-table index 11
+
+<span class="c"># 3 · El service-port de gestión — el que casi siempre falta</span>
+service-port vlan 999 gpon 0/6/9 ont 17 gemport 2 multi-service user-vlan 999 \
+    tag-transform translate inbound traffic-table index 9 outbound traffic-table index 9
+
+<span class="c"># 4 · Su IP de gestión</span>
+interface gpon 0/6
+  ont ipconfig 9 17 static ip-address 192.168.240.250 mask 255.255.255.0 \
+      vlan 999 priority 2 gateway 192.168.240.1 pri-dns 8.8.8.8 slave-dns 8.8.4.4</code></pre>
+
+  <div class="cuidado">
+    <span class="etiqueta">La prioridad no es adorno</span>
+    <p>
+      Si no se escribe <code>priority 2</code>, la OLT pone 5 por su cuenta. Todas las ONT que
+      funcionan en el padrón están en 2. Una ONT quedó sin levantar la interfaz hasta que se le
+      igualó la prioridad al resto.
+    </p>
+  </div>
+</section>
+
+<section id="p7">
+  <h2><span class="paso">7</span>Apuntar una ONT al ACS</h2>
+  <p class="bajada">Esta parte son dos líneas, y la segunda es reversible.</p>
+
+  <pre><code><span class="c"># El perfil: una vez por equipo. Crearlo NO mueve ninguna ONT.</span>
+ont tr069-server-profile add profile-id 2 profile-name "GenieACS" \
+    url "http://192.168.55.254:7547"
+
+<span class="c"># La asignación: una línea por ONT.</span>
+interface gpon 0/6
+  ont tr069-server-config 9 17 profile-id 2</code></pre>
+
+  <div class="cuidado">
+    <span class="etiqueta">Una ONT, un ACS</span>
+    <p>
+      Una ONT habla con un servidor a la vez. Moverla al perfil de GenieACS la <b>saca</b> del
+      anterior: mientras esté ahí, SmartOLT deja de gestionarla. El servicio del abonado no se
+      toca. Se vuelve con la misma línea y el número anterior.
+    </p>
+  </div>
+
+  <div class="nota">
+    <span class="etiqueta">La URL, desde dónde</span>
+    <p>
+      La dirección del ACS tiene que ser alcanzable <b>desde la red de gestión de las ONT</b>
+      (192.168.240.0/24), no desde tu computadora. Es el error más común al mudar de ACS: se pone
+      la IP que uno ve, no la que ve la ONT.
+    </p>
+  </div>
+</section>
+
+<section id="p8">
+  <h2><span class="paso">8</span>La pantalla del sistema</h2>
+  <p class="bajada">Menú <b>OLT / GPON → TR-069 / ACS</b>. Una sola pantalla para todas las OLTs.</p>
+
+  <p>
+    No está dentro de la ficha de cada equipo, y es a propósito: <b>un ACS sirve a todo el
+    padrón</b>. Definir el mismo perfil equipo por equipo es cómo se llega a que una OLT apunte a
+    una dirección y otra a una que quedó vieja, sin que nadie lo note hasta que media zona deja de
+    verse en el ACS.
+  </p>
+
+  <h3>Solapa «Perfiles TR-069»</h3>
+  <ul>
+    <li>Los perfiles de <b>todas</b> las OLTs, agrupados por el ACS al que apuntan. La URL es la
+        identidad: dos perfiles llamados igual que apuntan a lugares distintos son dos perfiles
+        distintos, y la pantalla los muestra separados.</li>
+    <li>En qué OLTs está cada uno y con qué número —el número puede ser distinto en cada equipo y
+        no importa— y cuántas ONT lo usan en total.</li>
+    <li><b>Alcance del ACS</b>: si responde, y en cuántos milisegundos.</li>
+    <li><b>Aplicar a otra OLT</b>: lleva un perfil existente a los equipos que le falten, en una
+        sola operación. Las que ya lo tienen aparecen marcadas y bloqueadas.</li>
+  </ul>
+
+  <div class="cuidado">
+    <span class="etiqueta">«Responde» quiere decir desde el servidor</span>
+    <p>
+      Esa comprobación dice que <b>el servidor del sistema</b> alcanza esa dirección. NO dice que
+      las ONT la alcancen, que es la pregunta que importa: las ONT viven en su VLAN de gestión y
+      llegan por otro camino. Un ACS que ni desde acá responde está roto seguro; uno que responde
+      todavía puede ser inalcanzable para las ONT.
+    </p>
+  </div>
+
+  <h3>Solapa «Estado»</h3>
+  <ul>
+    <li>Por cada OLT: cuántos perfiles, cuántas ONT apuntadas y cuántas con IP de gestión. Tres
+        números que no son el mismo.</li>
+    <li><b>Consultar una ONT</b> —eligiendo OLT, slot, puerto y ONT-ID—: qué perfil tiene, qué IP le
+        escribimos, cuál reporta ella, y si la OLT le está aprendiendo MAC.</li>
+    <li><b>Moverla de perfil</b>, mostrando de dónde venía para poder deshacerlo.</li>
+  </ul>
+
+  <div class="nota">
+    <span class="etiqueta">Dos decisiones que se notan al usarla</span>
+    <p>
+      <b>No hay copia en la base.</b> El perfil se puede cambiar desde la consola de la OLT; una
+      pantalla que muestre nuestra copia diría "apunta a GenieACS" sobre una ONT que alguien mudó a
+      mano hace un mes. Cada consulta es una sesión SSH y tarda: por eso es un botón y no algo que
+      pase solo al abrir.
+    </p>
+    <p>
+      <b>Una OLT caída no tumba la pantalla.</b> Se le pregunta a todas en paralelo y la que falla
+      —apagada, sin ruta, o de una marca que todavía no se relevó— muestra su error al lado de las
+      que sí contestaron. Que un equipo caído esconda el estado de los otros es justo lo que no
+      puede pasar en una pantalla de supervisión.
+    </p>
+  </div>
+
+  <p>La clave del ACS nunca sale del equipo. La pantalla informa si hay una puesta, y nada más.</p>
+</section>
+
+<section id="p9">
+  <h2><span class="paso">9</span>Diagnóstico</h2>
+  <p class="bajada">
+    Cómo saber si una ONT va a aparecer en el ACS, y qué significa cada cosa que dice la OLT.
+  </p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th>Lo que ves</th><th>Qué significa de verdad</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">ONT IP : 192.168.240.250</td>
+          <td>Lo que la OLT le <b>escribió</b>. No dice nada de si la ONT lo usa.</td>
+        </tr>
+        <tr>
+          <td class="mono">ONT IP 0 address/mask : …/24</td>
+          <td>La ONT <b>acusó recibo</b> de esa dirección. Sigue sin probar que la haya levantado.</td>
+        </tr>
+        <tr>
+          <td class="mono">display mac-address …</td>
+          <td>Si hay una MAC en la VLAN de gestión, la ONT puso una trama de verdad: <b>está hablando</b>.</td>
+        </tr>
+        <tr>
+          <td class="mono">ping a su IP de gestión</td>
+          <td>La prueba definitiva de que se la puede alcanzar.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cuidado">
+    <span class="etiqueta">La ausencia de MAC no condena a nadie</span>
+    <p>
+      La tabla de MAC <b>envejece</b>: una ONT que responde al ping puede figurar sin MAC porque su
+      IP host no manda nada mientras el ACS no la busca. Por eso el sistema tiene tres respuestas y
+      no dos: <em>sí</em>, <em>no</em>, y <em>no lo sé — hacele ping</em>.
+    </p>
+  </div>
+
+  <h3>El caso que engaña</h3>
+  <p>
+    Una SKYW GN256VH del padrón quedó con todo en orden —registrada, con los dos service-ports
+    arriba, con IP de gestión, con perfil asignado, reportando su dirección— y <b>nunca apareció en
+    el ACS</b>. No responde al ping y la OLT no le aprendió jamás una MAC. Aceptó la configuración
+    y no levantó la interfaz.
+  </p>
+  <p>
+    No es "las ONT de tercero no sirven": una CMDC H3-1s del mismo padrón se gestiona perfecto. Lo
+    que hay que saber es que una ONT puede repetirte la configuración que le diste sin estar
+    usándola, y que la única forma de saberlo es preguntarle a la red, no al equipo.
+  </p>
+</section>
+
+<section id="p10">
+  <h2><span class="paso">10</span>En la nube, por VPN</h2>
+  <p class="bajada">
+    Cuando el sistema deje de vivir en la oficina, el ACS y las OLT quedan de lados distintos.
+  </p>
+
+  <p>
+    Las OLT, los MikroTik y la red de gestión de las ONT usan direcciones privadas: desde internet
+    no se llega. Y no se resuelve abriendo puertos en el router —eso deja la administración de la
+    red expuesta a cualquiera—. Se resuelve con un <b>túnel</b>: el servidor entra a la red como si
+    estuviera enchufado en la oficina.
+  </p>
+
+  <div class="tabla-envoltura">
+    <table>
+      <thead><tr><th>Tramo</th><th>Va por</th><th>Por qué</th></tr></thead>
+      <tbody>
+        <tr><td>Abonado → sistema</td><td>Internet (HTTPS)</td><td>Es una web pública. Nada que tunelizar.</td></tr>
+        <tr><td>Sistema → OLT (SSH)</td><td><b>Túnel</b></td><td>La OLT no puede tener el 22 en internet.</td></tr>
+        <tr><td>Sistema → MikroTik</td><td><b>Túnel</b></td><td>Ídem: es el control de la red.</td></tr>
+        <tr><td>ONT → ACS (7547)</td><td><b>Túnel</b></td><td>Las ONT están en 192.168.240.0/24.</td></tr>
+        <tr><td>Middleware → NBI (7557)</td><td>Local o túnel</td><td>API sin contraseña. Jamás por internet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Sí: con el túnel, el servidor tiene acceso a todo</h3>
+  <p>
+    Esa es exactamente la idea, y es lo que permite que dar de alta un abonado sea una sola
+    operación: crear el contrato, registrar la ONT en la OLT, darle su IP de gestión, apuntarla al
+    ACS y empujarle el WiFi. Todo desde la nube, sin que nadie toque un equipo.
+  </p>
+
+  <div class="cuidado">
+    <span class="etiqueta">Y por eso mismo hay que cuidarlo</span>
+    <p>
+      Un servidor con túnel a la red de gestión es la llave de toda la red. Tres cosas que no son
+      opcionales: <b>rutear solo lo necesario</b> por el túnel (las redes de gestión, no todo),
+      <b>llave por equipo</b> —una por OLT, una por sitio, revocable sin tocar el resto— y
+      <b>credenciales cifradas</b> en la base, como ya están hoy.
+    </p>
+  </div>
+
+  <h3>Qué hace falta del lado de la oficina</h3>
+  <ul>
+    <li>Un extremo del túnel en cada sitio. El MikroTik del borde ya puede serlo.</li>
+    <li>Que la red de gestión de las ONT tenga <b>ruta de vuelta</b> hacia el servidor. Es la mitad
+        que más se olvida: si la ONT no sabe volver, el 7547 nunca se completa.</li>
+    <li>Una IP fija para el ACS dentro del túnel. Si cambia, las ONT quedan hablándole a nadie:
+        la URL está escrita en el perfil de la OLT.</li>
+  </ul>
+</section>
+
+<footer>
+  Manual del taller · escrito contra la OLT Huawei MA5800-X7 de La Maná y GenieACS 1.2.16.
+  Todo lo que afirma se midió; lo que no se pudo medir está dicho como duda.
+</footer>
+
+</main>
+</div>

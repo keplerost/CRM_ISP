@@ -1,0 +1,3 @@
+ISP
+Esto debo enviarle al claude que esta programado el CRM
+El contrato para mandarle está en docs/salida-whatsapp-crm.md.

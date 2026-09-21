@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm *)",
+      "Bash(curl -s -o \"C:/Users/Game1/AppData/Local/Temp/claude/G--TALLER-SMARTOLT/226dc540-6b86-4f77-9698-75b6db13a1a8/scratchpad/ride-008.pdf\" \"http://localhost:4001/api/sri/documentos/b0e9a18e-59ff-46f5-875a-2bb7ede557e4/ride\")",
+      "Bash(node \"C:/Users/Game1/AppData/Local/Temp/claude/G--TALLER-SMARTOLT/226dc540-6b86-4f77-9698-75b6db13a1a8/scratchpad/pdfcontent.cjs\" \"C:/Users/Game1/AppData/Local/Temp/claude/G--TALLER-SMARTOLT/226dc540-6b86-4f77-9698-75b6db13a1a8/scratchpad/ride-008.pdf\")",
+      "Bash(python -)",
+      "Bash(npm test *)",
+      "Bash(node --input-type=module -e ' *)"
+    ]
+  }
+}

@@ -1,0 +1,1050 @@
+<title>Un Servidor, Varios Sistemas</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --paper:#f6f7f9; --surface:#ffffff; --surface-2:#eef1f5;
+    --ink:#131922; --ink-soft:#3d4756; --muted:#5b6675;
+    --line:#dde1e7; --line-soft:#e8ebef;
+    --accent:#b45606; --accent-soft:#fdf1e3;
+    --pass:#177245; --pass-soft:#e6f4ec;
+    --fail:#a8201a; --fail-soft:#fbeceb;
+    --warn:#8a5a00; --warn-soft:#fdf6e3;
+    --term-bg:#10151c; --term-bar:#1b222c; --term-ink:#d6dce5;
+    --term-dim:#77839a; --term-green:#6cc48c; --term-amber:#e8a33d;
+    --term-red:#e8756b; --term-blue:#7aaee8;
+    --measure:68ch; --radius:6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0d1117; --surface:#151b23; --surface-2:#1c242e;
+      --ink:#e6e9ee; --ink-soft:#c3cad4; --muted:#8b96a5;
+      --line:#262f3b; --line-soft:#1e262f;
+      --accent:#f0932b; --accent-soft:#2a1f11;
+      --pass:#5cc98a; --pass-soft:#10251a;
+      --fail:#ef7a72; --fail-soft:#2a1615;
+      --warn:#e0b054; --warn-soft:#262013;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1117; --surface:#151b23; --surface-2:#1c242e;
+    --ink:#e6e9ee; --ink-soft:#c3cad4; --muted:#8b96a5;
+    --line:#262f3b; --line-soft:#1e262f;
+    --accent:#f0932b; --accent-soft:#2a1f11;
+    --pass:#5cc98a; --pass-soft:#10251a;
+    --fail:#ef7a72; --fail-soft:#2a1615;
+    --warn:#e0b054; --warn-soft:#262013;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 17px; line-height: 1.65; margin: 0; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px 120px; }
+
+  header.head { padding: 72px 0 40px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 700;
+    font-size: clamp(36px, 6.2vw, 58px); line-height: 1.03;
+    letter-spacing: -.022em; text-wrap: balance; margin: 0 0 20px;
+  }
+  .standfirst { font-size: 20px; line-height: 1.55; color: var(--ink-soft); max-width: 60ch; margin: 0; }
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 32px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted);
+  }
+  .meta-strip b { color: var(--ink); font-weight: 500; }
+
+  nav.toc {
+    margin: 40px 0 0; padding: 24px 26px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  nav.toc h2 {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px;
+  }
+  nav.toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; counter-reset: toc; }
+  nav.toc li { counter-increment: toc; margin: 0; }
+  nav.toc a {
+    color: var(--ink); text-decoration: none; font-size: 16px;
+    display: flex; gap: 14px; align-items: baseline; border-bottom: 1px solid transparent;
+  }
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--accent); flex: none;
+  }
+  nav.toc a:hover { border-bottom-color: var(--accent); }
+  nav.toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  section { padding-top: 64px; }
+  h2 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 600; font-size: 30px;
+    line-height: 1.16; letter-spacing: -.017em; text-wrap: balance; margin: 0 0 6px;
+    display: flex; gap: 16px; align-items: baseline;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 600;
+    color: var(--accent); flex: none; letter-spacing: 0;
+  }
+  h3 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 600; font-size: 19px;
+    letter-spacing: -.008em; margin: 38px 0 10px;
+  }
+  .rule { height: 1px; background: var(--line); margin: 14px 0 26px; }
+  p { margin: 0 0 18px; max-width: var(--measure); }
+  section > ul, section > ol, .note ul, .note ol { max-width: var(--measure); }
+  li { margin-bottom: 8px; }
+  strong { font-weight: 600; }
+  code {
+    font-family: "IBM Plex Mono", monospace; font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--line-soft);
+    border-radius: 4px; padding: 1px 5px; word-break: break-word;
+  }
+  a { color: var(--accent); }
+
+  figure.term {
+    margin: 24px 0 26px; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--term-bar); background: var(--term-bg);
+  }
+  figure.term figcaption {
+    background: var(--term-bar); color: var(--term-dim);
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px;
+    letter-spacing: .06em; text-transform: uppercase; padding: 9px 14px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  figure.term figcaption .dots { display: flex; gap: 5px; flex: none; }
+  figure.term figcaption .dots i { width: 9px; height: 9px; border-radius: 50%; background: #39424f; display: block; }
+  figure.term pre {
+    margin: 0; padding: 16px 18px; overflow-x: auto; color: var(--term-ink);
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; line-height: 1.62;
+  }
+  figure.term .cmd { color: var(--term-amber); font-weight: 500; }
+  figure.term .ok { color: var(--term-green); }
+  figure.term .bad { color: var(--term-red); }
+  figure.term .dim { color: var(--term-dim); }
+  figure.term .hi { color: var(--term-blue); }
+  .term-note {
+    font-family: Archivo, Arial, sans-serif; font-size: 13.5px;
+    color: var(--muted); margin: -14px 0 26px; max-width: var(--measure);
+  }
+
+  pre.plain {
+    margin: 20px 0; padding: 15px 17px; background: var(--surface);
+    border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: var(--radius); overflow-x: auto;
+    font-family: "IBM Plex Mono", monospace; font-size: 13.5px; line-height: 1.6; color: var(--ink);
+  }
+
+  .tablewrap {
+    overflow-x: auto; margin: 22px 0 26px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+  th, td { text-align: left; padding: 11px 15px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th {
+    font-family: Archivo, Arial, sans-serif; font-size: 12px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    background: var(--surface-2); border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: 12.8px; }
+  .nums { font-variant-numeric: tabular-nums; }
+
+  .note {
+    margin: 24px 0; padding: 16px 18px 16px 20px; border-radius: var(--radius);
+    border: 1px solid var(--line); border-left: 3px solid var(--muted);
+    background: var(--surface); max-width: var(--measure);
+  }
+  .note p:last-child, .note ul:last-child, .note ol:last-child { margin-bottom: 0; }
+  .note .tag {
+    display: block; font-family: Archivo, Arial, sans-serif; font-size: 11.5px;
+    font-weight: 600; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 7px;
+  }
+  .note.danger { border-left-color: var(--fail); background: var(--fail-soft); }
+  .note.danger .tag { color: var(--fail); }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.warn .tag { color: var(--warn); }
+  .note.good { border-left-color: var(--pass); background: var(--pass-soft); }
+  .note.good .tag { color: var(--pass); }
+  .note.key { border-left-color: var(--accent); background: var(--accent-soft); }
+  .note.key .tag { color: var(--accent); }
+
+  /* Mapa del servidor */
+  .mapa {
+    margin: 26px 0 28px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface); overflow: hidden;
+  }
+  .mapa-head {
+    background: var(--surface-2); border-bottom: 1px solid var(--line);
+    padding: 10px 16px; font-family: Archivo, Arial, sans-serif;
+    font-size: 12px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .mapa-body { padding: 18px; display: grid; gap: 10px; }
+  .capa {
+    border: 1px solid var(--line); border-radius: 5px; padding: 11px 14px;
+    background: var(--paper); font-family: Archivo, Arial, sans-serif; font-size: 14px;
+  }
+  .capa b { display: block; margin-bottom: 3px; }
+  .capa small {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted);
+    display: block; line-height: 1.55;
+  }
+  .capa.acc { border-color: var(--accent); background: var(--accent-soft); }
+  .capa.sep { border-style: dashed; background: transparent; }
+
+  footer.foot {
+    margin-top: 90px; padding-top: 26px; border-top: 2px solid var(--ink);
+    font-family: Archivo, Arial, sans-serif; font-size: 14px; color: var(--muted);
+  }
+  footer.foot p { max-width: 62ch; }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 18px 80px; }
+    header.head { padding-top: 48px; }
+    h2 { font-size: 25px; flex-direction: column; gap: 4px; }
+    figure.term pre { font-size: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <p class="eyebrow">Manual de estudio · SmartOLT · Volumen IV</p>
+  <h1>Un servidor, varios sistemas</h1>
+  <p class="standfirst">
+    Mover el sistema ISP a un VPS, hacer convivir ahí al CRM y a lo que venga
+    después, y —sobre todo— poder probarlos sin arriesgar la plata que ya está
+    entrando.
+  </p>
+  <div class="meta-strip">
+    <span>Destino · <b>VPS Debian 12</b></span>
+    <span>Sistemas · <b>ISP · CRM · licencias</b></span>
+    <span>Base ya escrita · <b>deploy/</b></span>
+    <span>Costo estimado · <b>~USD 12–24/mes</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#que-va">Qué va al VPS y qué no</a></li>
+    <li><a href="#restriccion">La restricción que decide todo</a></li>
+    <li><a href="#mapa">El mapa del servidor</a></li>
+    <li><a href="#tamano">Cuánto VPS hace falta</a></li>
+    <li><a href="#base">La base del servidor</a></li>
+    <li><a href="#primero">Montar el sistema ISP</a></li>
+    <li><a href="#segundo">El patrón para el segundo</a></li>
+    <li><a href="#probar">Probar sin romper lo que factura</a></li>
+    <li><a href="#mudanza">La mudanza, en orden</a></li>
+    <li><a href="#operar">Operar y respaldar</a></li>
+    <li><a href="#caros">Los errores caros</a></li>
+  </ol>
+</nav>
+
+<!-- ==================================================================== -->
+<section id="que-va">
+  <h2><span class="num">01</span> Qué va al VPS y qué no</h2>
+  <div class="rule"></div>
+
+  <p>
+    Antes de contratar nada: no todo lo que tenés necesita un servidor, y una de
+    las cosas que tenés <strong>no debería compartirlo con las otras</strong>.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Sistema</th><th>Hoy</th><th>¿Al VPS?</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Sistema ISP</b><br><small style="color:var(--muted)">middleware :4000 + web</small></td>
+          <td>Tu PC, con túnel</td>
+          <td style="color:var(--pass)"><b>Sí.</b> Es el que más gana: deja de depender de que tu máquina esté prendida.</td>
+        </tr>
+        <tr>
+          <td><b>Base de datos</b><br><small style="color:var(--muted)">Supabase</small></td>
+          <td>Nube</td>
+          <td style="color:var(--muted)"><b>No.</b> Ya está afuera y administrada. Moverla a mano es cambiar un problema resuelto por uno tuyo.</td>
+        </tr>
+        <tr>
+          <td><b>CRM / bot de WhatsApp</b></td>
+          <td>Supabase Edge Functions</td>
+          <td><b>Solo si querés.</b> Ya corre en la nube. Se mueve si te conviene tenerlo bajo tu control o si el proveedor lo entrega como código.</td>
+        </tr>
+        <tr>
+          <td><b>Servidor de licencias</b><br><small style="color:var(--muted)">:4100</small></td>
+          <td>Sin desplegar</td>
+          <td style="color:var(--fail)"><b>Sí, pero APARTE.</b> Ver abajo.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">El servidor de licencias va solo</span>
+    <p>
+      Es <em>el lado del vendedor</em>: es lo que habilita a cada ISP que te
+      compró el sistema. Si vive en el mismo servidor que la instalación de un
+      cliente, ese cliente está a un descuido de poder apagar su propio control
+      de licencia — o de ver los datos de todos los demás ISP.
+    </p>
+    <p>
+      <strong>Va en un VPS propio, o al menos en uno que nunca comparta con la
+      instalación de un cliente.</strong> Es el único de los cuatro donde la
+      separación no es prolijidad sino modelo de negocio.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="restriccion">
+  <h2><span class="num">02</span> La restricción que decide todo</h2>
+  <div class="rule"></div>
+
+  <p>
+    El middleware no solo habla con la base. Abre <strong>sesiones SSH contra las
+    OLT</strong> —PROGRESO y LA MANÁ— y usa la <strong>API de RouterOS contra los
+    MikroTik</strong> para cortar y reconectar abonados.
+  </p>
+
+  <p>
+    Esos equipos están en tu red, con direcciones privadas. Un VPS en internet
+    <strong>no los alcanza</strong>. Si movés el middleware sin resolver esto,
+    todo lo que es facturación y consulta va a andar, y todo lo que toca la red
+    va a fallar: los cortes por mora, las reconexiones al cobrar, el
+    aprovisionamiento de una ONT.
+  </p>
+
+  <p>Hay dos salidas, y la elección cambia todo el resto.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th></th><th>A · Middleware en el VPS + VPN</th><th>B · Middleware local, solo la web afuera</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Cómo</b></td>
+          <td>El VPS es concentrador VPN; cada MikroTik se conecta hacia él.</td>
+          <td>El middleware se queda donde está; el VPS solo sirve la web.</td>
+        </tr>
+        <tr>
+          <td><b>Si se corta tu internet</b></td>
+          <td style="color:var(--pass)">El sistema sigue: facturación, consultas, el CRM.</td>
+          <td style="color:var(--fail)">Se cae todo.</td>
+        </tr>
+        <tr>
+          <td><b>Trabajo de montaje</b></td>
+          <td>Más: hay que tocar cada router.</td>
+          <td style="color:var(--pass)">Casi nada.</td>
+        </tr>
+        <tr>
+          <td><b>Ya está escrito</b></td>
+          <td style="color:var(--pass)"><code>deploy/openvpn-server.sh</code> y <code>agregar-cliente-vpn.sh</code></td>
+          <td>Es lo que tenés hoy con el túnel.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note key">
+    <span class="tag">La recomendación</span>
+    <p>
+      <strong>A</strong>, y por una razón que no es técnica: un ISP que factura
+      no puede depender de que una PC de la oficina esté prendida. La VPN es
+      trabajo de una tarde y se hace una sola vez por router.
+    </p>
+    <p>
+      El camino <strong>B</strong> es legítimo como paso intermedio mientras
+      probás, pero no como destino.
+    </p>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">Lo que hay que decidir antes de contratar el VPS</span>
+    <p>
+      Los MikroTik van a guardar la dirección del VPS en su configuración. Si un
+      día cambiás de proveedor y cambia la IP, <strong>a los routers sin IP
+      pública no los vas a poder alcanzar para corregirlos</strong>.
+    </p>
+    <p>
+      Por eso: en la configuración de los routers poné un <strong>dominio</strong>
+      —<code>vpn.smartbotai.net</code>— y no la IP. Ya tenés el dominio en
+      Cloudflare; el registro se cambia en un minuto y los routers siguen
+      encontrando el servidor.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="mapa">
+  <h2><span class="num">03</span> El mapa del servidor</h2>
+  <div class="rule"></div>
+
+  <p>
+    Varios sistemas en una máquina funcionan si cada uno tiene lo suyo: su
+    puerto, su usuario, su carpeta, su servicio y su subdominio. Lo único
+    compartido es el portero.
+  </p>
+
+  <div class="mapa">
+    <div class="mapa-head">VPS · Debian 12</div>
+    <div class="mapa-body">
+      <div class="capa acc">
+        <b>nginx · :80 y :443</b>
+        <small>el único que mira a internet · reparte por subdominio</small>
+      </div>
+      <div class="capa">
+        <b>gestion.smartbotai.net → sistema ISP</b>
+        <small>web estática en /opt/smartolt/web/dist<br>/api → 127.0.0.1:4000 · usuario smartolt</small>
+      </div>
+      <div class="capa">
+        <b>api.smartbotai.net → la misma API, para el CRM</b>
+        <small>solo /api/v1 y /api/integracion · 127.0.0.1:4000</small>
+      </div>
+      <div class="capa">
+        <b>crm.smartbotai.net → bot de WhatsApp</b>
+        <small>127.0.0.1:4200 · usuario crmbot</small>
+      </div>
+      <div class="capa sep">
+        <b>OpenVPN · :1194/tcp</b>
+        <small>10.8.0.0/24 → un túnel por MikroTik → las OLT detrás</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Sistema</th><th>Puerto interno</th><th>Usuario</th><th>Carpeta</th></tr></thead>
+      <tbody>
+        <tr><td>Sistema ISP</td><td class="nums"><code>4000</code></td><td><code>smartolt</code></td><td><code>/opt/smartolt</code></td></tr>
+        <tr><td>Servidor de licencias</td><td class="nums"><code>4100</code></td><td><code>licencias</code></td><td><code>/opt/licencias</code></td></tr>
+        <tr><td>CRM / bot</td><td class="nums"><code>4200</code></td><td><code>crmbot</code></td><td><code>/opt/crm</code></td></tr>
+        <tr><td>Pruebas del ISP</td><td class="nums"><code>4900</code></td><td><code>smartolt-test</code></td><td><code>/opt/smartolt-test</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note key">
+    <span class="tag">Las dos reglas que hacen que esto funcione</span>
+    <ol>
+      <li>
+        <b>Nada escucha en la interfaz pública, solo en <code>127.0.0.1</code>.</b>
+        Se llega únicamente por nginx. Un servicio con un puerto abierto a
+        internet es un servicio que alguien va a encontrar.
+      </li>
+      <li>
+        <b>Un usuario del sistema por aplicación.</b> Si mañana el CRM tiene una
+        falla, el atacante entra como <code>crmbot</code> — que no puede leer el
+        <code>.env</code> del sistema ISP ni tocar sus archivos. Sin esa
+        separación, una falla en el sistema menos importante compromete al más
+        importante.
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="tamano">
+  <h2><span class="num">04</span> Cuánto VPS hace falta</h2>
+  <div class="rule"></div>
+
+  <p>
+    Menos del que te van a querer vender. La base de datos está afuera, que es lo
+    que normalmente pide memoria.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Escenario</th><th>vCPU</th><th>RAM</th><th>Disco</th><th>Precio típico</th></tr></thead>
+      <tbody>
+        <tr><td>Solo el sistema ISP</td><td class="nums">1</td><td class="nums">2 GB</td><td class="nums">25 GB</td><td class="nums">~USD 12</td></tr>
+        <tr><td>ISP + CRM + pruebas</td><td class="nums">2</td><td class="nums">4 GB</td><td class="nums">50 GB</td><td class="nums">~USD 24</td></tr>
+        <tr><td>Licencias (aparte)</td><td class="nums">1</td><td class="nums">1 GB</td><td class="nums">10 GB</td><td class="nums">~USD 6</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Dos datos concretos de este proyecto para dimensionar: <code>web/node_modules</code>
+    pesa <strong>184 MB</strong> y <code>middleware/node_modules</code> otros
+    <strong>75 MB</strong>. Compilar el frontend es lo más pesado que va a hacer
+    la máquina, y es puntual.
+  </p>
+
+  <div class="note">
+    <span class="tag">Dónde ponerlo</span>
+    <p>
+      Elegí una región cercana —Miami o São Paulo para Ecuador—. No es por la
+      web: es porque cada operación contra una OLT abre una sesión SSH y encadena
+      comandos, y ahí la latencia se multiplica por cada ida y vuelta.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="base">
+  <h2><span class="num">05</span> La base del servidor</h2>
+  <div class="rule"></div>
+
+  <p>Lo que se hace una sola vez, antes de instalar ninguna aplicación.</p>
+
+  <h3>Entrar y cerrar la puerta</h3>
+
+<pre class="plain">ssh root@TU-IP
+
+adduser opero
+usermod -aG sudo opero
+mkdir -p /home/opero/.ssh
+cp ~/.ssh/authorized_keys /home/opero/.ssh/
+chown -R opero:opero /home/opero/.ssh
+chmod 700 /home/opero/.ssh</pre>
+
+  <p>Y se desactiva el ingreso con contraseña, que es por donde entran solos:</p>
+
+<pre class="plain">nano /etc/ssh/sshd_config
+    PermitRootLogin no
+    PasswordAuthentication no
+systemctl restart ssh</pre>
+
+  <div class="note danger">
+    <span class="tag">No cierres la sesión todavía</span>
+    <p>
+      Abrí una <strong>segunda</strong> terminal y comprobá que entrás como
+      <code>opero</code>. Si algo quedó mal y ya cerraste la única sesión que
+      tenías, la forma de recuperarlo es la consola de emergencia del proveedor
+      — que existe, pero es una hora perdida.
+    </p>
+  </div>
+
+  <h3>El cortafuegos</h3>
+
+<pre class="plain">apt install -y ufw
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 1194/tcp      # OpenVPN, si vas por el camino A
+ufw enable</pre>
+
+  <p>
+    Fijate que <strong>no se abre el 4000, ni el 4100, ni el 4200</strong>. Esos
+    solo se alcanzan desde adentro.
+  </p>
+
+  <h3>Lo mínimo que evita disgustos</h3>
+
+<pre class="plain">apt install -y fail2ban unattended-upgrades
+timedatectl set-timezone America/Guayaquil</pre>
+
+  <p>
+    La zona horaria no es un detalle cosmético: la facturación mensual, los
+    cortes por mora y los avisos programados se disparan por hora. Con el
+    servidor en UTC, un corte de las 8 de la mañana sale a las 3.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="primero">
+  <h2><span class="num">06</span> Montar el sistema ISP</h2>
+  <div class="rule"></div>
+
+  <p>
+    Esta parte ya está escrita en <code>deploy/</code>. El guion completo está en
+    <code>deploy/README.md</code>; acá va lo que importa entender.
+  </p>
+
+<pre class="plain">git clone TU-REPO /opt/smartolt
+cd /opt/smartolt/deploy
+chmod +x *.sh
+./install-app.sh</pre>
+
+  <p>
+    Instala Node 22, nginx, crea el usuario <code>smartolt</code>, instala
+    dependencias, compila el frontend y deja el middleware bajo systemd.
+  </p>
+
+  <div class="note warn">
+    <span class="tag">La línea que rompe la instalación</span>
+    <p>
+      En <code>web/.env</code>, <code>VITE_API_URL</code> tiene que ser la
+      <strong>URL pública</strong>:
+    </p>
+<pre class="plain">VITE_API_URL=https://gestion.smartbotai.net/api</pre>
+    <p>
+      Con <code>localhost</code> ahí, la web compila bien, carga bien, y no
+      funciona nada — porque el navegador del usuario busca el puerto 4000
+      <em>en su propia máquina</em>. Es el mismo malentendido que hacía que el
+      CRM no llegara a tu PC.
+    </p>
+    <p>
+      Y como se compila adentro del paquete, <strong>cambiarla después obliga a
+      recompilar</strong>: no alcanza con reiniciar el servicio.
+    </p>
+  </div>
+
+  <h3>La VPN, si vas por el camino A</h3>
+
+<pre class="plain">./openvpn-server.sh                          # una vez
+./agregar-cliente-vpn.sh cliente01 10.8.0.11 # uno por MikroTik</pre>
+
+  <p>
+    El segundo imprime el script listo para pegar en el router. Después, en la
+    web: <b>MikroTik → Nuevo router</b>, con la IP de la VPN
+    (<code>10.8.0.11</code>) en vez de la privada.
+  </p>
+
+  <div class="note">
+    <span class="tag">Sobre estos scripts</span>
+    <p>
+      El propio <code>deploy/README.md</code> avisa que <strong>no fueron
+      probados contra un VPS real</strong>. Son cortos a propósito para poder
+      leerlos enteros antes de correrlos. Leelos.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="segundo">
+  <h2><span class="num">07</span> El patrón para el segundo</h2>
+  <div class="rule"></div>
+
+  <p>
+    A partir del segundo sistema, es siempre lo mismo. Cuatro pasos, y el único
+    que cambia es el nombre.
+  </p>
+
+  <h3>1 · Su propio usuario y carpeta</h3>
+
+<pre class="plain">adduser --system --group --home /opt/crm crmbot
+git clone TU-REPO-DEL-CRM /opt/crm
+chown -R crmbot:crmbot /opt/crm</pre>
+
+  <h3>2 · Su propio servicio</h3>
+
+  <p>En <code>/etc/systemd/system/crm.service</code>:</p>
+
+<pre class="plain">[Unit]
+Description=CRM / bot de WhatsApp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=crmbot
+Group=crmbot
+WorkingDirectory=/opt/crm
+ExecStart=/usr/bin/node src/server.js
+Environment=PORT=4200
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/crm
+
+[Install]
+WantedBy=multi-user.target</pre>
+
+  <p>
+    Es el mismo archivo que <code>deploy/smartolt-middleware.service</code>, con
+    otro nombre y otro puerto. Las líneas de endurecimiento del final valen la
+    pena: <code>ProtectHome</code> y <code>ProtectSystem=strict</code> son lo que
+    hace que un sistema comprometido no vea al de al lado.
+  </p>
+
+<pre class="plain">systemctl daemon-reload
+systemctl enable --now crm
+systemctl status crm</pre>
+
+  <h3>3 · Su subdominio en nginx</h3>
+
+  <p>En <code>/etc/nginx/sites-available/crm</code>:</p>
+
+<pre class="plain">server {
+    listen 80;
+    server_name crm.smartbotai.net;
+
+    location / {
+        proxy_pass http://127.0.0.1:4200;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}</pre>
+
+<pre class="plain">ln -s /etc/nginx/sites-available/crm /etc/nginx/sites-enabled/
+nginx -t &amp;&amp; systemctl reload nginx</pre>
+
+  <p>
+    <code>nginx -t</code> antes de recargar, siempre. Recargar con un error de
+    sintaxis tumba <strong>todos</strong> los sitios, no solo el que tocaste.
+  </p>
+
+  <h3>4 · El DNS y el certificado</h3>
+
+  <p>
+    En Cloudflare, un registro <code>A</code> de <code>crm</code> hacia la IP del
+    VPS. Y después:
+  </p>
+
+<pre class="plain">apt install -y certbot python3-certbot-nginx
+certbot --nginx -d gestion.smartbotai.net -d api.smartbotai.net -d crm.smartbotai.net</pre>
+
+  <div class="note warn">
+    <span class="tag">Cuidado con la nube naranja</span>
+    <p>
+      Si el registro está <strong>proxeado</strong> (nube naranja), certbot no
+      puede validar por HTTP: Cloudflare intercepta el pedido y el certificado
+      falla. Ponelo en <strong>gris</strong>, sacá el certificado, y si querés
+      volvelo a naranja después.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="probar">
+  <h2><span class="num">08</span> Probar sin romper lo que factura</h2>
+  <div class="rule"></div>
+
+  <p>
+    Acá está el corazón de la pregunta, y es donde más fácil se pierde plata.
+  </p>
+
+  <p>
+    Tu sistema <strong>cobra de verdad</strong>: acredita pagos, salda facturas,
+    corta y reconecta abonados. Una prueba contra la base de producción no es una
+    prueba — es una operación real hecha sin querer.
+  </p>
+
+  <div class="note danger">
+    <span class="tag">Esto pasó, no es hipotético</span>
+    <p>
+      Probando el registro de pagos por la API, dos pedidos de prueba con una
+      llave que tenía «acreditar al instante» encendido entraron como cobros
+      reales: <strong>USD 46,20 acreditados a un abonado</strong>, facturas
+      saldadas incluidas. Se pudieron revertir porque se detectaron en el
+      momento y se sabía exactamente qué filas tocar.
+    </p>
+    <p>
+      Un mes después, eso mismo aparece en el cierre de caja, en la comisión de
+      un vendedor y en el reporte de ARCOTEL — y ya no se revierte, se explica.
+    </p>
+  </div>
+
+  <h3>La regla</h3>
+
+  <div class="note key">
+    <span class="tag">Una sola cosa que recordar</span>
+    <p>
+      <strong>Ambiente de prueba = base de datos distinta.</strong> Todo lo demás
+      —otro puerto, otro usuario, otro subdominio— es comodidad. Lo que impide el
+      desastre es que la base no sea la misma.
+    </p>
+  </div>
+
+  <h3>Cómo se arma</h3>
+
+  <p>
+    <strong>1 · Un proyecto Supabase aparte.</strong> Gratis. Le corrés las mismas
+    migraciones en orden, desde la 01 hasta la última:
+  </p>
+
+<pre class="plain">npm run check:migraciones</pre>
+
+  <p>
+    Lee la base y dice cuál falta, columna por columna, sin modificar nada. Es la
+    forma de saber que el ambiente de prueba es igual al de producción.
+  </p>
+
+  <p>
+    <strong>2 · Una copia del sistema apuntando ahí.</strong> Mismo código,
+    <code>.env</code> distinto:
+  </p>
+
+<pre class="plain">/opt/smartolt-test           puerto 4900   usuario smartolt-test
+    SUPABASE_URL=https://EL-PROYECTO-DE-PRUEBA.supabase.co
+    PORT=4900</pre>
+
+  <p>
+    <strong>3 · Datos que se noten.</strong> Abonados llamados
+    <code>PRUEBA UNO</code>, cédulas <code>99900030</code>, montos con centavos
+    raros. Cuando algo se filtre entre ambientes —y en algún momento pasa— se
+    tiene que ver de una.
+  </p>
+
+  <p>
+    <strong>4 · Que no pueda mandar mensajes de verdad.</strong> Es lo que más se
+    olvida. En el ambiente de prueba, la vía de WhatsApp en <b>manual</b> y el
+    correo sin credenciales. Un aviso de corte de prueba enviado a 180 abonados
+    reales cuesta el número de WhatsApp.
+  </p>
+
+  <h3>Qué probar, en este orden</h3>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th></th><th>Prueba</th><th>Qué confirma</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="nums"><b>1</b></td>
+          <td><code>curl .../api/integracion/ping</code> con llave y sin llave</td>
+          <td>Llega, y la seguridad está en pie</td>
+        </tr>
+        <tr>
+          <td class="nums"><b>2</b></td>
+          <td>Entrar a la web, iniciar sesión, abrir un abonado</td>
+          <td>El frontend habla con su API</td>
+        </tr>
+        <tr>
+          <td class="nums"><b>3</b></td>
+          <td>Consultar deuda por la API</td>
+          <td>La cadena completa hasta la base</td>
+        </tr>
+        <tr>
+          <td class="nums"><b>4</b></td>
+          <td>Registrar un pago <em>sin</em> acreditación automática</td>
+          <td>Escribe, y queda en la bandeja para confirmar</td>
+        </tr>
+        <tr>
+          <td class="nums"><b>5</b></td>
+          <td>Diagnosticar un abonado contra una OLT</td>
+          <td><b>Que la VPN sirve.</b> Es la prueba que separa el camino A del B</td>
+        </tr>
+        <tr>
+          <td class="nums"><b>6</b></td>
+          <td>Cortar y reconectar un abonado de prueba</td>
+          <td>El MikroTik responde por el túnel</td>
+        </tr>
+        <tr>
+          <td class="nums"><b>7</b></td>
+          <td>Reiniciar el VPS y no tocar nada</td>
+          <td>Todo vuelve solo</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Las primeras cuatro se prueban contra el ambiente de prueba. La quinta y la
+    sexta tocan equipos reales aunque la base sea de prueba —no hay OLT de
+    mentira— así que se hacen <strong>con un abonado tuyo</strong>, fuera de hora
+    pico, y con alguien mirando el equipo.
+  </p>
+
+  <div class="note good">
+    <span class="tag">La prueba que vale por todas</span>
+    <p>
+      <strong>Reiniciar el servidor.</strong> Es la única que cubre servicios,
+      orden de arranque, permisos, certificados y VPN de una sola vez. Hacela
+      antes de mandar clientes ahí, no después.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="mudanza">
+  <h2><span class="num">09</span> La mudanza, en orden</h2>
+  <div class="rule"></div>
+
+  <p>
+    Nada de esto se hace de golpe. El sistema de hoy sigue andando en tu PC hasta
+    el último paso.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th></th><th>Paso</th><th>Se puede volver atrás</th></tr></thead>
+      <tbody>
+        <tr><td class="nums"><b>1</b></td><td>Contratar el VPS y dejarlo seguro (sección 5)</td><td style="color:var(--pass)">Sí</td></tr>
+        <tr><td class="nums"><b>2</b></td><td>Montar el ambiente de <b>prueba</b>, con su Supabase aparte</td><td style="color:var(--pass)">Sí</td></tr>
+        <tr><td class="nums"><b>3</b></td><td>Correr las pruebas 1 a 4</td><td style="color:var(--pass)">Sí</td></tr>
+        <tr><td class="nums"><b>4</b></td><td>Montar la VPN y sumar <b>un</b> MikroTik</td><td style="color:var(--pass)">Sí</td></tr>
+        <tr><td class="nums"><b>5</b></td><td>Pruebas 5 y 6 con un abonado tuyo</td><td style="color:var(--pass)">Sí</td></tr>
+        <tr><td class="nums"><b>6</b></td><td>Montar producción en el mismo VPS, apuntando al Supabase real</td><td style="color:var(--pass)">Sí, todavía nadie la usa</td></tr>
+        <tr><td class="nums"><b>7</b></td><td>Sumar el resto de los MikroTik</td><td style="color:var(--warn)">Con cuidado</td></tr>
+        <tr><td class="nums"><b>8</b></td><td><b>Mover el DNS</b> de <code>api.smartbotai.net</code> al VPS</td><td style="color:var(--warn)">Sí, pero es el punto de no retorno práctico</td></tr>
+        <tr><td class="nums"><b>9</b></td><td>Apagar el túnel y los servicios de la PC</td><td style="color:var(--fail)">Recién cuando el paso 8 lleve días bien</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note key">
+    <span class="tag">El paso 8, en detalle</span>
+    <p>
+      Hoy <code>api.smartbotai.net</code> es un <code>CNAME</code> al túnel de tu
+      PC. Mudarlo es cambiarlo por un <code>A</code> a la IP del VPS.
+    </p>
+    <p>
+      <strong>Bajá el TTL a 60 segundos un día antes.</strong> Así, si algo sale
+      mal, volver atrás tarda un minuto en vez de horas. Y no hace falta avisarle
+      nada al proveedor del CRM: la URL no cambia, cambia a dónde apunta.
+    </p>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">Los dos ambientes contra la misma base, nunca</span>
+    <p>
+      Entre los pasos 6 y 9 vas a tener el sistema corriendo en dos lados. Si los
+      dos apuntan al Supabase real, <strong>las dos instancias corren las tareas
+      automáticas</strong>: doble facturación mensual, doble aviso de corte,
+      dobles cobros aplicados.
+    </p>
+    <p>
+      Antes de levantar producción en el VPS, <strong>apagá las automatizaciones
+      en la PC</strong> —o el servicio entero— y dejá una sola instancia con las
+      tareas encendidas.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="operar">
+  <h2><span class="num">10</span> Operar y respaldar</h2>
+  <div class="rule"></div>
+
+  <h3>Los comandos de todos los días</h3>
+
+<pre class="plain">systemctl status smartolt-middleware        # ¿está vivo?
+journalctl -u smartolt-middleware -f        # ver en vivo
+journalctl -u smartolt-middleware -n 100    # las últimas 100 líneas
+systemctl restart smartolt-middleware       # después de tocar código
+
+systemctl status openvpn-server@server      # la VPN
+cat /var/log/openvpn/status.log             # qué routers están conectados
+nginx -t &amp;&amp; systemctl reload nginx          # después de tocar nginx</pre>
+
+  <h3>Actualizar</h3>
+
+<pre class="plain">cd /opt/smartolt
+git pull
+npm --prefix middleware install
+npm --prefix web install &amp;&amp; npm --prefix web run build
+systemctl restart smartolt-middleware</pre>
+
+  <p>
+    El <code>build</code> del frontend no es opcional si tocaste la web: nginx
+    sirve <code>dist/</code>, no el código fuente.
+  </p>
+
+  <h3>Qué respaldar</h3>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Qué</th><th>Dónde</th><th>Si se pierde</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>La base</b></td>
+          <td>Supabase</td>
+          <td>Lo peor que puede pasar. Activá los respaldos automáticos <b>y bajate uno a mano cada tanto</b>: un respaldo que nunca se restauró no es un respaldo.</td>
+        </tr>
+        <tr>
+          <td><b>Los <code>.env</code></b></td>
+          <td><code>/opt/*/. env</code></td>
+          <td>Reconstruibles, pero es un día de trabajo. No van al repositorio.</td>
+        </tr>
+        <tr>
+          <td><b>Certificados de la VPN</b></td>
+          <td><code>/etc/openvpn</code></td>
+          <td>Hay que reconfigurar <b>todos</b> los routers. Copialos.</td>
+        </tr>
+        <tr>
+          <td><b>La clave de licencias</b></td>
+          <td><code>/opt/licencias</code></td>
+          <td>Se caen las licencias de todos tus clientes a la vez.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Los <em>snapshots</em> del proveedor cubren el servidor entero por unos
+    dólares al mes y se restauran en minutos. Para lo que vale lo que hay ahí
+    adentro, es barato.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="caros">
+  <h2><span class="num">11</span> Los errores caros</h2>
+  <div class="rule"></div>
+
+  <div class="note danger">
+    <span class="tag">Probar contra la base de producción</span>
+    <p>
+      El más caro de todos, y el más fácil de cometer porque «era solo una
+      prueba». Un ambiente de prueba con su propia base cuesta cero.
+    </p>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">Dos instancias con las tareas encendidas</span>
+    <p>
+      Facturación duplicada, avisos duplicados, cortes duplicados. Y se descubre
+      cuando llaman los abonados.
+    </p>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">La IP del VPS en la configuración de los MikroTik</span>
+    <p>
+      El día que cambies de servidor, a los routers sin IP pública no los vas a
+      poder alcanzar. Usá un dominio desde el principio.
+    </p>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">Exponer un puerto de aplicación a internet</span>
+    <p>
+      El <code>4000</code>, el <code>4200</code>, o el de Supabase. Todo entra por
+      nginx; lo demás escucha en <code>127.0.0.1</code> y nada más.
+    </p>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">Poner el servidor de licencias con un cliente</span>
+    <p>
+      Es el control de acceso de tu negocio. Va solo.
+    </p>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">Y uno que no es caro pero desespera</span>
+    <p>
+      <code>VITE_API_URL</code> con <code>localhost</code>. La web carga perfecto
+      y no anda nada. Se arregla corrigiendo el <code>.env</code> y
+      <strong>recompilando</strong> — reiniciar el servicio no alcanza, porque
+      ese valor quedó adentro del paquete.
+    </p>
+  </div>
+</section>
+
+<footer class="foot">
+  <p>
+    <strong>Manual de estudio, volumen IV — Un servidor, varios sistemas.</strong>
+    A diferencia de los volúmenes anteriores, los comandos de este documento
+    <strong>no están capturados de una instalación real</strong>: son el plan, no
+    el registro. Los scripts de <code>deploy/</code> tampoco fueron probados
+    contra un VPS. Leelos antes de correrlos.
+  </p>
+  <p style="margin-top:14px">
+    Volumen I: <em>El túnel de salida</em> ·
+    Volumen II: <em>La dirección fija</em> ·
+    Volumen III: <em>Que arranque solo</em> ·
+    Base técnica: <code>deploy/README.md</code>
+  </p>
+</footer>
+
+</div>

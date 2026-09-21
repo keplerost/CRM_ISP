@@ -1,0 +1,66 @@
+-- =============================================================================
+-- Migración 106 — El alta en campo volvió a pedir permisos que el técnico no tiene
+-- =============================================================================
+-- Ejecutar en: Supabase Dashboard → SQL Editor → New query → Run. Es idempotente.
+--
+-- ── El error ──
+--
+--     new row violates row-level security policy for table "clientes"
+--
+-- Aparece al finalizar un alta desde la app del técnico, en el último paso,
+-- cuando la función tiene que crear la ficha del abonado.
+--
+-- ── Qué pasó ──
+--
+-- La 70 cerró la escritura sobre `clientes` a quien no tiene la cartera
+-- completa. Para que el alta en campo siguiera funcionando dejó
+-- `finalizar_alta_instalacion` como SECURITY DEFINER, con un `ALTER FUNCTION`
+-- suelto al final del archivo, y lo explicó ahí mismo:
+--
+--     "El alta en campo del técnico no pasa por acá: finalizar_alta_instalacion
+--      queda como SECURITY DEFINER más abajo, que es la forma correcta de
+--      permitir una operación concreta sin darle permiso general a quien la
+--      ejecuta."
+--
+-- Después la 94 y la 96 rehicieron esa función con `CREATE OR REPLACE` para
+-- agregarle el traslado y la IP fija. Y `CREATE OR REPLACE` **borra** los
+-- atributos de seguridad: la función volvió al modo invoker y perdió también su
+-- `search_path` fijo. Sin decir nada.
+--
+-- Desde entonces el alta en campo estaba rota para todos los técnicos. Solo
+-- funcionaba si la ejecutaba alguien con cartera completa —un administrador—,
+-- que es exactamente el permiso que la 70 quería no tener que dar.
+--
+-- ── Por qué no se notó ──
+--
+-- Porque para llegar a finalizar hay que completar los seis pasos, y ninguna
+-- orden había llegado tan lejos en esta instalación. El primer alta que recorrió
+-- el circuito entero se estrelló contra esto.
+--
+-- ── Qué se arregla y dónde ──
+--
+--   · Acá: se le devuelven los dos atributos a la función que ya está en la base.
+--   · En la 94 y la 96: la marca ahora va DENTRO de la definición, no en un
+--     ALTER aparte, para que la próxima vez que alguien recree la función no se
+--     pueda perder.
+--
+-- Y en `supabase/pruebas` quedó una prueba que compara, para cada función que el
+-- SQL declara SECURITY DEFINER, cómo quedó de verdad en la base. Esta clase de
+-- regresión no vuelve a pasar en silencio.
+-- =============================================================================
+
+ALTER FUNCTION finalizar_alta_instalacion(UUID) SECURITY DEFINER;
+ALTER FUNCTION finalizar_alta_instalacion(UUID) SET search_path = public, pg_temp;
+
+
+-- =============================================================================
+-- Cómo comprobarlo
+-- =============================================================================
+--   SELECT proname,
+--          prosecdef AS es_security_definer,
+--          proconfig AS search_path
+--     FROM pg_proc p
+--     JOIN pg_namespace n ON n.oid = p.pronamespace AND n.nspname = 'public'
+--    WHERE proname IN ('finalizar_alta_instalacion', 'enviar_expediente_a_instalaciones');
+--
+--   -- Las dos tienen que decir `true` y `{search_path=public, pg_temp}`.

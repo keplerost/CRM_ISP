@@ -1,0 +1,750 @@
+<title>Que Arranque Solo</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --paper:#f6f7f9; --surface:#ffffff; --surface-2:#eef1f5;
+    --ink:#131922; --ink-soft:#3d4756; --muted:#5b6675;
+    --line:#dde1e7; --line-soft:#e8ebef;
+    --accent:#b45606; --accent-soft:#fdf1e3;
+    --pass:#177245; --pass-soft:#e6f4ec;
+    --fail:#a8201a; --fail-soft:#fbeceb;
+    --warn:#8a5a00; --warn-soft:#fdf6e3;
+    --term-bg:#10151c; --term-bar:#1b222c; --term-ink:#d6dce5;
+    --term-dim:#77839a; --term-green:#6cc48c; --term-amber:#e8a33d;
+    --term-red:#e8756b; --term-blue:#7aaee8;
+    --measure:68ch; --radius:6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#0d1117; --surface:#151b23; --surface-2:#1c242e;
+      --ink:#e6e9ee; --ink-soft:#c3cad4; --muted:#8b96a5;
+      --line:#262f3b; --line-soft:#1e262f;
+      --accent:#f0932b; --accent-soft:#2a1f11;
+      --pass:#5cc98a; --pass-soft:#10251a;
+      --fail:#ef7a72; --fail-soft:#2a1615;
+      --warn:#e0b054; --warn-soft:#262013;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0d1117; --surface:#151b23; --surface-2:#1c242e;
+    --ink:#e6e9ee; --ink-soft:#c3cad4; --muted:#8b96a5;
+    --line:#262f3b; --line-soft:#1e262f;
+    --accent:#f0932b; --accent-soft:#2a1f11;
+    --pass:#5cc98a; --pass-soft:#10251a;
+    --fail:#ef7a72; --fail-soft:#2a1615;
+    --warn:#e0b054; --warn-soft:#262013;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 17px; line-height: 1.65; margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px 120px; }
+
+  header.head { padding: 72px 0 40px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 700;
+    font-size: clamp(38px, 6.5vw, 60px); line-height: 1.02;
+    letter-spacing: -.022em; text-wrap: balance; margin: 0 0 20px;
+  }
+  .standfirst { font-size: 20px; line-height: 1.55; color: var(--ink-soft); max-width: 60ch; margin: 0; }
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 32px;
+    font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted);
+  }
+  .meta-strip b { color: var(--ink); font-weight: 500; }
+
+  nav.toc {
+    margin: 40px 0 0; padding: 24px 26px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius);
+  }
+  nav.toc h2 {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px;
+  }
+  nav.toc ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; counter-reset: toc; }
+  nav.toc li { counter-increment: toc; margin: 0; }
+  nav.toc a {
+    color: var(--ink); text-decoration: none; font-size: 16px;
+    display: flex; gap: 14px; align-items: baseline; border-bottom: 1px solid transparent;
+  }
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--accent); flex: none;
+  }
+  nav.toc a:hover { border-bottom-color: var(--accent); }
+  nav.toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  section { padding-top: 64px; }
+  h2 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 600; font-size: 30px;
+    line-height: 1.16; letter-spacing: -.017em; text-wrap: balance; margin: 0 0 6px;
+    display: flex; gap: 16px; align-items: baseline;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 600;
+    color: var(--accent); flex: none; letter-spacing: 0;
+  }
+  h3 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 600; font-size: 19px;
+    letter-spacing: -.008em; margin: 38px 0 10px;
+  }
+  .rule { height: 1px; background: var(--line); margin: 14px 0 26px; }
+  p { margin: 0 0 18px; max-width: var(--measure); }
+  section > ul, section > ol, .note ul, .note ol { max-width: var(--measure); }
+  li { margin-bottom: 8px; }
+  strong { font-weight: 600; }
+  code {
+    font-family: "IBM Plex Mono", monospace; font-size: .86em;
+    background: var(--surface-2); border: 1px solid var(--line-soft);
+    border-radius: 4px; padding: 1px 5px; word-break: break-word;
+  }
+  a { color: var(--accent); }
+
+  figure.term {
+    margin: 24px 0 26px; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--term-bar); background: var(--term-bg);
+  }
+  figure.term figcaption {
+    background: var(--term-bar); color: var(--term-dim);
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px;
+    letter-spacing: .06em; text-transform: uppercase; padding: 9px 14px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  figure.term figcaption .dots { display: flex; gap: 5px; flex: none; }
+  figure.term figcaption .dots i { width: 9px; height: 9px; border-radius: 50%; background: #39424f; display: block; }
+  figure.term pre {
+    margin: 0; padding: 16px 18px; overflow-x: auto; color: var(--term-ink);
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; line-height: 1.62;
+  }
+  figure.term .cmd { color: var(--term-amber); font-weight: 500; }
+  figure.term .ok { color: var(--term-green); }
+  figure.term .bad { color: var(--term-red); }
+  figure.term .dim { color: var(--term-dim); }
+  figure.term .hi { color: var(--term-blue); }
+  figure.term .mark { color: #10151c; background: var(--term-amber); padding: 0 4px; border-radius: 3px; font-weight: 600; }
+  .term-note {
+    font-family: Archivo, Arial, sans-serif; font-size: 13.5px;
+    color: var(--muted); margin: -14px 0 26px; max-width: var(--measure);
+  }
+
+  pre.plain {
+    margin: 20px 0; padding: 15px 17px; background: var(--surface);
+    border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: var(--radius); overflow-x: auto;
+    font-family: "IBM Plex Mono", monospace; font-size: 13.5px; line-height: 1.6; color: var(--ink);
+  }
+
+  .tablewrap {
+    overflow-x: auto; margin: 22px 0 26px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+  th, td { text-align: left; padding: 11px 15px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th {
+    font-family: Archivo, Arial, sans-serif; font-size: 12px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    background: var(--surface-2); border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: 12.8px; }
+
+  .note {
+    margin: 24px 0; padding: 16px 18px 16px 20px; border-radius: var(--radius);
+    border: 1px solid var(--line); border-left: 3px solid var(--muted);
+    background: var(--surface); max-width: var(--measure);
+  }
+  .note p:last-child, .note ul:last-child { margin-bottom: 0; }
+  .note .tag {
+    display: block; font-family: Archivo, Arial, sans-serif; font-size: 11.5px;
+    font-weight: 600; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 7px;
+  }
+  .note.danger { border-left-color: var(--fail); background: var(--fail-soft); }
+  .note.danger .tag { color: var(--fail); }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.warn .tag { color: var(--warn); }
+  .note.good { border-left-color: var(--pass); background: var(--pass-soft); }
+  .note.good .tag { color: var(--pass); }
+  .note.key { border-left-color: var(--accent); background: var(--accent-soft); }
+  .note.key .tag { color: var(--accent); }
+
+  .cadena {
+    margin: 26px 0 28px; padding: 20px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--surface); overflow-x: auto;
+  }
+  .chain { display: flex; align-items: center; gap: 10px; min-width: max-content; }
+  .node {
+    border: 1px solid var(--line); border-radius: 5px; background: var(--surface-2);
+    padding: 9px 13px; font-family: Archivo, Arial, sans-serif; font-size: 13.5px;
+    line-height: 1.3; white-space: nowrap;
+  }
+  .node small {
+    display: block; font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; color: var(--muted); margin-top: 3px;
+  }
+  .node.acc { border-color: var(--accent); background: var(--accent-soft); }
+  .arrow { font-family: "IBM Plex Mono", monospace; font-size: 15px; color: var(--muted); flex: none; }
+
+  footer.foot {
+    margin-top: 90px; padding-top: 26px; border-top: 2px solid var(--ink);
+    font-family: Archivo, Arial, sans-serif; font-size: 14px; color: var(--muted);
+  }
+  footer.foot p { max-width: 62ch; }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 18px 80px; }
+    header.head { padding-top: 48px; }
+    h2 { font-size: 25px; flex-direction: column; gap: 4px; }
+    figure.term pre { font-size: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <p class="eyebrow">Manual de estudio · SmartOLT · Volumen III</p>
+  <h1>Que arranque solo</h1>
+  <p class="standfirst">
+    Dejar la API y el túnel corriendo como servicios de Windows: prenden con la
+    máquina, sobreviven a cerrar sesión, y no hay ninguna ventana que alguien
+    pueda cerrar sin querer.
+  </p>
+  <div class="meta-strip">
+    <span>Servicios · <b>smartolt-api · cloudflared</b></span>
+    <span>Dominio · <b>api.smartbotai.net</b></span>
+    <span>NSSM · <b>2.24</b></span>
+    <span>cloudflared · <b>2026.8.2</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#cadena">La cadena, y dónde se corta</a></li>
+    <li><a href="#tunel">El túnel como servicio</a></li>
+    <li><a href="#trampa">La trampa del <code>ImagePath</code></a></li>
+    <li><a href="#perfil">El otro perfil de usuario</a></li>
+    <li><a href="#api">La API como servicio</a></li>
+    <li><a href="#orden">El orden de arranque</a></li>
+    <li><a href="#comprobar">Comprobar que todo quedó bien</a></li>
+    <li><a href="#dia">El día a día</a></li>
+    <li><a href="#problemas">Cuando algo falla</a></li>
+    <li><a href="#deshacer">Deshacerlo</a></li>
+  </ol>
+</nav>
+
+<!-- ==================================================================== -->
+<section id="cadena">
+  <h2><span class="num">01</span> La cadena, y dónde se corta</h2>
+  <div class="rule"></div>
+
+  <p>Para que el CRM pueda consultar una deuda, cuatro cosas tienen que estar vivas:</p>
+
+  <div class="cadena">
+    <div class="chain">
+      <div class="node">CRM<small>en la nube</small></div>
+      <div class="arrow">───▶</div>
+      <div class="node acc">api.smartbotai.net<small>DNS de Cloudflare</small></div>
+      <div class="arrow">───▶</div>
+      <div class="node acc">cloudflared<small>servicio</small></div>
+      <div class="arrow">───▶</div>
+      <div class="node acc">localhost:4000<small>servicio</small></div>
+      <div class="arrow">───▶</div>
+      <div class="node">Supabase<small>la base</small></div>
+    </div>
+  </div>
+
+  <p>
+    Las dos del medio corrían a mano. Eso significa que después de reiniciar la
+    PC había que acordarse de levantarlas, y que cualquiera que cerrara una
+    ventana sin mirar dejaba al CRM sin API — <strong>en silencio</strong>, porque
+    del otro lado eso se ve como un error de red cualquiera.
+  </p>
+
+  <p>Como servicios, las dos arrancan solas y no tienen ventana que cerrar.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Servicio</th><th>Qué hace</th><th>Si se cae</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>smartolt-api</code></td>
+          <td>La API en el puerto 4000</td>
+          <td>El túnel contesta <b>502</b></td>
+        </tr>
+        <tr>
+          <td><code>cloudflared</code></td>
+          <td>El túnel hacia Cloudflare</td>
+          <td>El dominio contesta <b>530</b> o no responde</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note key">
+    <span class="tag">La distinción que ahorra media hora</span>
+    <p>
+      <strong>502 = el túnel llegó pero atrás no hay nadie.</strong> El problema
+      es <code>smartolt-api</code>.<br>
+      <strong>530 o sin respuesta = no hay túnel.</strong> El problema es
+      <code>cloudflared</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="tunel">
+  <h2><span class="num">02</span> El túnel como servicio</h2>
+  <div class="rule"></div>
+
+  <p>
+    Con el túnel ya andando a mano —creado, con su <code>config.yml</code> y su
+    DNS apuntado— el paso es uno solo, desde
+    <strong>PowerShell como Administrador</strong>:
+  </p>
+
+<pre class="plain">&amp; "C:\Program Files (x86)\cloudflared\cloudflared.exe" service install</pre>
+
+  <p>
+    Eso crea el servicio y lo pone en automático. Y acá es donde parece que
+    terminó, pero no.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="trampa">
+  <h2><span class="num">03</span> La trampa del <code>ImagePath</code></h2>
+  <div class="rule"></div>
+
+  <p>
+    Después de instalarlo, el servicio figura <b>Running</b>. Parece que anda.
+    Pero el túnel dice otra cosa:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> el síntoma</figcaption>
+<pre><span class="cmd">Get-Service cloudflared</span>
+Status   Name
+------   ----
+<span class="ok">Running</span>  cloudflared
+
+<span class="cmd">cloudflared tunnel info smartolt-api</span>
+<span class="bad">Your tunnel 949e861d-… does not have any active connection.</span></pre>
+  </figure>
+
+  <p>
+    <strong>El proceso vive; el túnel no.</strong> Y la causa está en cómo quedó
+    registrado el servicio:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> el ImagePath que deja service install</figcaption>
+<pre><span class="cmd">(Get-CimInstance Win32_Service -Filter "Name='cloudflared'").PathName</span>
+
+<span class="bad">"C:\Program Files (x86)\cloudflared\cloudflared.exe"</span>
+                                              <span class="dim">↑ sin subcomando</span></pre>
+  </figure>
+
+  <p>
+    Sin <code>tunnel run</code>. Y esta versión no arranca así — lo dice ella
+    misma si se la corre con el perfil del servicio:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> la explicación, de cloudflared</figcaption>
+<pre><span class="cmd">$env:USERPROFILE = "C:\Windows\System32\config\systemprofile"
+&amp; "C:\Program Files (x86)\cloudflared\cloudflared.exe"</span>
+
+<span class="mark">use `cloudflared tunnel run` to start tunnel 949e861d-…</span>
+exit code: <span class="bad">1</span></pre>
+  </figure>
+  <p class="term-note">
+    Arranca, lee la configuración, encuentra el túnel, y sale — porque nadie le
+    dijo que lo <em>corriera</em>.
+  </p>
+
+  <h3>La corrección</h3>
+  <p>Se escribe el <code>ImagePath</code> completo, como Administrador:</p>
+
+<pre class="plain">Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\cloudflared' `
+  -Name ImagePath -Value '"C:\Program Files (x86)\cloudflared\cloudflared.exe" --config "C:\Windows\System32\config\systemprofile\.cloudflared\config.yml" tunnel run smartolt-api'</pre>
+
+  <p>Y se comprueba que quedó:</p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> como tiene que verse</figcaption>
+<pre><span class="cmd">sc.exe qc cloudflared</span>
+
+NOMBRE_RUTA_BINARIO: "C:\Program Files (x86)\cloudflared\cloudflared.exe"
+  --config "C:\Windows\System32\config\systemprofile\.cloudflared\config.yml"
+  <span class="ok">tunnel run smartolt-api</span>
+DEPENDENCIAS       : <span class="hi">smartolt-api</span></pre>
+  </figure>
+
+  <div class="note warn">
+    <span class="tag">Después de cada actualización</span>
+    <p>
+      Un <code>winget upgrade Cloudflare.cloudflared</code> puede reinstalar el
+      servicio y dejar el <code>ImagePath</code> pelado otra vez. Es lo primero
+      que hay que mirar si un día el túnel deja de levantar solo.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="perfil">
+  <h2><span class="num">04</span> El otro perfil de usuario</h2>
+  <div class="rule"></div>
+
+  <p>
+    El servicio corre como <code>LocalSystem</code>, que <strong>no es tu
+    usuario</strong>. Su carpeta personal no es <code>C:\Users\Game1</code> sino:
+  </p>
+
+<pre class="plain">C:\Windows\System32\config\systemprofile</pre>
+
+  <p>
+    Así que el <code>config.yml</code>, el <code>.json</code> de credenciales y el
+    <code>cert.pem</code> tienen que estar ahí también:
+  </p>
+
+<pre class="plain">$origen = "C:\Users\Game1\.cloudflared"
+$destino = "C:\Windows\System32\config\systemprofile\.cloudflared"
+
+New-Item -ItemType Directory -Path $destino
+Copy-Item "$origen\config.yml"   $destino
+Copy-Item "$origen\cert.pem"     $destino
+Copy-Item "$origen\*.json"       $destino</pre>
+
+  <div class="note danger">
+    <span class="tag">El detalle que se escapa</span>
+    <p>
+      Dentro del <code>config.yml</code>, la línea <code>credentials-file:</code>
+      apunta a <strong>tu</strong> carpeta. Hay que reescribirla para que apunte a
+      la copia nueva:
+    </p>
+<pre class="plain">credentials-file: C:\Windows\System32\config\systemprofile\.cloudflared\949e861d-….json</pre>
+    <p>
+      Copiar los archivos y olvidarse de esta línea deja el servicio buscando
+      credenciales en una carpeta que no le corresponde.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="api">
+  <h2><span class="num">05</span> La API como servicio</h2>
+  <div class="rule"></div>
+
+  <p>
+    Node no sabe hablar con el administrador de servicios de Windows: si se lo
+    registra directo, Windows lo arranca, no recibe respuesta, y lo mata. Hace
+    falta un envoltorio. El estándar es <strong>NSSM</strong>.
+  </p>
+
+<pre class="plain">winget install --id NSSM.NSSM</pre>
+
+  <h3>Crear el servicio</h3>
+
+<pre class="plain">nssm install smartolt-api "C:\Program Files\nodejs\node.exe" `
+    "--env-file=middleware\.env middleware\src\server.js"</pre>
+
+  <h3>Configurarlo</h3>
+
+<pre class="plain">nssm set smartolt-api AppDirectory      "G:\TALLER_SMARTOLT"
+nssm set smartolt-api DisplayName       "SmartOLT API (middleware)"
+nssm set smartolt-api AppStdout         "G:\TALLER_SMARTOLT\logs\middleware.log"
+nssm set smartolt-api AppStderr         "G:\TALLER_SMARTOLT\logs\middleware.err.log"
+nssm set smartolt-api AppRotateFiles    1
+nssm set smartolt-api AppRotateBytes    10485760
+nssm set smartolt-api AppExit Default   Restart
+nssm set smartolt-api AppRestartDelay   5000</pre>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Ajuste</th><th>Para qué</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>AppDirectory</code></td>
+          <td><b>El más importante.</b> Sin esto el servicio arranca en <code>C:\Windows\System32</code> y no encuentra el <code>.env</code> ni el <code>server.js</code>, porque las rutas del comando son relativas.</td>
+        </tr>
+        <tr>
+          <td><code>AppStdout</code> / <code>AppStderr</code></td>
+          <td>Sin ventana, los mensajes se pierden. Estos archivos son la única forma de saber qué pasó.</td>
+        </tr>
+        <tr>
+          <td><code>AppRotate…</code></td>
+          <td>Corta el log cada 10 MB. Un servicio que corre meses llena el disco si no.</td>
+        </tr>
+        <tr>
+          <td><code>AppExit … Restart</code></td>
+          <td>Si Node se cae, vuelve solo a los 5 segundos.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">Antes de arrancarlo</span>
+    <p>
+      Si tenías la API corriendo a mano, <strong>hay que bajarla primero</strong>:
+      el puerto 4000 no lo pueden tomar dos procesos.
+    </p>
+<pre class="plain">Get-NetTCPConnection -LocalPort 4000 -State Listen |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+Start-Service smartolt-api</pre>
+  </div>
+
+  <h3>Dos cosas que hay que verificar antes, no después</h3>
+  <ul>
+    <li>
+      <b>Que el disco sea local.</b> <code>LocalSystem</code> no ve unidades de
+      red mapeadas. <code>Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='G:'"</code>
+      tiene que dar <code>DriveType 3</code>.
+    </li>
+    <li>
+      <b>Que el programa no dependa de tu carpeta de usuario.</b> Si usa
+      <code>~/.ssh</code>, <code>os.homedir()</code> o <code>%USERPROFILE%</code>,
+      bajo <code>LocalSystem</code> va a mirar en otro lado.
+    </li>
+  </ul>
+</section>
+
+<!-- ==================================================================== -->
+<section id="orden">
+  <h2><span class="num">06</span> El orden de arranque</h2>
+  <div class="rule"></div>
+
+  <p>
+    Los dos son automáticos, así que al prender la PC arrancan los dos — pero no
+    necesariamente en orden. Si el túnel gana la carrera, contesta <code>502</code>
+    unos segundos hasta que la API esté lista.
+  </p>
+
+  <p>Se le dice a Windows que uno espera al otro:</p>
+
+<pre class="plain">Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\cloudflared' `
+  -Name DependOnService -Value @('smartolt-api') -Type MultiString</pre>
+
+  <div class="note">
+    <span class="tag">Si el túnel arranca primero igual</span>
+    <p>
+      No es grave y se arregla solo: cloudflared reintenta el origen en cada
+      pedido, así que en cuanto la API levanta empieza a contestar. La dependencia
+      solo evita esos primeros segundos de <code>502</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="comprobar">
+  <h2><span class="num">07</span> Comprobar que todo quedó bien</h2>
+  <div class="rule"></div>
+
+  <p>Cuatro comprobaciones, de adentro hacia afuera:</p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> 1 · los servicios</figcaption>
+<pre><span class="cmd">Get-Service smartolt-api, cloudflared |
+  Format-Table Name, Status, StartType</span>
+
+Name          Status  StartType
+----          ------  ---------
+cloudflared   <span class="ok">Running</span> <span class="ok">Automatic</span>
+smartolt-api  <span class="ok">Running</span> <span class="ok">Automatic</span></pre>
+  </figure>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> 2 · el túnel tiene conector</figcaption>
+<pre><span class="cmd">cloudflared tunnel info smartolt-api</span>
+
+CONNECTOR ID   CREATED               EDGE
+99c56448-…     2026-08-20T18:36:57Z  <span class="ok">1xmia04, 1xmia05, 2xuio01</span></pre>
+  </figure>
+  <p class="term-note">
+    Si dice <em>does not have any active connection</em>, volvé al paso 3.
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> 3 · la API contesta de verdad</figcaption>
+<pre><span class="cmd">curl -H "X-API-Key: sk_…" https://api.smartbotai.net/api/integracion/ping</span>
+{"ok":<span class="ok">true</span>,"llave":"CRM / Bot de WhatsApp",…}
+<span class="dim">HTTP 200</span>
+
+<span class="cmd"># sin llave</span>
+<span class="bad">401</span></pre>
+  </figure>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> 4 · el log del servicio se está escribiendo</figcaption>
+<pre><span class="cmd">Get-Content G:\TALLER_SMARTOLT\logs\middleware.log -Tail 5</span>
+
+[facturación] 0 facturas creadas, 2 omitidos
+[mora] 0 cortados, 0 reconectados, 0 fallidos
+GET /api/integracion/ping → <span class="ok">200</span> (443ms)</pre>
+  </figure>
+
+  <div class="note good">
+    <span class="tag">La prueba definitiva</span>
+    <p>
+      <strong>Reiniciar la PC y no tocar nada.</strong> Si a los dos minutos
+      <code>api.smartbotai.net</code> contesta <code>200</code>, quedó bien. Es la
+      única prueba que cubre todo.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="dia">
+  <h2><span class="num">08</span> El día a día</h2>
+  <div class="rule"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Situación</th><th>Qué hacer</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Tocaste código del middleware</b></td>
+          <td><code>Restart-Service smartolt-api</code> — el servicio no recarga solo.</td>
+        </tr>
+        <tr>
+          <td><b>Querés desarrollar con recarga automática</b></td>
+          <td><code>Stop-Service smartolt-api</code>, después <code>npm run dev</code>. Al terminar, al revés.</td>
+        </tr>
+        <tr>
+          <td><b>Cambiaste el <code>config.yml</code> del túnel</b></td>
+          <td>Copiarlo de nuevo al perfil de <code>LocalSystem</code> y <code>Restart-Service cloudflared</code>.</td>
+        </tr>
+        <tr>
+          <td><b>Ver qué está pasando</b></td>
+          <td><code>Get-Content …\logs\middleware.log -Wait -Tail 20</code></td>
+        </tr>
+        <tr>
+          <td><b>Ver los errores</b></td>
+          <td><code>Get-Content …\logs\middleware.err.log -Tail 30</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">El error que vas a cometer una vez</span>
+    <p>
+      Editar código y no ver el cambio. <strong>El navegador se refresca solo; el
+      servicio no.</strong> Con la API corriendo a mano al menos se veía la ventana;
+      como servicio no hay ninguna señal. Ante cualquier «no toma el cambio»:
+      <code>Restart-Service smartolt-api</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="problemas">
+  <h2><span class="num">09</span> Cuando algo falla</h2>
+  <div class="rule"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Síntoma</th><th>Causa</th><th>Solución</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>502</b> en el dominio</td>
+          <td>El túnel llega, la API no está.</td>
+          <td><code>Get-Service smartolt-api</code>. Si está detenido, mirar <code>middleware.err.log</code>.</td>
+        </tr>
+        <tr>
+          <td><b>530</b> o sin respuesta</td>
+          <td>No hay túnel conectado.</td>
+          <td><code>cloudflared tunnel info</code>. Revisar el <code>ImagePath</code>.</td>
+        </tr>
+        <tr>
+          <td><b>Running pero sin conexiones</b></td>
+          <td><code>ImagePath</code> sin <code>tunnel run</code>.</td>
+          <td>Sección 3.</td>
+        </tr>
+        <tr>
+          <td><b>El servicio arranca y muere</b></td>
+          <td>Falta el <code>config.yml</code> en el perfil de <code>LocalSystem</code>.</td>
+          <td>Sección 4.</td>
+        </tr>
+        <tr>
+          <td><b>«no se pudo iniciar»</b> sin más</td>
+          <td>Node no encuentra el <code>.env</code>.</td>
+          <td>Verificar <code>AppDirectory</code>: <code>nssm get smartolt-api AppDirectory</code>.</td>
+        </tr>
+        <tr>
+          <td><b>El puerto 4000 está ocupado</b></td>
+          <td>Quedó un <code>npm run dev</code> vivo.</td>
+          <td><code>Get-NetTCPConnection -LocalPort 4000 -State Listen</code> y cerrar ese PID.</td>
+        </tr>
+        <tr>
+          <td><b>Dejó de arrancar tras actualizar</b></td>
+          <td>El instalador rehizo el servicio.</td>
+          <td>Revisar el <code>ImagePath</code> (sección 3).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Dónde mirar, en orden</h3>
+  <ol>
+    <li><code>G:\TALLER_SMARTOLT\logs\middleware.err.log</code> — los errores de la API.</li>
+    <li><code>Get-EventLog -LogName Application -Source cloudflared -Newest 10</code> — el arranque del túnel.</li>
+    <li><code>sc.exe qc cloudflared</code> — cómo quedó registrado.</li>
+  </ol>
+</section>
+
+<!-- ==================================================================== -->
+<section id="deshacer">
+  <h2><span class="num">10</span> Deshacerlo</h2>
+  <div class="rule"></div>
+
+  <p>
+    Todo esto se revierte. Como Administrador:
+  </p>
+
+<pre class="plain">Stop-Service cloudflared, smartolt-api
+nssm remove smartolt-api confirm
+&amp; "C:\Program Files (x86)\cloudflared\cloudflared.exe" service uninstall</pre>
+
+  <p>
+    Y se vuelve a levantar a mano como antes:
+  </p>
+
+<pre class="plain">npm run dev
+cloudflared tunnel run smartolt-api</pre>
+
+  <p>
+    <strong>Nada de esto toca el túnel ni el dominio en Cloudflare.</strong> El
+    túnel, su UUID y el registro DNS siguen existiendo — lo único que se quita es
+    el arranque automático de esta máquina.
+  </p>
+</section>
+
+<footer class="foot">
+  <p>
+    <strong>Manual de estudio, volumen III — Que arranque solo.</strong>
+    Las salidas de terminal son capturas reales de esta instalación. Las llaves y
+    los identificadores están recortados a propósito.
+  </p>
+  <p style="margin-top:14px">
+    Volumen I: <em>El túnel de salida</em> ·
+    Volumen II: <em>La dirección fija</em> ·
+    Para el proveedor: <code>docs\mapeo-lookup-client.md</code>
+  </p>
+</footer>
+
+</div>

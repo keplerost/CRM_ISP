@@ -1,0 +1,13 @@
+{
+  "name": "smartolt-pruebas-migraciones",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Corre las migraciones contra un Postgres real en memoria",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.0"
+  }
+}

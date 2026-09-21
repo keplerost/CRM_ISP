@@ -1,0 +1,469 @@
+<title>Hipervisor: Docker o Laboratorios</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+
+  :root {
+    --ink:#14181f; --ink-soft:#39414d; --muted:#5f6773;
+    --line:#d6dae0; --line-soft:#e7eaee; --surface:#f7f8fa;
+    --accent:#a04d05; --accent-soft:#fdf2e6;
+    --pass:#15653f; --pass-soft:#e7f3ec;
+    --fail:#98201b; --fail-soft:#fbecea;
+    --warn:#7d5300; --warn-soft:#fdf6e5;
+    --term-bg:#11161d; --term-ink:#dfe4eb; --term-dim:#7c8798;
+    --term-amber:#e8a33d; --term-green:#6cc48c; --term-red:#e8756b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: #ffffff; color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 10.5pt; line-height: 1.55; margin: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .wrap { max-width: 180mm; margin: 0 auto; }
+
+  header.head { border-bottom: 2.5pt solid var(--ink); padding-bottom: 10pt; margin-bottom: 4pt; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace; font-size: 7.5pt; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin: 0 0 6pt;
+  }
+  h1 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 700; font-size: 25pt;
+    line-height: 1.05; letter-spacing: -.02em; margin: 0 0 7pt;
+  }
+  .standfirst { font-size: 11.5pt; color: var(--ink-soft); margin: 0; max-width: 150mm; }
+  .ficha {
+    margin-top: 10pt; display: flex; flex-wrap: wrap; gap: 4pt 22pt;
+    font-family: "IBM Plex Mono", monospace; font-size: 8pt; color: var(--muted);
+  }
+  .ficha b { color: var(--ink); font-weight: 600; }
+
+  section { margin-top: 20pt; break-inside: auto; }
+  h2 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 700; font-size: 14pt;
+    letter-spacing: -.01em; margin: 0 0 3pt; break-after: avoid;
+    display: flex; gap: 9pt; align-items: baseline;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", monospace; font-size: 9pt; color: var(--accent);
+    font-weight: 600; flex: none;
+  }
+  h3 {
+    font-family: Archivo, Arial, sans-serif; font-weight: 600; font-size: 11pt;
+    margin: 14pt 0 5pt; break-after: avoid;
+  }
+  .rule { height: .75pt; background: var(--line); margin: 6pt 0 11pt; }
+
+  p { margin: 0 0 8pt; max-width: 165mm; }
+  ul, ol { margin: 0 0 8pt; padding-left: 16pt; max-width: 165mm; }
+  li { margin-bottom: 3pt; }
+  strong { font-weight: 600; }
+
+  code {
+    font-family: "IBM Plex Mono", monospace; font-size: .87em;
+    background: var(--surface); border: .5pt solid var(--line-soft);
+    border-radius: 2pt; padding: 0 2.5pt;
+  }
+
+  /* Bloque de comando para copiar */
+  .cmd {
+    margin: 8pt 0 12pt; background: var(--term-bg); border-radius: 3pt;
+    padding: 9pt 11pt; break-inside: avoid;
+  }
+  .cmd pre {
+    margin: 0; color: var(--term-ink);
+    font-family: "IBM Plex Mono", monospace; font-size: 9pt; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .cmd .dim { color: var(--term-dim); }
+  .cmd .ok { color: var(--term-green); }
+  .cmd .bad { color: var(--term-red); }
+  .cmd .hi { color: var(--term-amber); }
+  .cmd-rotulo {
+    font-family: Archivo, Arial, sans-serif; font-size: 7.5pt; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+    margin: 0 0 3pt;
+  }
+
+  .paso {
+    display: grid; grid-template-columns: 17pt 1fr; gap: 9pt;
+    margin-bottom: 11pt; break-inside: avoid;
+  }
+  .paso-n {
+    font-family: "IBM Plex Mono", monospace; font-size: 11pt; font-weight: 600;
+    color: #fff; background: var(--accent); border-radius: 50%;
+    width: 17pt; height: 17pt; display: flex; align-items: center;
+    justify-content: center; font-size: 8.5pt;
+  }
+  .paso-txt p:last-child, .paso-txt .cmd:last-child { margin-bottom: 0; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 9.5pt; margin: 9pt 0 12pt; break-inside: avoid; }
+  th, td { text-align: left; padding: 5pt 7pt; border-bottom: .5pt solid var(--line-soft); vertical-align: top; }
+  thead th {
+    font-family: Archivo, Arial, sans-serif; font-size: 7.5pt; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
+    background: var(--surface); border-bottom: .75pt solid var(--line);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .aviso {
+    margin: 10pt 0; padding: 8pt 10pt; border-left: 2.5pt solid var(--muted);
+    background: var(--surface); break-inside: avoid; max-width: 165mm;
+  }
+  .aviso p:last-child { margin-bottom: 0; }
+  .aviso .tag {
+    display: block; font-family: Archivo, Arial, sans-serif; font-size: 7.5pt;
+    font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 3pt;
+  }
+  .aviso.rojo { border-left-color: var(--fail); background: var(--fail-soft); }
+  .aviso.rojo .tag { color: var(--fail); }
+  .aviso.ambar { border-left-color: var(--warn); background: var(--warn-soft); }
+  .aviso.ambar .tag { color: var(--warn); }
+  .aviso.verde { border-left-color: var(--pass); background: var(--pass-soft); }
+  .aviso.verde .tag { color: var(--pass); }
+  .aviso.acc { border-left-color: var(--accent); background: var(--accent-soft); }
+  .aviso.acc .tag { color: var(--accent); }
+
+  .pagina-nueva { break-before: page; }
+
+  footer.pie {
+    margin-top: 22pt; padding-top: 8pt; border-top: 1pt solid var(--ink);
+    font-family: Archivo, Arial, sans-serif; font-size: 8pt; color: var(--muted);
+  }
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <p class="eyebrow">Ficha técnica · SmartOLT · Windows 10 Home</p>
+  <h1>Hipervisor: Docker o laboratorios</h1>
+  <p class="standfirst">
+    Cómo encender y apagar el hipervisor de Windows para alternar entre Docker
+    y EVE-NG / GNS3. Los comandos exactos, dónde pegarlos y cómo comprobar que
+    funcionó.
+  </p>
+  <div class="ficha">
+    <span>Equipo · <b>Intel i7-7700</b></span>
+    <span>VMware · <b>Workstation 17.6.2</b></span>
+    <span>VirtualBox · <b>7.1.6</b></span>
+    <span>Estado inicial · <b>hypervisorlaunchtype Off</b></span>
+  </div>
+</header>
+
+<!-- ============================================================ -->
+<section>
+  <h2><span class="num">01</span> Por qué hay que elegir</h2>
+  <div class="rule"></div>
+
+  <p>
+    Solo un programa a la vez puede quedarse con las instrucciones de
+    virtualización del procesador (<code>VT-x</code>). Cuando el hipervisor de
+    Windows está encendido, se las queda él y se las presta a los demás — y esa
+    prestada alcanza para casi todo, menos para lo que más te importa.
+  </p>
+
+  <table>
+    <thead><tr><th>Con el hipervisor…</th><th>Encendido</th><th>Apagado</th></tr></thead>
+    <tbody>
+      <tr><td><b>Docker Desktop / WSL2</b></td><td style="color:var(--pass)">Funciona</td><td style="color:var(--fail)">No arranca</td></tr>
+      <tr><td><b>VM comunes</b><br><span style="color:var(--muted)">DNS-AdGuard, TEAMWORLD</span></td><td>Funcionan, algo más lentas</td><td style="color:var(--pass)">Funcionan</td></tr>
+      <tr><td><b>EVE-NG y GNS3</b></td><td style="color:var(--fail)">Fallan o van muy lentos</td><td style="color:var(--pass)">Funcionan</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    EVE-NG y GNS3 necesitan <strong>virtualización anidada</strong>: la máquina
+    virtual tiene que poder virtualizar adentro, porque cada router del
+    laboratorio es a su vez una máquina. Esa capacidad es la primera que se
+    pierde cuando Hyper-V se adueña del procesador.
+  </p>
+
+  <div class="aviso acc">
+    <span class="tag">Por eso estaba apagado</span>
+    <p>
+      La configuración que tenías no era un error: alguien la puso así para que
+      los laboratorios anduvieran. Si tu prioridad son EVE-NG y GNS3,
+      <strong>dejarlo apagado sigue siendo lo correcto</strong>.
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2><span class="num">02</span> Abrir PowerShell como Administrador</h2>
+  <div class="rule"></div>
+
+  <p>
+    Todos los comandos de esta ficha lo necesitan. Sin permisos de
+    administrador, <code>bcdedit</code> contesta <em>«Acceso denegado»</em>.
+  </p>
+
+  <div class="paso">
+    <div class="paso-n">1</div>
+    <div class="paso-txt"><p>Tecla <strong>Windows</strong> y escribí <code>powershell</code></p></div>
+  </div>
+  <div class="paso">
+    <div class="paso-n">2</div>
+    <div class="paso-txt"><p><strong>Botón derecho</strong> sobre <em>Windows PowerShell</em> → <strong>Ejecutar como administrador</strong></p></div>
+  </div>
+  <div class="paso">
+    <div class="paso-n">3</div>
+    <div class="paso-txt"><p>Aceptar el aviso de Windows</p></div>
+  </div>
+
+  <p>
+    La ventana correcta dice <strong>«Administrador:»</strong> en la barra de
+    título. Si no lo dice, cerrala y repetí.
+  </p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2><span class="num">03</span> Encender el hipervisor — para usar Docker</h2>
+  <div class="rule"></div>
+
+  <p class="cmd-rotulo">Pegar tal cual</p>
+  <div class="cmd"><pre>bcdedit /set hypervisorlaunchtype auto</pre></div>
+
+  <p>Tiene que contestar:</p>
+  <div class="cmd"><pre><span class="ok">La operación se completó correctamente.</span></pre></div>
+
+  <div class="aviso ambar">
+    <span class="tag">Hay que reiniciar</span>
+    <p>
+      El cambio se aplica en el arranque, no en el momento. Hasta que reinicies,
+      Docker va a seguir diciendo <em>«Virtualization support not detected»</em>.
+    </p>
+  </div>
+
+  <p class="cmd-rotulo">Después de reiniciar, comprobar</p>
+  <div class="cmd"><pre>Get-CimInstance Win32_ComputerSystem | Select-Object HypervisorPresent</pre></div>
+
+  <div class="cmd"><pre>HypervisorPresent
+-----------------
+             <span class="ok">True</span>   <span class="dim">← así tiene que quedar</span></pre></div>
+
+  <p>Y ahora sí, Docker:</p>
+  <div class="cmd"><pre>docker info --format "{{.ServerVersion}}"</pre></div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2><span class="num">04</span> Apagar el hipervisor — para los laboratorios</h2>
+  <div class="rule"></div>
+
+  <p>
+    El camino de vuelta, para cuando necesites EVE-NG o GNS3.
+  </p>
+
+  <p class="cmd-rotulo">Pegar tal cual</p>
+  <div class="cmd"><pre>bcdedit /set hypervisorlaunchtype off</pre></div>
+
+  <p class="cmd-rotulo">Reiniciar y comprobar</p>
+  <div class="cmd"><pre>Get-CimInstance Win32_ComputerSystem | Select-Object HypervisorPresent</pre></div>
+
+  <div class="cmd"><pre>HypervisorPresent
+-----------------
+            <span class="bad">False</span>   <span class="dim">← los laboratorios vuelven a andar</span></pre></div>
+
+  <div class="aviso verde">
+    <span class="tag">Es reversible siempre</span>
+    <p>
+      Ir y volver entre <code>auto</code> y <code>off</code> no rompe nada ni
+      deja rastro. Es un interruptor, no una operación delicada. Lo único que
+      cuesta es un reinicio.
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section class="pagina-nueva">
+  <h2><span class="num">05</span> Elegir al arrancar, sin comandos</h2>
+  <div class="rule"></div>
+
+  <p>
+    Si vas a alternar seguido, conviene esto: <strong>dos entradas en el menú de
+    arranque</strong>. Prendés la PC, elegís, y no volvés a tocar
+    <code>bcdedit</code> nunca más.
+  </p>
+
+  <div class="paso">
+    <div class="paso-n">1</div>
+    <div class="paso-txt">
+      <p>Duplicar la entrada actual:</p>
+      <div class="cmd"><pre>bcdedit /copy "{current}" /d "Windows 10 (Docker)"</pre></div>
+      <p>
+        Devuelve un identificador entre llaves. <strong>Copialo</strong>, se ve
+        así:
+      </p>
+      <div class="cmd"><pre>La entrada se copió correctamente en
+<span class="hi">{a1b2c3d4-1234-5678-9abc-de1234567890}</span></pre></div>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="paso-n">2</div>
+    <div class="paso-txt">
+      <p>A esa entrada nueva, encenderle el hipervisor. Reemplazá el identificador por el tuyo:</p>
+      <div class="cmd"><pre>bcdedit /set "{a1b2c3d4-1234-5678-9abc-de1234567890}" hypervisorlaunchtype auto</pre></div>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="paso-n">3</div>
+    <div class="paso-txt">
+      <p>A la de siempre, dejarla apagada y ponerle un nombre claro:</p>
+      <div class="cmd"><pre>bcdedit /set "{current}" hypervisorlaunchtype off
+bcdedit /set "{current}" description "Windows 10 (Laboratorios)"</pre></div>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="paso-n">4</div>
+    <div class="paso-txt">
+      <p>Que el menú espere 10 segundos antes de elegir solo:</p>
+      <div class="cmd"><pre>bcdedit /timeout 10</pre></div>
+    </div>
+  </div>
+
+  <p>A partir del próximo arranque vas a ver:</p>
+  <div class="cmd"><pre>  Windows 10 (Laboratorios)     <span class="dim">← EVE-NG, GNS3</span>
+  Windows 10 (Docker)           <span class="dim">← Docker, WSL2</span></pre></div>
+
+  <div class="aviso rojo">
+    <span class="tag">Las llaves llevan comillas</span>
+    <p>
+      En PowerShell, <code>{current}</code> sin comillas se interpreta como
+      código y el comando falla o hace algo raro. <strong>Siempre
+      <code>"{current}"</code> entre comillas dobles.</strong> En la ventana de
+      <em>Símbolo del sistema</em> (cmd) no hace falta, pero ponerlas igual no
+      molesta.
+    </p>
+  </div>
+
+  <h3>Para deshacerlo</h3>
+  <p>Borra la entrada nueva y deja todo como estaba:</p>
+  <div class="cmd"><pre>bcdedit /delete "{EL-IDENTIFICADOR-QUE-COPIASTE}"</pre></div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2><span class="num">06</span> Ver en qué estado estás</h2>
+  <div class="rule"></div>
+
+  <p>El comando que contesta la pregunta «¿hoy tengo Docker o laboratorios?»:</p>
+
+  <div class="cmd"><pre>bcdedit | findstr -i hypervisorlaunchtype</pre></div>
+
+  <table>
+    <thead><tr><th>Si contesta</th><th>Estás en modo</th></tr></thead>
+    <tbody>
+      <tr><td><code>hypervisorlaunchtype&nbsp;&nbsp;&nbsp;Auto</code></td><td><b>Docker</b> · WSL2 anda, EVE-NG y GNS3 no</td></tr>
+      <tr><td><code>hypervisorlaunchtype&nbsp;&nbsp;&nbsp;Off</code></td><td><b>Laboratorios</b> · EVE-NG y GNS3 andan, Docker no</td></tr>
+      <tr><td>Nada</td><td>Sin definir. Se comporta como <code>Auto</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Ese comando lee la configuración de arranque, no el estado real. Para saber
+    qué está corriendo <em>ahora</em>:
+  </p>
+
+  <div class="cmd"><pre>Get-CimInstance Win32_ComputerSystem | Select-Object HypervisorPresent</pre></div>
+
+  <p>
+    Si los dos no coinciden —la configuración dice <code>Auto</code> y
+    <code>HypervisorPresent</code> dice <code>False</code>— es que falta
+    reiniciar.
+  </p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2><span class="num">07</span> Cuando algo no sale</h2>
+  <div class="rule"></div>
+
+  <table>
+    <thead><tr><th>Síntoma</th><th>Causa</th><th>Solución</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>«Acceso denegado»</b></td>
+        <td>PowerShell sin permisos de administrador</td>
+        <td>Sección 2. La barra de título tiene que decir «Administrador:»</td>
+      </tr>
+      <tr>
+        <td><b>Docker sigue diciendo «Virtualization support not detected»</b></td>
+        <td>Falta reiniciar</td>
+        <td>Reiniciar. El cambio solo se aplica al arrancar</td>
+      </tr>
+      <tr>
+        <td><b>Reinicié y sigue igual</b></td>
+        <td>Puede haber quedado en la otra entrada de arranque</td>
+        <td><code>bcdedit | findstr -i hypervisorlaunchtype</code></td>
+      </tr>
+      <tr>
+        <td><b>VMware avisa que Hyper-V está activo</b></td>
+        <td>Es correcto, no es un error</td>
+        <td>Las VM comunes andan igual. EVE-NG y GNS3 no: para esos, modo laboratorios</td>
+      </tr>
+      <tr>
+        <td><b>EVE-NG no arranca sus nodos</b></td>
+        <td>Perdió la virtualización anidada</td>
+        <td>Modo laboratorios (sección 4) y reiniciar</td>
+      </tr>
+      <tr>
+        <td><b>El menú de arranque no aparece</b></td>
+        <td>El tiempo de espera quedó en cero</td>
+        <td><code>bcdedit /timeout 10</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="aviso ambar">
+    <span class="tag">Si algo queda muy mal</span>
+    <p>
+      El arranque de Windows se restaura entero con esto, desde una consola de
+      administrador — vuelve al comportamiento de fábrica:
+    </p>
+    <div class="cmd" style="margin-top:5pt"><pre>bcdedit /deletevalue "{current}" hypervisorlaunchtype</pre></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <h2><span class="num">08</span> Resumen para tener a mano</h2>
+  <div class="rule"></div>
+
+  <table>
+    <thead><tr><th>Para</th><th>Comando (como Administrador) + reiniciar</th></tr></thead>
+    <tbody>
+      <tr><td><b>Docker / WSL2</b></td><td><code>bcdedit /set hypervisorlaunchtype auto</code></td></tr>
+      <tr><td><b>EVE-NG / GNS3</b></td><td><code>bcdedit /set hypervisorlaunchtype off</code></td></tr>
+      <tr><td><b>Ver el estado</b></td><td><code>bcdedit | findstr -i hypervisorlaunchtype</code></td></tr>
+      <tr><td><b>Ver el estado real</b></td><td><code>Get-CimInstance Win32_ComputerSystem | Select HypervisorPresent</code></td></tr>
+      <tr><td><b>Volver a fábrica</b></td><td><code>bcdedit /deletevalue "{current}" hypervisorlaunchtype</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="aviso verde">
+    <span class="tag">Lo único que hay que recordar</span>
+    <p>
+      <strong><code>auto</code> = Docker · <code>off</code> = laboratorios · y
+      siempre reiniciar.</strong> Todo lo demás de esta ficha es detalle.
+    </p>
+  </div>
+</section>
+
+<footer class="pie">
+  Ficha técnica — Hipervisor: Docker o laboratorios · Equipo Intel i7-7700 ·
+  Windows 10 Home · VMware Workstation 17.6.2 · VirtualBox 7.1.6 ·
+  Estado al momento de escribirla: <code>hypervisorlaunchtype Off</code>
+</footer>
+
+</div>

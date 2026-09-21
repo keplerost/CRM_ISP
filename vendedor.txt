@@ -1,0 +1,731 @@
+NUEVO REQUERIMIENTO PRIORITARIO — SEGURIDAD DE CARTERA, COBRANZA Y FLUJO DE INSTALACIÓN
+
+El sistema ya tiene el dashboard comercial funcionando. NO lo reconstruyas.
+Debes ampliar la lógica actual respetando usuarios, roles, permisos, base de datos y módulos existentes.
+
+El objetivo ahora es proteger la cartera de clientes y controlar exactamente qué información puede ver un vendedor después de cerrar una venta.
+
+==================================================
+1. PRINCIPIO DE SEGURIDAD DE CARTERA
+==================================================
+
+Un vendedor NO debe tener acceso permanente a todos los clientes que haya vendido históricamente.
+
+Quiero reducir el riesgo de extracción, copia o uso indebido de la base de clientes.
+
+Por lo tanto:
+
+PROSPECTO:
+Mientras esté en proceso comercial, el vendedor responsable puede visualizar los datos necesarios.
+
+VENTA GANADA:
+Cuando el prospecto se convierte en cliente, comienza una ventana de acompañamiento comercial limitada.
+
+CLIENTE ACTIVO:
+El vendedor únicamente podrá visualizar ese cliente durante un máximo de 6 meses desde su activación, sujeto a los permisos definidos.
+
+Después de 6 meses:
+- El cliente debe desaparecer automáticamente de la cartera visible del vendedor.
+- El vendedor no debe poder encontrarlo mediante buscador.
+- No debe aparecer en reportes personales.
+- No debe aparecer en listados históricos accesibles al vendedor.
+- No debe poder acceder mediante URL directa.
+- No debe poder consultar API/endpoints manualmente.
+- El backend debe impedir el acceso, no solamente ocultarlo en frontend.
+
+El administrador y los perfiles autorizados sí podrán conservar acceso completo.
+
+La duración de 6 meses debe ser configurable por administrador.
+
+==================================================
+2. NO MOSTRAR BASE COMPLETA DE CLIENTES AL VENDEDOR
+==================================================
+
+No crear una sección donde el vendedor pueda navegar libremente por toda la base histórica de clientes.
+
+El vendedor debe visualizar únicamente:
+
+A. Sus prospectos activos.
+B. Sus oportunidades abiertas.
+C. Las ventas recientes dentro de la ventana permitida.
+D. Clientes que el sistema le haya asignado temporalmente para una gestión específica.
+E. Clientes con cobranza que le corresponda gestionar, solamente mientras la gestión esté activa.
+
+No debe existir una forma sencilla de obtener toda la cartera mediante:
+
+- paginación masiva
+- filtros globales
+- búsquedas generales
+- exportación
+- endpoints sin restricción
+- descarga CSV/Excel
+- impresión masiva
+
+==================================================
+3. RESTRICCIONES DE EXPORTACIÓN
+==================================================
+
+Para el rol vendedor:
+
+Deshabilitar por defecto:
+
+- Exportar clientes a Excel.
+- Exportar CSV.
+- Exportar teléfonos.
+- Descargar listados.
+- Copiar masivamente datos.
+- Consultas de cientos/miles de registros.
+
+Si el sistema actual posee exportaciones, aplicar permisos específicos.
+
+Ejemplo:
+
+clientes.exportar
+
+Debe estar deshabilitado para vendedor por defecto.
+
+==================================================
+4. AUDITORÍA DE ACCESO
+==================================================
+
+Registrar en auditoría cuando un vendedor:
+
+- consulta un cliente
+- consulta un prospecto
+- abre una ficha
+- modifica un teléfono
+- descarga un documento
+- visualiza documentos
+- consulta ubicación
+- realiza búsqueda
+- exporta información
+- accede desde una IP nueva
+
+Guardar:
+
+user_id
+fecha
+hora
+IP
+acción
+registro consultado
+dispositivo cuando sea posible
+
+Esto debe permitir detectar comportamientos anormales posteriormente.
+
+==================================================
+5. COBRANZA ASIGNADA AL VENDEDOR
+==================================================
+
+Quiero que cuando un cliente deba una mensualidad, pueda aparecer nuevamente al vendedor responsable para que gestione el cobro.
+
+IMPORTANTE:
+
+El vendedor NO vuelve a tener acceso permanente al cliente.
+
+El acceso es temporal y condicionado a una tarea de cobranza activa.
+
+Ejemplo:
+
+CLIENTE:
+Juan Pérez
+
+Estado:
+PAGO PENDIENTE
+
+Valor:
+$23.10
+
+Días de atraso:
+5
+
+Último pago:
+01/07/2026
+
+Botones:
+
+LLAMAR
+WHATSAPP
+REGISTRAR GESTIÓN
+MARCAR PROMESA DE PAGO
+
+Cuando la deuda se pague:
+el cliente debe desaparecer automáticamente de la bandeja de cobranza del vendedor.
+
+==================================================
+6. VENTANA MÁXIMA DE COBRANZA COMERCIAL
+==================================================
+
+La gestión de cobranza del vendedor solamente debe estar disponible durante los primeros 6 meses posteriores a la activación del servicio.
+
+Ejemplo:
+
+Fecha de activación:
+10/08/2026
+
+El vendedor podría gestionar cobranza hasta:
+10/02/2027
+
+Después de esa fecha:
+
+el vendedor deja de ver completamente a ese cliente.
+
+Las futuras cobranzas pasan exclusivamente al área administrativa/cartera, salvo asignación explícita por un administrador.
+
+Esta duración debe ser configurable.
+
+==================================================
+7. BANDEJA "COBROS POR GESTIONAR"
+==================================================
+
+Agregar al dashboard comercial una nueva sección:
+
+COBROS POR GESTIONAR
+
+Mostrar únicamente clientes asignados al vendedor que:
+
+- tengan deuda pendiente
+- estén dentro de su período permitido
+- requieran gestión comercial
+
+Mostrar:
+
+Nombre
+Plan
+Valor pendiente
+Fecha de vencimiento
+Días de atraso
+Última gestión
+Estado
+Próxima acción
+
+Estados:
+
+Pendiente de contacto
+Contactado
+Promesa de pago
+No responde
+Pago informado
+Pagado
+Escalar a cobranza
+
+==================================================
+8. GESTIÓN DE COBRO
+==================================================
+
+Cada contacto debe registrar:
+
+Fecha
+Hora
+Vendedor
+Canal
+Resultado
+Observación
+Promesa de pago
+Fecha prometida
+
+Canales:
+
+Llamada
+WhatsApp
+Visita
+Otro
+
+Ejemplo:
+
+"Cliente indica que cancelará el 12/08/2026."
+
+Crear recordatorio automático para esa fecha.
+
+==================================================
+9. NO EXPONER DATOS INNECESARIOS DURANTE COBRANZA
+==================================================
+
+Cuando un vendedor acceda a un cliente únicamente por cobranza, mostrar solo información necesaria:
+
+- nombre
+- teléfono
+- plan
+- saldo pendiente
+- fechas relevantes
+- acciones de contacto
+
+No mostrar automáticamente:
+
+- documentos históricos
+- contratos completos
+- información administrativa sensible
+- otros contactos
+- historial total que no sea necesario
+
+Aplicar principio de mínimo privilegio.
+
+==================================================
+10. FLUJO CUANDO UNA OPORTUNIDAD PASA A "GANADA"
+==================================================
+
+Actualmente existe una etapa GANADA.
+
+Modificar su comportamiento.
+
+Cuando el vendedor marque:
+
+GANADA
+
+NO significa todavía que el proceso terminó.
+
+Debe comenzar automáticamente el flujo:
+
+GANADA
+↓
+DOCUMENTACIÓN
+↓
+CONTRATO
+↓
+FIRMA
+↓
+ORDEN DE INSTALACIÓN
+↓
+INSTALACIÓN
+↓
+ACTIVACIÓN
+
+==================================================
+11. CHECKLIST OBLIGATORIO DE DOCUMENTACIÓN
+==================================================
+
+Al pasar una oportunidad a GANADA abrir un asistente obligatorio.
+
+PASO 1 — DATOS
+
+Confirmar información del cliente.
+
+PASO 2 — CÉDULA
+
+Solicitar:
+
+Fotografía frontal de la cédula.
+Fotografía posterior de la cédula.
+
+Mostrar estado:
+
+Pendiente
+Cargado
+Validado
+
+PASO 3 — DOMICILIO
+
+Permitir cargar fotografías del domicilio.
+
+Ejemplo:
+
+Foto de fachada.
+Foto de referencia.
+Foto del lugar de instalación.
+
+PASO 4 — UBICACIÓN
+
+Agregar botón:
+
+📍 TOMAR UBICACIÓN ACTUAL
+
+Al presionarlo desde teléfono:
+
+usar geolocalización del navegador/dispositivo previa autorización del usuario.
+
+Guardar:
+
+latitud
+longitud
+precisión
+fecha
+hora
+usuario que capturó la ubicación
+
+NO permitir fingir que se capturó una ubicación cuando el navegador no la proporcionó.
+
+También permitir ubicación manual con el permiso correspondiente.
+
+==================================================
+12. FUNCIONAMIENTO EN CAMPO
+==================================================
+
+Todo este flujo debe ser mobile-first.
+
+Desde el teléfono el vendedor debe poder:
+
+- tomar fotografías
+- subir fotografías
+- capturar ubicación
+- completar datos
+- visualizar contrato
+- solicitar firma
+- registrar observaciones
+
+Los botones deben ser grandes y fáciles de usar.
+
+==================================================
+13. CONTRATO
+==================================================
+
+Una vez completada la documentación necesaria:
+
+habilitar:
+
+GENERAR CONTRATO
+
+El contrato debe generarse utilizando:
+
+- datos del cliente
+- plan contratado
+- precio
+- dirección
+- condiciones
+- promoción cuando aplique
+- datos existentes del sistema
+
+Si el sistema actual ya tiene módulo de contratos:
+
+REUTILIZARLO.
+
+No crear otro sistema paralelo.
+
+==================================================
+14. FIRMA DEL CONTRATO
+==================================================
+
+Después de generar el contrato:
+
+Estado:
+
+PENDIENTE DE FIRMA
+
+El vendedor debe poder abrirlo desde el teléfono/tablet y solicitar al cliente que firme.
+
+El sistema debe registrar como mínimo:
+
+- fecha de firma
+- hora
+- usuario que gestionó la firma
+- versión del contrato
+- identificador del contrato
+
+Si ya existe firma electrónica válida dentro del sistema, reutilizarla.
+
+Si todavía no existe, diseñar una capa de abstracción para poder integrar posteriormente un proveedor de firma electrónica.
+
+No afirmar que una firma dibujada es una firma electrónica legal si técnicamente no lo es.
+
+==================================================
+15. NO GENERAR INSTALACIÓN ANTES DE LA FIRMA
+==================================================
+
+Regla comercial:
+
+No enviar automáticamente la instalación al backoffice hasta que se cumplan los requisitos definidos.
+
+Por defecto:
+
+✓ Datos completos
+✓ Cédula cargada
+✓ Fotos requeridas
+✓ Ubicación registrada
+✓ Plan seleccionado
+✓ Contrato generado
+✓ Contrato firmado
+
+Cuando todo esté completo:
+
+CAMBIAR ESTADO A:
+
+LISTO PARA INSTALACIÓN
+
+==================================================
+16. CREACIÓN AUTOMÁTICA DE ORDEN DE INSTALACIÓN
+==================================================
+
+Cuando el contrato quede firmado y el expediente esté completo:
+
+crear automáticamente una ORDEN DE INSTALACIÓN.
+
+La orden debe aparecer inmediatamente en el BACKOFFICE DE INSTALACIONES.
+
+No hacer que el administrador copie nuevamente los datos.
+
+La orden debe incluir:
+
+Número de orden
+Cliente
+Teléfono
+Plan
+Precio
+Dirección
+Sector
+Referencia
+Latitud
+Longitud
+Fotos del domicilio
+Fecha de venta
+Vendedor
+Contrato
+Observaciones comerciales
+Prioridad
+Fecha solicitada si existe
+
+==================================================
+17. BACKOFFICE DE INSTALACIONES
+==================================================
+
+Crear o adaptar una bandeja administrativa:
+
+NUEVAS INSTALACIONES
+
+Estados:
+
+Nueva
+Revisando
+Lista para asignar
+Técnico asignado
+Programada
+En ruta
+En instalación
+Instalada
+No realizada
+Reprogramada
+Cancelada
+
+El administrador/backoffice debe poder:
+
+- revisar documentación
+- revisar ubicación
+- abrir mapa
+- revisar contrato
+- asignar técnico
+- definir fecha
+- definir hora
+- agregar observación
+
+==================================================
+18. ASIGNACIÓN AL TÉCNICO
+==================================================
+
+Cuando backoffice asigne un técnico:
+
+el técnico recibe la orden correspondiente.
+
+El técnico únicamente debe ver la información necesaria para realizar la instalación.
+
+Ejemplo:
+
+Cliente
+Teléfono
+Dirección
+Referencia
+Ubicación
+Plan
+Observaciones técnicas
+Fotos necesarias
+
+Aplicar también principio de mínimo privilegio.
+
+==================================================
+19. ESTADO DEL VENDEDOR
+==================================================
+
+Aunque el vendedor ya haya enviado la instalación, dentro de su ventana permitida debe poder consultar el ESTADO de esa instalación:
+
+Pendiente
+Asignada
+Programada
+Instalando
+Finalizada
+
+Sin necesidad de acceder a toda la información técnica interna.
+
+Esto ayuda a que pueda responder al cliente.
+
+==================================================
+20. NOTIFICACIONES
+==================================================
+
+Notificar al vendedor:
+
+"Contrato pendiente de firma."
+
+"Falta fotografía posterior de la cédula."
+
+"Falta ubicación del domicilio."
+
+"Tu venta fue enviada a instalaciones."
+
+"Instalación programada para mañana."
+
+"Cliente instalado correctamente."
+
+"El cliente tiene un pago pendiente que requiere tu gestión."
+
+"Promesa de pago vence hoy."
+
+==================================================
+21. CLIENTE ACTIVO Y TEMPORIZADOR DE 6 MESES
+==================================================
+
+Al activarse la instalación guardar:
+
+activated_at
+
+Calcular:
+
+seller_visibility_until = activated_at + período configurable
+
+Por defecto:
+
+6 meses.
+
+Toda consulta del vendedor debe validar del lado servidor:
+
+seller_visibility_until >= fecha actual
+
+EXCEPTO:
+
+si existe una asignación administrativa temporal válida.
+
+No confiar exclusivamente en filtros frontend.
+
+==================================================
+22. PROTECCIÓN CONTRA URL DIRECTA
+==================================================
+
+Si un vendedor intenta acceder manualmente a:
+
+/clientes/123
+
+y ese cliente ya no se encuentra dentro de su cartera autorizada:
+
+responder acceso denegado.
+
+No retornar los datos ocultos en el HTML, JSON o API.
+
+==================================================
+23. PROTECCIÓN DE API
+==================================================
+
+Aplicar el mismo control en TODOS los endpoints.
+
+Ejemplo incorrecto:
+
+GET /api/clientes/123
+
+que entrega información aunque la interfaz la oculte.
+
+Esto NO debe ocurrir.
+
+Toda consulta debe filtrar según:
+
+usuario
+rol
+permiso
+propiedad
+asignación
+ventana temporal
+
+==================================================
+24. BÚSQUEDA SEGURA
+==================================================
+
+El buscador del vendedor únicamente debe buscar dentro del universo de registros que tiene autorización para visualizar.
+
+No buscar primero toda la base y luego ocultar resultados.
+
+==================================================
+25. DATOS PERSONALES
+==================================================
+
+Como se almacenarán:
+
+- cédulas
+- teléfonos
+- direcciones
+- fotografías
+- geolocalización
+- contratos
+
+tratar estos datos como información sensible.
+
+Implementar:
+
+controles de acceso
+auditoría
+almacenamiento seguro
+URLs no públicas para documentos
+validación de archivos
+límites de tamaño
+tipos MIME permitidos
+
+Evitar exponer directamente rutas públicas de documentos de identidad.
+
+==================================================
+26. VISTA DEL DASHBOARD DEL VENDEDOR
+==================================================
+
+Agregar nuevas tarjetas:
+
+COBROS POR GESTIONAR
+3
+
+CONTRATOS PENDIENTES
+2
+
+EXPEDIENTES INCOMPLETOS
+1
+
+INSTALACIONES EN PROCESO
+4
+
+Agregar dentro de "QUÉ HACER AHORA":
+
+1. Cobros vencidos.
+2. Promesas de pago para hoy.
+3. Contratos pendientes de firma.
+4. Expedientes incompletos.
+5. Seguimientos comerciales.
+6. Oportunidades calientes.
+
+Cada elemento debe tener una acción inmediata.
+
+==================================================
+27. SEPARAR RESPONSABILIDADES
+==================================================
+
+VENDEDOR:
+vende, documenta, firma, realiza seguimiento inicial y cobra únicamente las cuentas asignadas dentro del período permitido.
+
+BACKOFFICE:
+valida expediente, administra instalaciones y controla procesos.
+
+TÉCNICO:
+realiza instalaciones asignadas.
+
+ADMINISTRADOR:
+control completo.
+
+No conceder al vendedor privilegios de administrador solo para hacer funcionar este flujo.
+
+==================================================
+28. PRIMER PASO ANTES DE PROGRAMAR
+==================================================
+
+Analiza el código actual y dime:
+
+1. Cómo implementarás la ventana de 6 meses.
+2. Qué campo utilizarás como fecha de activación.
+3. Cómo impedirás que el vendedor consulte clientes fuera de esa ventana.
+4. Cómo implementarás la bandeja de cobranza.
+5. Qué tablas existentes pueden reutilizarse.
+6. Cómo funcionará la transición GANADA → DOCUMENTACIÓN → CONTRATO → INSTALACIÓN.
+7. Cómo llegará la orden automáticamente al backoffice.
+8. Cómo protegerás fotografías, cédulas y contratos.
+9. Qué endpoints necesitan autorización adicional.
+10. Qué migraciones son necesarias.
+
+NO comiences haciendo modificaciones destructivas hasta completar este análisis.

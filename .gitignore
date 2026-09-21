@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+
+# Credenciales — nunca versionar
+.env
+.env.local
+.env.*.local
+# El ambiente de prueba lleva su propia service_role key: tampoco se versiona.
+# Los .example sí, que son plantillas sin secretos.
+.env.prueba
+!.env.example
+!.env.prueba.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

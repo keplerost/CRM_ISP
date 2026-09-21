@@ -1,0 +1,714 @@
+# PROMPT PARA CLAUDE — DASHBOARD DEL TÉCNICO DE CAMPO INSTALADOR DE INTERNET
+
+Estoy desarrollando un sistema web para mi empresa ISP y necesito que continúes implementando el módulo correspondiente al **técnico de campo instalador de internet**.
+
+## REGLA PRINCIPAL
+
+**NO cambies el lenguaje de programación, framework, librerías, arquitectura ni estructura actual del proyecto.**
+
+Debes continuar trabajando exactamente con:
+
+* El mismo lenguaje de programación que ya estamos utilizando.
+* El mismo framework.
+* La misma estructura de carpetas.
+* Los mismos modelos.
+* El mismo sistema de autenticación.
+* El mismo sistema de roles y permisos.
+* El mismo frontend.
+* Los mismos componentes.
+* Los mismos estilos.
+* Las mismas convenciones de código.
+* La misma base de datos.
+
+Antes de programar, revisa la estructura existente del proyecto y reutiliza todo lo que ya exista.
+
+No quiero crear un proyecto nuevo.
+
+No quiero cambiar de tecnología.
+
+Quiero que esta funcionalidad quede integrada dentro del sistema que ya estamos desarrollando.
+
+---
+
+# OBJETIVO
+
+Crear el **Dashboard Principal del Técnico de Campo Instalador de Internet**.
+
+El técnico utilizará principalmente el sistema desde un teléfono celular, por lo que debe ser:
+
+* Responsive.
+* Compatible con PWA si actualmente el proyecto utiliza PWA.
+* Rápido.
+* Visualmente limpio.
+* Fácil de utilizar en campo.
+* Con botones grandes.
+* Con información priorizada.
+
+El técnico debe poder saber rápidamente:
+
+1. Qué está pasando actualmente en la red.
+2. Si existen torres, enlaces, OLT u otros equipos caídos.
+3. Qué ocurrió durante la madrugada o desde su último ingreso.
+4. Qué órdenes de trabajo tiene asignadas.
+5. Cuál es su siguiente instalación.
+6. Dónde se encuentra el cliente.
+7. Qué trabajos ya realizó.
+8. Qué incidencias pueden afectar a sus clientes.
+
+---
+
+# 1. ESTADO DE LA RED
+
+En la parte superior del Dashboard mostrar una sección:
+
+## ESTADO DE LA RED
+
+Debe mostrar tarjetas/resumen:
+
+🟢 Equipos en línea
+🟡 Equipos con alerta
+🔴 Equipos caídos
+
+Ejemplo:
+
+42 En línea
+2 En alerta
+1 Caído
+
+La información debe provenir del módulo de monitoreo que ya exista en el sistema o de la estructura de monitoreo que actualmente estamos utilizando.
+
+---
+
+# MUY IMPORTANTE: SOLO LECTURA
+
+El técnico **NO DEBE ADMINISTRAR LOS EQUIPOS DE RED**.
+
+El técnico únicamente podrá consultar información.
+
+No debe poder:
+
+* Reiniciar equipos.
+* Apagar equipos.
+* Configurar equipos.
+* Cambiar IP.
+* Modificar parámetros.
+* Ejecutar comandos.
+* Eliminar equipos.
+* Cambiar configuraciones.
+* Entrar a credenciales.
+* Visualizar contraseñas.
+* Acceder a funciones administrativas.
+
+El módulo de monitoreo para el técnico debe ser **100 % SOLO LECTURA**.
+
+Aplicar permisos tanto en frontend como principalmente en backend.
+
+Nunca confiar únicamente en ocultar botones desde la interfaz.
+
+---
+
+# 2. INCIDENCIAS ACTIVAS
+
+Debajo del estado general mostrar:
+
+## INCIDENCIAS ACTIVAS
+
+Si existe una torre, OLT, radioenlace, router principal, switch u otro equipo crítico caído, mostrarlo inmediatamente.
+
+Ejemplo:
+
+🔴 INCIDENCIA CRÍTICA
+
+TORRE PUJILÍ
+
+Sin conexión desde: 05:42
+
+Última comunicación: 05:41:48
+
+Duración de caída: 3h 27m
+
+Clientes posiblemente afectados: 37
+
+Botón:
+
+VER DETALLE
+
+---
+
+# 3. NIVELES DE ALERTA
+
+Manejar al menos:
+
+## 🔴 CRÍTICA
+
+Para:
+
+* Torre caída.
+* OLT caída.
+* Router principal caído.
+* Radioenlace principal caído.
+* Nodo importante sin comunicación.
+
+## 🟠 ADVERTENCIA
+
+Para:
+
+* Alta latencia.
+* Pérdida de paquetes.
+* Enlace inestable.
+* Parámetros fuera de rango.
+* Equipo degradado.
+
+## 🟢 RECUPERADO
+
+Cuando un equipo vuelva a responder.
+
+Ejemplo:
+
+TORRE PUJILÍ
+
+Servicio recuperado: 07:48
+
+Tiempo total de caída: 2h 06m
+
+---
+
+# 4. NOVEDADES DESDE EL ÚLTIMO INGRESO
+
+Quiero una sección:
+
+## NOVEDADES DE RED
+
+Debe permitir que el técnico vea lo ocurrido desde su último ingreso al sistema.
+
+Ejemplo:
+
+05:42 🔴
+TORRE PUJILÍ perdió comunicación.
+
+03:18 🟢
+RADIOENLACE GUASAGANDA recuperado.
+
+01:27 🟠
+TORRE EL CARMEN presentó alta latencia.
+
+00:54 🟢
+OLT CENTRO operativa.
+
+Esta información debe ser solo lectura.
+
+---
+
+# 5. NOTIFICACIONES
+
+El técnico debe recibir notificaciones cuando exista:
+
+* Torre caída.
+* OLT caída.
+* Radioenlace caído.
+* Nodo caído.
+* Equipo crítico caído.
+* Recuperación del servicio.
+* Incidencia importante.
+* Orden nueva asignada.
+* Orden reagendada.
+
+Agregar campana de notificaciones en el Dashboard.
+
+Ejemplo:
+
+🔔 3
+
+Al abrir:
+
+* TORRE PUJILÍ sin conexión.
+* OLT CENTRO recuperada.
+* Nueva instalación asignada.
+
+---
+
+# 6. PANTALLA COMPLETA DE MONITOREO
+
+Crear opción:
+
+## VER TODOS LOS EQUIPOS
+
+Debe mostrar filtros:
+
+TODOS | TORRES | OLT | ENLACES | ROUTERS
+
+Ejemplo:
+
+🟢 TORRE LA MANÁ
+Operativa
+Ping: 4 ms
+Uptime: 18d 04h
+
+🔴 TORRE PUJILÍ
+Sin conexión
+Caída desde: 05:42
+37 clientes posiblemente afectados
+
+🟢 OLT CENTRO
+Operativa
+428 ONT conectadas
+
+🟠 RADIOENLACE LOS ÁLAMOS
+Degradado
+Ping: 84 ms
+Pérdida: 8 %
+
+---
+
+# 7. DETALLE DEL EQUIPO
+
+Al seleccionar un equipo:
+
+## TORRE PUJILÍ
+
+Estado: 🔴 OFFLINE
+
+IP: mostrar solamente si los permisos actuales permiten hacerlo.
+
+Última respuesta: 05:42:11
+
+Tiempo caída: 3h 27m
+
+Ubicación: Torre Pujilí
+
+Clientes afectados: aproximadamente 37
+
+Dependencias:
+
+Router 🔴
+Switch 🔴
+AP Norte 🔴
+AP Sur 🔴
+
+Puede existir botón:
+
+VER UBICACIÓN
+
+Pero NO debe existir ningún botón de configuración o administración.
+
+---
+
+# 8. CRUCE ENTRE INCIDENCIAS Y ÓRDENES
+
+Esta parte es MUY IMPORTANTE.
+
+Cuando un técnico abra una orden de un cliente, el sistema debe verificar si el cliente depende de una torre, nodo, OLT, enlace u otro equipo que actualmente tenga una incidencia.
+
+Si existe una incidencia mostrar:
+
+⚠️ ATENCIÓN
+
+El cliente está conectado a:
+
+TORRE PUJILÍ
+
+Actualmente se encuentra OFFLINE desde las 05:42.
+
+El inconveniente del cliente puede estar relacionado con una incidencia general de red.
+
+Botón:
+
+VER INCIDENCIA
+
+Esto permitirá evitar visitas innecesarias.
+
+El técnico podrá continuar con la orden si corresponde, pero debe recibir esta advertencia.
+
+---
+
+# 9. MI JORNADA
+
+Después del estado de red mostrar:
+
+## MI JORNADA
+
+Tarjetas:
+
+5 Pendientes
+
+1 En proceso
+
+3 Completadas
+
+1 Reagendada
+
+Mostrar únicamente las órdenes correspondientes al técnico autenticado.
+
+Nunca mostrar órdenes pertenecientes a otros técnicos salvo que el sistema actual tenga un permiso específico para ello.
+
+---
+
+# 10. PRÓXIMA INSTALACIÓN
+
+Mostrar una tarjeta grande:
+
+## PRÓXIMA INSTALACIÓN
+
+09:30
+
+Juan Pérez
+
+Los Álamos
+
+300 Mbps
+
+FTTH
+
+Botones:
+
+LLAMAR
+
+VER UBICACIÓN
+
+INICIAR TRABAJO
+
+---
+
+# 11. MI RUTA DE HOY
+
+Mostrar:
+
+09:30 — Juan Pérez — Los Álamos
+
+11:00 — María Zambrano — Centro
+
+14:00 — Luis López — San Vicente
+
+16:00 — Ana Rivera — Las Orquídeas
+
+Cada orden debe mostrar visualmente:
+
+Pendiente
+
+En camino
+
+En proceso
+
+Finalizada
+
+Reagendada
+
+---
+
+# 12. FLUJO DE INSTALACIÓN
+
+Cuando el técnico seleccione:
+
+INICIAR TRABAJO
+
+Registrar:
+
+* Técnico.
+* Orden.
+* Fecha.
+* Hora de inicio.
+* Estado.
+* GPS si el sistema ya tiene o tendrá esta funcionalidad.
+
+Estado:
+
+EN PROCESO
+
+---
+
+# 13. CHECKLIST DE INSTALACIÓN
+
+Dentro de la orden:
+
+☐ Acometida instalada
+
+☐ Fibra instalada
+
+☐ Conector instalado
+
+☐ Roseta instalada
+
+☐ ONT instalada
+
+☐ Router configurado
+
+☐ WiFi configurado
+
+☐ Prueba de velocidad realizada
+
+☐ Cliente informado
+
+☐ Equipos registrados
+
+---
+
+# 14. INFORMACIÓN TÉCNICA
+
+Permitir registrar según corresponda:
+
+Potencia óptica.
+
+Serial ONT.
+
+MAC.
+
+OLT.
+
+PON.
+
+ONU ID.
+
+Router instalado.
+
+Nombre WiFi.
+
+Sin mostrar contraseñas innecesariamente después del cierre de la orden.
+
+---
+
+# 15. EVIDENCIAS
+
+Solicitar fotografías de:
+
+* Fachada.
+* Instalación exterior.
+* Roseta.
+* ONT/router instalado.
+* Nivel óptico.
+* Prueba de velocidad.
+
+Relacionar las evidencias con:
+
+* Orden.
+* Cliente.
+* Técnico.
+* Fecha.
+* Hora.
+
+Si actualmente el sistema maneja ubicación GPS, agregar también ubicación.
+
+---
+
+# 16. MATERIALES UTILIZADOS
+
+Permitir registrar:
+
+* Cable drop en metros.
+* Conectores.
+* Rosetas.
+* Patch cord.
+* Grapas/abrazaderas.
+* ONT.
+* Router.
+* Otros materiales.
+
+Cuando corresponda, relacionar equipos mediante serial, código QR o código de barras.
+
+No inventes una estructura nueva de inventario si ya existe un módulo de inventario.
+
+Reutiliza el actual.
+
+---
+
+# 17. PRUEBAS TÉCNICAS
+
+Registrar:
+
+Potencia RX.
+
+Ping.
+
+Velocidad descarga.
+
+Velocidad subida.
+
+Latencia.
+
+Observación.
+
+Si existen parámetros configurables en el sistema, utilizar esos parámetros para determinar:
+
+🟢 ÓPTIMO
+
+🟠 ADVERTENCIA
+
+🔴 FUERA DE RANGO
+
+No colocar valores fijos dentro del código si pueden manejarse mediante configuración.
+
+---
+
+# 18. FIRMA Y FINALIZACIÓN
+
+Al finalizar:
+
+Mostrar conformidad del cliente.
+
+Permitir firma digital si actualmente el sistema dispone de este mecanismo.
+
+Después:
+
+FINALIZAR INSTALACIÓN
+
+El sistema debe realizar las acciones correspondientes según la lógica actual del proyecto.
+
+Por ejemplo:
+
+Orden → COMPLETADA
+
+Cliente → ACTIVO
+
+Equipo → ASIGNADO
+
+Material → DESCONTADO
+
+Fecha instalación → REGISTRADA
+
+No dupliques lógica existente.
+
+Reutiliza servicios, modelos, funciones o procesos actuales.
+
+---
+
+# 19. MENÚ DEL TÉCNICO
+
+En móvil quiero algo similar a:
+
+INICIO
+
+ÓRDENES
+
+MATERIALES
+
+NOTIFICACIONES
+
+PERFIL
+
+El monitoreo puede encontrarse dentro de INICIO mediante:
+
+VER ESTADO DE LA RED
+
+o tener su propia sección si arquitectónicamente resulta mejor.
+
+---
+
+# 20. SEGURIDAD
+
+Crear o respetar permisos como:
+
+Técnico:
+
+Instalaciones → lectura/escritura únicamente de las asignadas.
+
+Clientes → lectura limitada a clientes relacionados con sus órdenes.
+
+Inventario → únicamente movimientos necesarios para sus trabajos.
+
+Monitoreo de red → SOLO LECTURA.
+
+Alertas → SOLO LECTURA.
+
+Configuración de red → SIN ACCESO.
+
+Usuarios → SIN ACCESO.
+
+Administración → SIN ACCESO.
+
+---
+
+# SEGURIDAD DE INFRAESTRUCTURA
+
+El navegador del técnico NO debe conectarse directamente a:
+
+* MikroTik.
+* OLT.
+* Routers.
+* Switches.
+* Radios.
+* APIs administrativas de equipos.
+
+La comunicación debe realizarse mediante el backend actual del sistema.
+
+El backend debe entregar únicamente la información que el técnico tenga permitido consultar.
+
+No exponer:
+
+* Usuarios.
+* Passwords.
+* Tokens.
+* Communities SNMP.
+* API Keys.
+* Credenciales SSH.
+* Credenciales MikroTik.
+* Credenciales OLT.
+
+---
+
+# DISEÑO DEL DASHBOARD
+
+Orden recomendado de la pantalla principal:
+
+1. Encabezado.
+2. Campana de notificaciones.
+3. Estado de la red.
+4. Incidencias activas.
+5. Novedades importantes.
+6. Mi jornada.
+7. Próxima instalación.
+8. Mi ruta de hoy.
+9. Navegación inferior.
+
+Utilizar diseño limpio, profesional y moderno.
+
+Estados visuales:
+
+🟢 Verde = operativo.
+
+🟠 Amarillo/naranja = advertencia.
+
+🔴 Rojo = crítico/caído.
+
+No saturar la pantalla.
+
+Priorizar información útil para un técnico que se encuentra trabajando en campo.
+
+---
+
+# IMPORTANTE PARA LA IMPLEMENTACIÓN
+
+Antes de escribir código:
+
+1. Revisa el proyecto existente.
+2. Identifica el stack actual.
+3. Identifica el sistema actual de roles/permisos.
+4. Identifica los modelos relacionados con técnicos.
+5. Identifica los modelos de clientes.
+6. Identifica órdenes de instalación.
+7. Identifica inventario.
+8. Identifica monitoreo.
+9. Identifica notificaciones.
+10. Identifica cómo está construido el Dashboard actual.
+
+Después de revisar:
+
+Explícame qué archivos existentes modificarás y cuáles realmente necesitas crear.
+
+No reemplaces módulos funcionales.
+
+No cambies tecnologías.
+
+No reconstruyas el sistema desde cero.
+
+**CONTINÚA PROGRAMANDO CON EL MISMO LENGUAJE, FRAMEWORK, ARQUITECTURA Y STACK QUE YA ESTÁS UTILIZANDO EN ESTE PROYECTO.**
+
+Desarrolla esta funcionalidad de manera modular para que posteriormente podamos agregar:
+
+* Mantenimiento.
+* Reparaciones.
+* Cortes.
+* Reconexiones.
+* Incidencias.
+* Preventivos.
+* Inspecciones técnicas.
+* Historial técnico de clientes.
+* Métricas de productividad del técnico.

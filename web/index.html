@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- `viewport-fit=cover` para que el fondo llegue debajo de la muesca y de
+         la barra de gestos del iPhone. Sin esto quedan dos franjas blancas
+         arriba y abajo cuando la app corre a pantalla completa. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Taller SmartOLT — Gestión OLT / MikroTik</title>
+
+    <!--
+      iOS no lee el manifest para casi nada.
+
+      Safari soporta manifiestos desde la 16.4, pero el ícono, el título y el
+      modo pantalla completa los sigue tomando de estas etiquetas. Sin ellas, al
+      agregar a la pantalla de inicio queda una captura borrosa de la página como
+      ícono y la app abre dentro del navegador, con la barra de direcciones
+      comiéndose una franja.
+
+      Y algo que no se arregla con etiquetas: en iPhone **solo Safari** puede
+      agregar a la pantalla de inicio. Chrome en iOS es Safari por dentro y no
+      tiene esa opción.
+    -->
+    <link rel="apple-touch-icon" href="/icono-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Campo" />
+    <!-- `black-translucent` deja que el fondo oscuro de la app suba hasta el
+         reloj. Con el valor por defecto queda una barra blanca arriba que en una
+         app oscura se ve como un error. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#020617" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

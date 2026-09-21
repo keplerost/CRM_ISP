@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licencias</title>
+<style>
+  :root { color-scheme: dark }
+  * { box-sizing: border-box }
+  body { margin:0; background:#0f172a; color:#e2e8f0; font:14px/1.5 system-ui, sans-serif }
+  header { padding:16px 20px; border-bottom:1px solid #1e293b; display:flex; gap:12px; align-items:center; flex-wrap:wrap }
+  h1 { font-size:16px; margin:0; font-weight:600 }
+  main { padding:20px; max-width:1100px; margin:0 auto }
+  input, button, textarea { font:inherit; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#e2e8f0; padding:6px 10px }
+  button { cursor:pointer; border-color:#0284c7; background:#0369a1 }
+  button.gris { background:#1e293b; border-color:#334155 }
+  button:hover { filter:brightness(1.15) }
+  table { width:100%; border-collapse:collapse; font-size:13px }
+  th { text-align:left; font-weight:500; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:.05em; padding:8px }
+  td { padding:10px 8px; border-top:1px solid #1e293b; vertical-align:top }
+  tr.vencida td { background:rgba(220,38,38,.07) }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:500 }
+  .ok { background:rgba(16,185,129,.15); color:#6ee7b7 }
+  .mal { background:rgba(220,38,38,.15); color:#fca5a5 }
+  .aviso { background:rgba(245,158,11,.15); color:#fcd34d }
+  .id { font-family:ui-monospace, monospace; font-size:11px; color:#64748b }
+  .vacio { padding:40px; text-align:center; color:#64748b }
+  dialog { background:#0f172a; color:#e2e8f0; border:1px solid #334155; border-radius:10px; padding:20px; min-width:340px }
+  dialog::backdrop { background:rgba(0,0,0,.6) }
+  label { display:block; font-size:12px; color:#94a3b8; margin:10px 0 3px }
+  .fila { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px }
+  textarea { width:100%; font-family:ui-monospace, monospace; font-size:11px }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Licencias</h1>
+  <span id="resumen" style="color:#64748b;font-size:12px"></span>
+  <span style="flex:1"></span>
+  <input id="token" type="password" placeholder="Token de administración" style="width:230px">
+  <button onclick="entrar()">Entrar</button>
+</header>
+
+<main>
+  <div id="contenido" class="vacio">Pegá el token de administración para ver tus clientes.</div>
+</main>
+
+<dialog id="dlg"><div id="dlgCuerpo"></div></dialog>
+
+<script>
+// El token vive solo en memoria y en sessionStorage: cerrar el navegador lo
+// olvida. Es la llave de todas las licencias — no va a localStorage.
+let TOKEN = sessionStorage.getItem('licencia_token') || ''
+let DATOS = []
+
+const api = async (ruta, opciones = {}) => {
+  const r = await fetch(ruta, {
+    ...opciones,
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + TOKEN },
+  })
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Error ' + r.status)
+  return r.json()
+}
+
+const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;' }[c]))
+const fecha = (f) => (f ? new Date(f + 'T12:00:00').toLocaleDateString('es-EC') : '—')
+
+async function entrar() {
+  TOKEN = document.getElementById('token').value.trim() || TOKEN
+  sessionStorage.setItem('licencia_token', TOKEN)
+  await cargar()
+}
+
+async function cargar() {
+  try {
+    const r = await api('/admin/instalaciones')
+    DATOS = r.instalaciones
+    pintar()
+  } catch (e) {
+    document.getElementById('contenido').className = 'vacio'
+    document.getElementById('contenido').textContent = e.message
+  }
+}
+
+function pintar() {
+  const alDia = DATOS.filter((i) => i.al_dia).length
+  const vencidas = DATOS.length - alDia
+  const mrr = DATOS.filter((i) => i.al_dia).reduce((s, i) => s + (i.precio_mensual || 0), 0)
+  document.getElementById('resumen').textContent =
+    `${DATOS.length} instalaciones · ${alDia} al día · ${vencidas} vencidas · $${mrr.toFixed(2)}/mes`
+
+  const c = document.getElementById('contenido')
+  if (!DATOS.length) {
+    c.className = 'vacio'
+    c.textContent = 'Todavía no hay instalaciones. Aparecen solas la primera vez que un sistema pide renovar.'
+    return
+  }
+
+  c.className = ''
+  c.innerHTML = `<table><thead><tr>
+      <th>ISP</th><th>Abonados</th><th>Pagado hasta</th><th>Restan</th>
+      <th>Último contacto</th><th></th></tr></thead><tbody>${DATOS.map(fila).join('')}</tbody></table>`
+}
+
+function fila(i) {
+  const estado = i.suspendida
+    ? '<span class="pill mal">suspendida</span>'
+    : i.al_dia
+      ? '<span class="pill ok">al día</span>'
+      : '<span class="pill mal">vencida</span>'
+
+  // Se muestran juntos el plan y lo real: es donde se ve al cliente que creció
+  // y hay que llamar para venderle el plan que le corresponde.
+  const cuenta = i.plan_clientes
+    ? `${i.abonados} / ${i.plan_clientes}` + (i.excedido ? ' <span class="pill aviso">excedido</span>' : '')
+    : String(i.abonados)
+
+  return `<tr class="${i.al_dia ? '' : 'vencida'}">
+    <td><div>${esc(i.isp || '(sin nombre)')} ${estado}</div>
+        <div class="id">${esc(i.id)}</div>
+        ${i.contacto ? `<div class="id">${esc(i.contacto)}</div>` : ''}
+        ${i.email ? `<div class="id">${esc(i.email)} ${i.clave_hash ? '' : '<span class="pill aviso">sin clave</span>'}</div>` : ''}</td>
+    <td>${cuenta}</td>
+    <td>${fecha(i.pagado_hasta)}</td>
+    <td>${i.dias_restantes == null ? '—' : i.dias_restantes + ' d'}</td>
+    <td class="id">${i.ultimo_contacto ? new Date(i.ultimo_contacto).toLocaleString('es-EC') : 'nunca'}</td>
+    <td style="white-space:nowrap">
+      <button onclick="cobrar('${i.id}')">Pago</button>
+      <button class="gris" onclick="editar('${i.id}')">Editar</button>
+      <button class="gris" onclick="darToken('${i.id}')">Código</button>
+      <button class="gris" onclick="darClave('${i.id}')">Clave</button>
+    </td></tr>`
+}
+
+const dlg = document.getElementById('dlg')
+const abrir = (html) => { document.getElementById('dlgCuerpo').innerHTML = html; dlg.showModal() }
+const cerrar = () => dlg.close()
+
+function cobrar(id) {
+  const i = DATOS.find((x) => x.id === id)
+  abrir(`<h3 style="margin:0 0 4px">Registrar pago</h3>
+    <div class="id">${esc(i.isp || id)}</div>
+    <label>Meses</label><input id="pMeses" type="number" value="1" min="1" style="width:100%">
+    <label>Monto</label><input id="pMonto" type="number" step="0.01" value="${i.precio_mensual || ''}" style="width:100%">
+    <label>Nota</label><input id="pNota" placeholder="transferencia, efectivo…" style="width:100%">
+    <p class="id" style="margin-top:10px">Se extiende desde ${fecha(i.pagado_hasta) === '—' ? 'hoy' : fecha(i.pagado_hasta)}, no desde hoy: el que paga tarde no pierde esos días.</p>
+    <div class="fila"><button onclick="guardarPago('${id}')">Registrar</button>
+    <button class="gris" onclick="cerrar()">Cancelar</button></div>`)
+}
+
+async function guardarPago(id) {
+  await api(`/admin/instalaciones/${id}/pagos`, {
+    method: 'POST',
+    body: JSON.stringify({
+      meses: Number(document.getElementById('pMeses').value) || 1,
+      monto: Number(document.getElementById('pMonto').value) || null,
+      nota: document.getElementById('pNota').value || null,
+    }),
+  })
+  cerrar()
+  await cargar()
+}
+
+function editar(id) {
+  const i = DATOS.find((x) => x.id === id)
+  abrir(`<h3 style="margin:0 0 4px">Editar</h3><div class="id">${esc(id)}</div>
+    <label>ISP</label><input id="eIsp" value="${esc(i.isp || '')}" style="width:100%">
+    <label>Contacto</label><input id="eContacto" value="${esc(i.contacto || '')}" style="width:100%">
+    <label>Abonados del plan (vacío = sin límite)</label><input id="ePlan" type="number" value="${i.plan_clientes || ''}" style="width:100%">
+    <label>Precio mensual</label><input id="ePrecio" type="number" step="0.01" value="${i.precio_mensual || ''}" style="width:100%">
+    <label>Correo (con el que entra al portal)</label><input id="eEmail" value="${esc(i.email || '')}" style="width:100%">
+    <label>Notas</label><input id="eNotas" value="${esc(i.notas || '')}" style="width:100%">
+    <label style="margin-top:12px"><input id="eSusp" type="checkbox" ${i.suspendida ? 'checked' : ''}> Suspendida — corta aunque el pago esté vigente</label>
+    <div class="fila"><button onclick="guardarEdicion('${id}')">Guardar</button>
+    <button class="gris" onclick="cerrar()">Cancelar</button></div>`)
+}
+
+async function guardarEdicion(id) {
+  const v = (x) => document.getElementById(x).value.trim() || null
+  await api(`/admin/instalaciones/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      isp: v('eIsp'), contacto: v('eContacto'), notas: v('eNotas'), email: v('eEmail'),
+      plan_clientes: Number(document.getElementById('ePlan').value) || null,
+      precio_mensual: Number(document.getElementById('ePrecio').value) || null,
+      suspendida: document.getElementById('eSusp').checked ? 1 : 0,
+    }),
+  })
+  cerrar()
+  await cargar()
+}
+
+/**
+ * Le entregás una contraseña al ISP.
+ *
+ * Se muestra UNA vez: en la base queda solo su huella, así que ni vos podés
+ * volver a verla. Si se pierde, se genera otra — que es lo correcto. Un sistema
+ * donde el proveedor puede leer las contraseñas de sus clientes es un sistema
+ * donde alguien más también puede.
+ */
+async function darClave(id) {
+  const i = DATOS.find((x) => x.id === id)
+  if (i.clave_hash && !confirm('Ya tiene una contraseña. ¿Reemplazarla por una nueva?')) return
+
+  try {
+    const r = await api(`/admin/instalaciones/${id}/clave`, { method: 'POST' })
+    abrir(`<h3 style="margin:0 0 4px">Contraseña nueva</h3>
+      <p class="id">Pasásela al cliente. No la vas a poder volver a ver.</p>
+      <p class="id" style="margin-top:8px">Entra en <b>/mi-cuenta</b> con
+        ${r.email ? `<b>${esc(r.email)}</b>` : 'su código de instalación'} y esta clave.</p>
+      <textarea rows="2" readonly onclick="this.select()"
+        style="font-size:18px; text-align:center; letter-spacing:.1em">${esc(r.clave)}</textarea>
+      <div class="fila"><button onclick="navigator.clipboard.writeText('${esc(r.clave)}')">Copiar</button>
+      <button class="gris" onclick="cerrar(); cargar()">Cerrar</button></div>`)
+  } catch (e) { alert(e.message) }
+}
+
+// El código a mano: el camino que salva el día que el cliente no tiene internet
+// o su sistema no llega hasta acá.
+async function darToken(id) {
+  try {
+    const r = await api(`/admin/instalaciones/${id}/token`, { method: 'POST' })
+    abrir(`<h3 style="margin:0 0 4px">Código de licencia</h3>
+      <p class="id">Vence ${fecha(r.vence)}. Pasáselo para que lo pegue en Ajustes → Licencia.</p>
+      <textarea rows="6" readonly onclick="this.select()">${esc(r.token)}</textarea>
+      <div class="fila"><button onclick="navigator.clipboard.writeText(document.querySelector('#dlgCuerpo textarea').value)">Copiar</button>
+      <button class="gris" onclick="cerrar()">Cerrar</button></div>`)
+  } catch (e) { alert(e.message) }
+}
+
+if (TOKEN) { document.getElementById('token').value = TOKEN; cargar() }
+</script>
+</body>
+</html>

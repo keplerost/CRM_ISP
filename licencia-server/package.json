@@ -1,0 +1,14 @@
+{
+  "name": "licencia-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Servidor de licencias: el lado del vendedor. Emite los permisos que habilitan cada instalación.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  }
+}

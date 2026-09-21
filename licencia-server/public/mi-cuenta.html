@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi licencia</title>
+<style>
+  :root { color-scheme: dark }
+  * { box-sizing: border-box }
+  body { margin:0; background:#0f172a; color:#e2e8f0; font:15px/1.6 system-ui, sans-serif;
+         display:flex; justify-content:center; padding:24px 16px }
+  main { width:100%; max-width:460px }
+  h1 { font-size:20px; margin:0 0 4px }
+  h2 { font-size:15px; margin:0 0 12px; font-weight:600 }
+  .sub { color:#64748b; font-size:13px; margin:0 0 24px }
+  label { display:block; font-size:12px; color:#64748b; text-transform:uppercase;
+          letter-spacing:.05em; margin:14px 0 5px }
+  input { width:100%; font:inherit; padding:12px 14px; border-radius:10px;
+          border:1px solid #334155; background:#1e293b; color:#e2e8f0; outline:none }
+  input:focus { border-color:#0ea5e9 }
+  button { width:100%; font:inherit; font-weight:500; padding:12px; margin-top:14px;
+           border:0; border-radius:10px; background:#0284c7; color:#fff; cursor:pointer }
+  button.gris { background:#1e293b; color:#cbd5e1 }
+  button:disabled { opacity:.4; cursor:default }
+  .enlace { background:none; border:0; color:#38bdf8; font:inherit; font-size:13px;
+            cursor:pointer; padding:8px 0; margin:0; width:auto }
+  .caja { border:1px solid #1e293b; background:rgba(30,41,59,.4); border-radius:14px;
+          padding:16px; margin-bottom:12px }
+  .estado { border-radius:14px; padding:16px; margin-bottom:12px }
+  .ok  { border:1px solid rgba(16,185,129,.35); background:rgba(16,185,129,.08) }
+  .mal { border:1px solid rgba(220,38,38,.4);  background:rgba(220,38,38,.08) }
+  .avi { border:1px solid rgba(245,158,11,.35); background:rgba(245,158,11,.08) }
+  .grande { font-size:26px; font-weight:600; margin:2px 0 0 }
+  .chico { font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:.05em }
+  table { width:100%; border-collapse:collapse; font-size:13px }
+  td { padding:8px 0; border-top:1px solid #1e293b }
+  td:last-child { text-align:right; color:#94a3b8 }
+  .err { color:#fca5a5; font-size:14px; margin-top:12px }
+  .bien { color:#6ee7b7; font-size:14px; margin-top:12px }
+  .pie { color:#475569; font-size:12px; margin-top:16px; line-height:1.7 }
+  .mono { font-family:ui-monospace, monospace; font-size:13px }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script>
+/**
+ * El portal del ISP que compró el sistema.
+ *
+ * Entra con su correo o con su código de instalación. Las dos puertas a
+ * propósito: el correo es lo que recuerda, y el código es lo que tiene a mano
+ * en su propio sistema el día que no recuerda con cuál se registró.
+ *
+ * El token va a localStorage. Quien entra a ver si le vence la licencia vuelve,
+ * y pedirle la contraseña cada vez lo haría dejar de mirar — y enterarse el día
+ * del corte.
+ */
+const LLAVE = 'licencia_sesion'
+const app = document.getElementById('app')
+
+const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]))
+const fecha = (f) => f ? new Date(f + 'T12:00:00').toLocaleDateString('es-EC', { day:'numeric', month:'long', year:'numeric' }) : '—'
+const plata = (n) => n == null ? '—' : '$' + Number(n).toFixed(2)
+
+async function api(ruta, opciones = {}) {
+  const token = localStorage.getItem(LLAVE)
+  const r = await fetch('/portal/' + ruta, {
+    ...opciones,
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) },
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) {
+    // Una sesión vencida se limpia sola: dejar un token muerto haría fallar
+    // todas las pantallas hasta que alguien borre los datos del navegador.
+    if (r.status === 401 && token) localStorage.removeItem(LLAVE)
+    throw new Error(j.error || 'Error ' + r.status)
+  }
+  return j
+}
+
+// --- Entrar ------------------------------------------------------------------
+
+function pintarEntrar(error) {
+  app.innerHTML = `
+    <h1>Mi licencia</h1>
+    <p class="sub">Consultá el estado de tu sistema y tus pagos.</p>
+    <form id="f">
+      <label for="u">Correo o código de instalación</label>
+      <input id="u" autocomplete="username" spellcheck="false" autocapitalize="off">
+      <label for="c">Contraseña</label>
+      <input id="c" type="password" autocomplete="current-password">
+      <button type="submit">Entrar</button>
+      ${error ? `<p class="err">${esc(error)}</p>` : ''}
+    </form>
+    <button class="enlace" onclick="pintarRegistro()">Es mi primera vez — crear mi acceso</button>
+    <p class="pie">
+      Si perdiste la contraseña, pedile a tu proveedor que te la restablezca.
+    </p>`
+
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault()
+    try {
+      const r = await api('entrar', {
+        method: 'POST',
+        body: JSON.stringify({
+          usuario: document.getElementById('u').value.trim(),
+          clave: document.getElementById('c').value,
+        }),
+      })
+      localStorage.setItem(LLAVE, r.token)
+      pintarCuenta(r.cuenta)
+    } catch (err) {
+      pintarEntrar(err.message)
+    }
+  }
+}
+
+// --- Primera vez -------------------------------------------------------------
+//
+// Se prueba con el código de instalación, que es un UUID que solo tiene quien
+// administra ese sistema. Solo funciona si todavía no hay contraseña.
+
+function pintarRegistro(error) {
+  app.innerHTML = `
+    <h1>Crear mi acceso</h1>
+    <p class="sub">Una sola vez, para poder entrar de ahora en adelante.</p>
+    <form id="f">
+      <label for="i">Código de instalación</label>
+      <input id="i" class="mono" placeholder="a3f1c2e0-…" spellcheck="false" autocapitalize="off">
+      <p class="pie" style="margin-top:6px">
+        Está en tu sistema, en <b style="color:#94a3b8">Ajustes → Licencia</b>.
+      </p>
+      <label for="e">Tu correo</label>
+      <input id="e" type="email" autocomplete="email">
+      <label for="c">Contraseña nueva</label>
+      <input id="c" type="password" autocomplete="new-password" minlength="8">
+      <p class="pie" style="margin-top:6px">Al menos 8 caracteres.</p>
+      <button type="submit">Crear acceso</button>
+      ${error ? `<p class="err">${esc(error)}</p>` : ''}
+    </form>
+    <button class="enlace" onclick="pintarEntrar()">Ya tengo acceso — entrar</button>`
+
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault()
+    try {
+      const r = await api('registrarse', {
+        method: 'POST',
+        body: JSON.stringify({
+          instalacion: document.getElementById('i').value.trim(),
+          email: document.getElementById('e').value.trim(),
+          clave: document.getElementById('c').value,
+        }),
+      })
+      localStorage.setItem(LLAVE, r.token)
+      pintarCuenta(r.cuenta)
+    } catch (err) {
+      pintarRegistro(err.message)
+    }
+  }
+}
+
+// --- La cuenta ---------------------------------------------------------------
+
+function pintarCuenta(d) {
+  const clase = d.suspendida || !d.al_dia ? 'mal' : d.dias_restantes <= 7 ? 'avi' : 'ok'
+  const titulo = d.suspendida ? 'Tu licencia está suspendida'
+              : !d.al_dia     ? 'Tu licencia está vencida'
+              : d.dias_restantes <= 7 ? 'Tu licencia vence pronto'
+              : 'Tu licencia está al día'
+  const detalle = !d.al_dia
+    ? 'Regularizá el pago para volver a usar el sistema. Se reactiva solo cuando se acredita.'
+    : `Vence el ${fecha(d.pagado_hasta)} — quedan ${d.dias_restantes} días.`
+
+  app.innerHTML = `
+    <h1>${esc(d.isp || 'Mi licencia')}</h1>
+    <p class="sub">${esc(d.email || '')}</p>
+
+    <div class="estado ${clase}">
+      <div style="font-weight:500">${esc(titulo)}</div>
+      <div style="font-size:13px; opacity:.85; margin-top:2px">${esc(detalle)}</div>
+    </div>
+
+    <div class="caja">
+      <div class="chico">Abonados</div>
+      <p class="grande">${d.abonados}${d.plan_clientes ? ` <span style="font-size:15px;color:#64748b">de ${d.plan_clientes}</span>` : ''}</p>
+      ${d.excedido ? `<p style="color:#fcd34d; font-size:13px; margin:8px 0 0">
+        Superaste los abonados de tu plan. El sistema sigue funcionando —no cortamos a nadie por
+        crecer— pero conviene que hablemos para ajustarlo.</p>` : ''}
+      ${d.precio_mensual ? `<p style="color:#64748b; font-size:13px; margin:8px 0 0">${plata(d.precio_mensual)} por mes</p>` : ''}
+    </div>
+
+    ${d.pagos.length ? `<div class="caja">
+      <div class="chico" style="margin-bottom:6px">Tus pagos</div>
+      <table><tbody>${d.pagos.map((p) => `<tr>
+        <td>${fecha(p.fecha)}${p.meses > 1 ? ` · ${p.meses} meses` : ''}</td>
+        <td>${plata(p.monto)}</td></tr>`).join('')}</tbody></table>
+    </div>` : ''}
+
+    <div class="caja">
+      <div class="chico">Código de instalación</div>
+      <p class="mono" style="margin:4px 0 0; word-break:break-all; color:#94a3b8">${esc(d.instalacion)}</p>
+    </div>
+
+    <button class="gris" onclick="pintarClave()">Cambiar mi contraseña</button>
+    <button class="gris" onclick="salir()">Salir</button>`
+}
+
+function pintarClave(error, ok) {
+  app.innerHTML = `
+    <h1>Cambiar contraseña</h1>
+    <form id="f">
+      <label for="a">Contraseña actual</label>
+      <input id="a" type="password" autocomplete="current-password">
+      <label for="n">Contraseña nueva</label>
+      <input id="n" type="password" autocomplete="new-password" minlength="8">
+      <p class="pie" style="margin-top:6px">Al menos 8 caracteres.</p>
+      <button type="submit">Cambiar</button>
+      ${error ? `<p class="err">${esc(error)}</p>` : ''}
+      ${ok ? `<p class="bien">${esc(ok)}</p>` : ''}
+    </form>
+    <button class="enlace" onclick="volver()">Volver</button>
+    <p class="pie">
+      Al cambiarla se cierran todas las sesiones abiertas, incluida esta. Es lo que hace que
+      cambiarla sirva cuando sospechás que alguien más entró.
+    </p>`
+
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault()
+    try {
+      const r = await api('clave', {
+        method: 'POST',
+        body: JSON.stringify({
+          actual: document.getElementById('a').value,
+          nueva: document.getElementById('n').value,
+        }),
+      })
+      localStorage.removeItem(LLAVE)
+      pintarEntrar(null)
+      // El aviso va sobre la pantalla de entrada: la sesión ya se cerró.
+      app.insertAdjacentHTML('beforeend', `<p class="bien">${esc(r.mensaje)}</p>`)
+    } catch (err) {
+      pintarClave(err.message)
+    }
+  }
+}
+
+async function volver() {
+  try {
+    pintarCuenta(await api('cuenta'))
+  } catch {
+    pintarEntrar()
+  }
+}
+
+async function salir() {
+  await api('salir', { method: 'POST' }).catch(() => {})
+  localStorage.removeItem(LLAVE)
+  pintarEntrar()
+}
+
+// Arranque: si hay sesión guardada, directo a la cuenta.
+if (localStorage.getItem(LLAVE)) volver()
+else pintarEntrar()
+</script>
+</body>
+</html>

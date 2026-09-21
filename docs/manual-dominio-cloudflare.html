@@ -1,0 +1,1151 @@
+<title>La Dirección Fija</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --paper:      #f6f7f9;
+    --surface:    #ffffff;
+    --surface-2:  #eef1f5;
+    --ink:        #131922;
+    --ink-soft:   #3d4756;
+    --muted:      #5b6675;
+    --line:       #dde1e7;
+    --line-soft:  #e8ebef;
+    --accent:     #b45606;
+    --accent-soft:#fdf1e3;
+    --pass:       #177245;
+    --pass-soft:  #e6f4ec;
+    --fail:       #a8201a;
+    --fail-soft:  #fbeceb;
+    --warn:       #8a5a00;
+    --warn-soft:  #fdf6e3;
+
+    --term-bg:    #10151c;
+    --term-bar:   #1b222c;
+    --term-ink:   #d6dce5;
+    --term-dim:   #77839a;
+    --term-green: #6cc48c;
+    --term-amber: #e8a33d;
+    --term-red:   #e8756b;
+    --term-blue:  #7aaee8;
+
+    --measure: 68ch;
+    --radius: 6px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0d1117;
+      --surface:    #151b23;
+      --surface-2:  #1c242e;
+      --ink:        #e6e9ee;
+      --ink-soft:   #c3cad4;
+      --muted:      #8b96a5;
+      --line:       #262f3b;
+      --line-soft:  #1e262f;
+      --accent:     #f0932b;
+      --accent-soft:#2a1f11;
+      --pass:       #5cc98a;
+      --pass-soft:  #10251a;
+      --fail:       #ef7a72;
+      --fail-soft:  #2a1615;
+      --warn:       #e0b054;
+      --warn-soft:  #262013;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0d1117;
+    --surface:    #151b23;
+    --surface-2:  #1c242e;
+    --ink:        #e6e9ee;
+    --ink-soft:   #c3cad4;
+    --muted:      #8b96a5;
+    --line:       #262f3b;
+    --line-soft:  #1e262f;
+    --accent:     #f0932b;
+    --accent-soft:#2a1f11;
+    --pass:       #5cc98a;
+    --pass-soft:  #10251a;
+    --fail:       #ef7a72;
+    --fail-soft:  #2a1615;
+    --warn:       #e0b054;
+    --warn-soft:  #262013;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px 120px; }
+
+  header.head { padding: 72px 0 40px; border-bottom: 2px solid var(--ink); }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; font-weight: 500; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 18px;
+  }
+
+  h1 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700; font-size: clamp(38px, 6.5vw, 60px);
+    line-height: 1.02; letter-spacing: -0.022em;
+    text-wrap: balance; margin: 0 0 20px;
+  }
+
+  .standfirst {
+    font-size: 20px; line-height: 1.55; color: var(--ink-soft);
+    max-width: 60ch; margin: 0;
+  }
+
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 32px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .meta-strip b { color: var(--ink); font-weight: 500; }
+
+  nav.toc {
+    margin: 40px 0 0; padding: 24px 26px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  nav.toc h2 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 14px;
+    display: block;
+  }
+  nav.toc ol {
+    margin: 0; padding: 0; list-style: none;
+    display: grid; gap: 7px; counter-reset: toc;
+  }
+  nav.toc li { counter-increment: toc; margin: 0; }
+  nav.toc a {
+    color: var(--ink); text-decoration: none; font-size: 16px;
+    display: flex; gap: 14px; align-items: baseline;
+    border-bottom: 1px solid transparent;
+  }
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px; color: var(--accent); flex: none;
+  }
+  nav.toc a:hover { border-bottom-color: var(--accent); }
+  nav.toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  section { padding-top: 64px; }
+
+  h2 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600; font-size: 30px; line-height: 1.16;
+    letter-spacing: -0.017em; text-wrap: balance; margin: 0 0 6px;
+    display: flex; gap: 16px; align-items: baseline;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px; font-weight: 600; color: var(--accent);
+    flex: none; letter-spacing: 0;
+  }
+
+  h3 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600; font-size: 19px; letter-spacing: -0.008em;
+    margin: 38px 0 10px;
+  }
+
+  .rule { height: 1px; background: var(--line); margin: 14px 0 26px; }
+
+  p { margin: 0 0 18px; max-width: var(--measure); }
+  section > ul, section > ol, .note ul, .note ol { max-width: var(--measure); }
+  li { margin-bottom: 8px; }
+  strong { font-weight: 600; }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.86em; background: var(--surface-2);
+    border: 1px solid var(--line-soft); border-radius: 4px;
+    padding: 1px 5px; word-break: break-word;
+  }
+
+  a { color: var(--accent); }
+
+  /* --------- Terminal --------- */
+  figure.term {
+    margin: 24px 0 26px; border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--term-bar); background: var(--term-bg);
+  }
+  figure.term figcaption {
+    background: var(--term-bar); color: var(--term-dim);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 9px 14px; display: flex; align-items: center; gap: 9px;
+  }
+  figure.term figcaption .dots { display: flex; gap: 5px; flex: none; }
+  figure.term figcaption .dots i {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #39424f; display: block;
+  }
+  figure.term pre {
+    margin: 0; padding: 16px 18px; overflow-x: auto;
+    color: var(--term-ink);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px; line-height: 1.62;
+  }
+  figure.term .cmd  { color: var(--term-amber); font-weight: 500; }
+  figure.term .ok   { color: var(--term-green); }
+  figure.term .bad  { color: var(--term-red); }
+  figure.term .dim  { color: var(--term-dim); }
+  figure.term .hi   { color: var(--term-blue); }
+  figure.term .mark {
+    color: #10151c; background: var(--term-amber);
+    padding: 0 4px; border-radius: 3px; font-weight: 600;
+  }
+
+  .term-note {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13.5px; color: var(--muted);
+    margin: -14px 0 26px; max-width: var(--measure);
+  }
+
+  /* --------- Pantalla web (esquema, no captura) --------- */
+  figure.screen {
+    margin: 24px 0 26px; border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden; background: var(--surface);
+  }
+  figure.screen figcaption {
+    background: var(--surface-2); border-bottom: 1px solid var(--line);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted); padding: 9px 14px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  figure.screen figcaption .dots { display: flex; gap: 5px; flex: none; }
+  figure.screen figcaption .dots i {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--line); display: block;
+  }
+  .screen-body { padding: 20px; display: grid; gap: 13px; }
+  .field {
+    border: 1px solid var(--line); border-radius: 5px;
+    padding: 9px 12px; background: var(--paper);
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px;
+  }
+  .field span {
+    display: block;
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  }
+  .field.acc { border-color: var(--accent); background: var(--accent-soft); }
+  .btn {
+    display: inline-block;
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px; font-weight: 600;
+    background: var(--accent); color: #fff;
+    padding: 9px 18px; border-radius: 5px; width: fit-content;
+  }
+  .screen-caption {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px; color: var(--muted);
+    padding: 0 14px 13px; margin: 0; max-width: none;
+  }
+
+  /* --------- Código simple --------- */
+  pre.plain {
+    margin: 20px 0; padding: 15px 17px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); border-radius: var(--radius);
+    overflow-x: auto;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13.5px; line-height: 1.6; color: var(--ink);
+  }
+
+  /* --------- Tablas --------- */
+  .tablewrap {
+    overflow-x: auto; margin: 22px 0 26px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 15.5px; }
+  th, td {
+    text-align: left; padding: 11px 15px;
+    border-bottom: 1px solid var(--line-soft); vertical-align: top;
+  }
+  thead th {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+    background: var(--surface-2); border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: 12.8px; }
+  .nums { font-variant-numeric: tabular-nums; }
+
+  /* --------- Avisos --------- */
+  .note {
+    margin: 24px 0; padding: 16px 18px 16px 20px;
+    border-radius: var(--radius); border: 1px solid var(--line);
+    border-left: 3px solid var(--muted); background: var(--surface);
+    max-width: var(--measure);
+  }
+  .note p:last-child, .note ul:last-child { margin-bottom: 0; }
+  .note .tag {
+    display: block;
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 7px;
+  }
+  .note.danger { border-left-color: var(--fail); background: var(--fail-soft); }
+  .note.danger .tag { color: var(--fail); }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.warn .tag { color: var(--warn); }
+  .note.good { border-left-color: var(--pass); background: var(--pass-soft); }
+  .note.good .tag { color: var(--pass); }
+  .note.key { border-left-color: var(--accent); background: var(--accent-soft); }
+  .note.key .tag { color: var(--accent); }
+
+  /* --------- Línea de tiempo del cambio de NS --------- */
+  .timeline {
+    margin: 26px 0 28px; display: grid; gap: 0;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface); overflow: hidden;
+  }
+  .tl-row {
+    display: grid; grid-template-columns: 120px 1fr;
+    gap: 18px; padding: 14px 18px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .tl-row:last-child { border-bottom: none; }
+  .tl-when {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px; color: var(--accent); font-weight: 500;
+    padding-top: 2px;
+  }
+  .tl-what {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14.5px; line-height: 1.5;
+  }
+  .tl-what b { display: block; margin-bottom: 2px; }
+  .tl-what small { color: var(--muted); font-size: 13px; }
+
+  footer.foot {
+    margin-top: 90px; padding-top: 26px;
+    border-top: 2px solid var(--ink);
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px; color: var(--muted);
+  }
+  footer.foot p { max-width: 62ch; }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 18px 80px; }
+    header.head { padding-top: 48px; }
+    h2 { font-size: 25px; flex-direction: column; gap: 4px; }
+    figure.term pre { font-size: 12px; }
+    .tl-row { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <p class="eyebrow">Manual de estudio · SmartOLT · Volumen II</p>
+  <h1>La dirección fija</h1>
+  <p class="standfirst">
+    De no tener cuenta en Cloudflare a tener una URL que no cambia nunca.
+    Mover un dominio que ya está funcionando, crear el túnel con nombre y
+    dejarlo arrancando solo con la PC.
+  </p>
+  <div class="meta-strip">
+    <span>Continúa · <b>El túnel de salida</b></span>
+    <span>cloudflared · <b>2026.8.2</b></span>
+    <span>Costo · <b>$0 si ya tenés el dominio</b></span>
+    <span>Tiempo · <b>40 min + espera de DNS</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#panorama">El panorama</a></li>
+    <li><a href="#riesgo">El único paso que puede romper algo</a></li>
+    <li><a href="#inventario">Inventario: qué tenés hoy</a></li>
+    <li><a href="#cuenta">Crear la cuenta en Cloudflare</a></li>
+    <li><a href="#agregar">Agregar el dominio</a></li>
+    <li><a href="#revisar">Revisar los registros importados</a></li>
+    <li><a href="#nameservers">Cambiar los nameservers</a></li>
+    <li><a href="#esperar">La espera</a></li>
+    <li><a href="#login">Autenticar cloudflared</a></li>
+    <li><a href="#crear">Crear el túnel</a></li>
+    <li><a href="#dns">Apuntar el subdominio</a></li>
+    <li><a href="#correr">Levantarlo</a></li>
+    <li><a href="#servicio">Que arranque solo</a></li>
+    <li><a href="#probar">Probar y entregar</a></li>
+    <li><a href="#problemas">Cuando algo falla</a></li>
+  </ol>
+</nav>
+
+<!-- ==================================================================== -->
+<section id="panorama">
+  <h2><span class="num">01</span> El panorama</h2>
+  <div class="rule"></div>
+
+  <p>
+    El túnel rápido que ya tenés funcionando resuelve el problema técnico —el
+    CRM en la nube alcanza tu PC— pero con una URL prestada que cambia en cada
+    arranque. Para que deje de cambiar, la dirección tiene que ser tuya.
+  </p>
+
+  <p>
+    Y ahí está la condición que conviene entender antes de empezar:
+    <strong>el nombre fijo es un subdominio de un dominio tuyo</strong>. No hay
+    versión "URL fija sin dominio". Tenés dos dominios funcionando, así que ya
+    tenés lo caro; falta ponerlos donde Cloudflare pueda administrarlos.
+  </p>
+
+  <h3>Lo que vamos a hacer, en una línea</h3>
+
+  <div class="timeline">
+    <div class="tl-row">
+      <div class="tl-when">Pasos 4–5</div>
+      <div class="tl-what"><b>Cuenta y dominio</b><small>Crear cuenta gratis y agregar uno de tus dominios.</small></div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-when">Pasos 6–8</div>
+      <div class="tl-what"><b>Mudanza del DNS</b><small>Copiar los registros y cambiar los nameservers en tu registrador actual. Acá está el riesgo.</small></div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-when">Pasos 9–11</div>
+      <div class="tl-what"><b>El túnel</b><small>Autenticar, crear el túnel, apuntarle el subdominio.</small></div>
+    </div>
+    <div class="tl-row">
+      <div class="tl-when">Pasos 12–14</div>
+      <div class="tl-what"><b>Dejarlo andando</b><small>Levantarlo, instalarlo como servicio, probar y entregarle la URL al proveedor.</small></div>
+    </div>
+  </div>
+
+  <p>
+    Todo lo de la terminal está automatizado en
+    <code>deploy\tunel-con-nombre.ps1</code>. Lo que no se puede automatizar es
+    lo del navegador: crear la cuenta, agregar el dominio y cambiar los
+    nameservers en tu registrador.
+  </p>
+
+  <div class="note">
+    <span class="tag">Sobre las imágenes de este manual</span>
+    <p>
+      Las salidas de terminal son <strong>capturas reales</strong> de esta PC.
+      Las pantallas web son <strong>esquemas</strong> —dibujos de qué campo va
+      dónde—, no fotos del panel de Cloudflare: los paneles cambian de aspecto
+      seguido y un dibujo de lo que hay que llenar envejece mejor que una foto.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="riesgo">
+  <h2><span class="num">02</span> El único paso que puede romper algo</h2>
+  <div class="rule"></div>
+
+  <p>
+    Va acá arriba y no enterrado en el medio, porque es lo que hay que entender
+    antes de tocar nada.
+  </p>
+
+  <p>
+    Cambiar los nameservers <strong>no mueve solo la página web</strong>. Mueve
+    <em>todo</em> el DNS de ese dominio: el sitio, el correo, los subdominios,
+    las verificaciones. Si tu correo de empresa está en ese dominio y los
+    registros <code>MX</code> no viajan con la mudanza, el correo deja de llegar
+    — y nadie se entera hasta que un cliente reclama que escribió y no le
+    contestaron.
+  </p>
+
+  <div class="note danger">
+    <span class="tag">La regla que evita el desastre</span>
+    <p>
+      <strong>Antes de cambiar los nameservers, comparar registro por registro.</strong>
+      Cloudflare importa automáticamente lo que encuentra, pero no siempre
+      encuentra todo. El paso 6 de este manual es exactamente eso, y no es
+      opcional.
+    </p>
+  </div>
+
+  <h3>Cómo elegir cuál de tus dos dominios mover</h3>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Si el dominio…</th><th>Entonces</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>No tiene correo ni nada crítico</td>
+          <td style="color:var(--pass)"><b>Empezá por ese.</b> El riesgo es casi nulo.</td>
+        </tr>
+        <tr>
+          <td>Tiene el correo de la empresa</td>
+          <td>Se puede igual, pero revisando los <code>MX</code> con cuidado.</td>
+        </tr>
+        <tr>
+          <td>Tiene facturación electrónica o algo del SRI</td>
+          <td style="color:var(--fail)"><b>Ese último.</b> Practicá con el otro primero.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Como el túnel solo necesita <em>un</em> subdominio, cualquiera de los dos
+    sirve. Elegí el menos comprometido.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="inventario">
+  <h2><span class="num">03</span> Inventario: qué tenés hoy</h2>
+  <div class="rule"></div>
+
+  <p>
+    Antes de mover nada, anotá cómo está el dominio ahora. Si algo sale mal, esta
+    es la foto para volver atrás.
+  </p>
+
+  <h3>Dónde está hoy tu dominio</h3>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> PowerShell — quién manda hoy</figcaption>
+<pre><span class="cmd">Resolve-DnsName TUDOMINIO.com -Type NS | Select NameHost</span></pre>
+  </figure>
+
+  <p>
+    Lo que devuelva te dice quién administra el DNS. Así se ven tres casos
+    reales, consultados de verdad:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> PowerShell — ejemplos reales</figcaption>
+<pre>wikipedia.org   <span class="dim">-></span> ns1.wikimedia.org, ns0.wikimedia.org
+godaddy.com     <span class="dim">-></span> cns2.godaddy.com, a20-65.akam.net
+namecheap.com   <span class="dim">-></span> edns4.ultradns.com, edns4.ultradns.org</pre>
+  </figure>
+  <p class="term-note">
+    Ninguno está en Cloudflare. Cuando la mudanza termine, el tuyo va a
+    contestar dos nombres terminados en <code>.ns.cloudflare.com</code>.
+  </p>
+
+  <h3>Guardá una copia de los registros</h3>
+  <p>
+    Entrá al panel de tu registrador actual, buscá la zona DNS y
+    <strong>sacale una foto o copiala a un archivo</strong>. Especialmente:
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Tipo</th><th>Para qué sirve</th><th>Si se pierde</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>MX</code></td><td>El correo</td><td style="color:var(--fail)">Deja de llegar el correo</td></tr>
+        <tr><td><code>A</code> / <code>CNAME</code></td><td>El sitio y sus subdominios</td><td>Se cae la web</td></tr>
+        <tr><td><code>TXT</code></td><td>SPF, DKIM, verificaciones</td><td>Tu correo va a spam</td></tr>
+        <tr><td><code>SRV</code></td><td>Servicios (poco común)</td><td>Depende de qué sea</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">El que más se olvida</span>
+    <p>
+      Los <code>TXT</code> de SPF y DKIM. No rompen nada de forma visible —
+      simplemente tu correo empieza a caer en la carpeta de spam de todos, y eso
+      tarda semanas en notarse y en revertirse.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="cuenta">
+  <h2><span class="num">04</span> Crear la cuenta en Cloudflare</h2>
+  <div class="rule"></div>
+
+  <p>
+    Andá a <strong>dash.cloudflare.com/sign-up</strong>. Es gratis y no pide
+    tarjeta.
+  </p>
+
+  <figure class="screen">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Esquema — registro</figcaption>
+    <div class="screen-body">
+      <div class="field"><span>Email</span>tu-correo@ejemplo.com</div>
+      <div class="field"><span>Password</span>••••••••••••••••</div>
+      <div class="btn">Sign Up</div>
+    </div>
+    <p class="screen-caption">Solo dos campos. Después llega un correo de verificación que hay que abrir.</p>
+  </figure>
+
+  <div class="note key">
+    <span class="tag">Dos decisiones que importan después</span>
+    <ul>
+      <li>
+        <b>Usá un correo al que vayas a tener acceso siempre.</b> Si el dominio
+        que vas a mover tiene el correo, no uses una dirección <em>de ese
+        dominio</em>: si la mudanza sale mal, te quedás sin correo y sin poder
+        entrar a arreglarlo.
+      </li>
+      <li>
+        <b>Activá la verificación en dos pasos</b> apenas entres, en
+        <em>My Profile → Authentication</em>. Quien controle esta cuenta controla
+        a dónde apunta tu dominio.
+      </li>
+    </ul>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="agregar">
+  <h2><span class="num">05</span> Agregar el dominio</h2>
+  <div class="rule"></div>
+
+  <p>
+    Dentro del panel: <strong>Add a domain</strong>. Escribí el dominio pelado,
+    sin <code>www</code> y sin <code>https://</code>.
+  </p>
+
+  <figure class="screen">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Esquema — agregar sitio</figcaption>
+    <div class="screen-body">
+      <div class="field acc"><span>Enter your domain</span>tudominio.com</div>
+      <div class="field"><span>Plan</span>Free — $0/mes ← alcanza y sobra</div>
+      <div class="btn">Continue</div>
+    </div>
+    <p class="screen-caption">El plan gratuito incluye túneles, DNS ilimitado y HTTPS. No hace falta pagar nada para esto.</p>
+  </figure>
+
+  <p>
+    Cloudflare va a escanear tu DNS actual y a copiar lo que encuentre. Tarda
+    menos de un minuto.
+  </p>
+
+  <div class="note">
+    <span class="tag">Si te ofrece comprar el dominio</span>
+    <p>
+      Significa que escribiste uno que no existe o que tiene un error de tipeo.
+      Volvé y revisá la escritura.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="revisar">
+  <h2><span class="num">06</span> Revisar los registros importados</h2>
+  <div class="rule"></div>
+
+  <p>
+    <strong>Este es el paso que no se saltea.</strong> Cloudflare te muestra lo
+    que importó; vos comparás contra la copia del paso 3, línea por línea.
+  </p>
+
+  <figure class="screen">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Esquema — DNS records</figcaption>
+    <div class="screen-body">
+      <div class="field"><span>Tipo · Nombre · Contenido</span>A &nbsp;·&nbsp; tudominio.com &nbsp;·&nbsp; 190.15.x.x</div>
+      <div class="field"><span>Tipo · Nombre · Contenido</span>CNAME &nbsp;·&nbsp; www &nbsp;·&nbsp; tudominio.com</div>
+      <div class="field"><span>Tipo · Nombre · Contenido</span>MX &nbsp;·&nbsp; tudominio.com &nbsp;·&nbsp; mail.tuproveedor.com &nbsp;(prioridad 10)</div>
+      <div class="field"><span>Tipo · Nombre · Contenido</span>TXT &nbsp;·&nbsp; tudominio.com &nbsp;·&nbsp; v=spf1 include:… ~all</div>
+    </div>
+    <p class="screen-caption">Lo que falte, se agrega a mano con Add record. Es más rápido agregarlo ahora que descubrir el faltante en producción.</p>
+  </figure>
+
+  <h3>La nube naranja</h3>
+  <p>
+    Cada registro tiene un ícono de nube. <strong>Naranja</strong> significa que
+    el tráfico pasa por Cloudflare; <strong>gris</strong> que solo resuelve el
+    nombre y el tráfico va directo.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Registro</th><th>Nube</th><th>Por qué</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>El sitio web (<code>A</code>, <code>www</code>)</td><td>Naranja</td><td>Ahí gana algo: caché y HTTPS.</td></tr>
+        <tr><td><code>MX</code> del correo</td><td style="color:var(--fail)"><b>Gris, siempre</b></td><td>Cloudflare no hace de proxy de correo. En naranja, el correo se rompe.</td></tr>
+        <tr><td><code>TXT</code></td><td>No aplica</td><td>No llevan nube.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">El error clásico</span>
+    <p>
+      Poner el <code>MX</code> en naranja. Cloudflare lo suele dejar gris solo,
+      pero conviene mirarlo: es la causa número uno de "movimos el dominio y se
+      cayó el correo".
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="nameservers">
+  <h2><span class="num">07</span> Cambiar los nameservers</h2>
+  <div class="rule"></div>
+
+  <p>
+    Cloudflare te da dos nombres propios, distintos para cada cuenta. Se ven así
+    —estos son de un dominio real, consultados de verdad:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Cómo se ven los nameservers de Cloudflare</figcaption>
+<pre><span class="mark">jay.ns.cloudflare.com</span>
+<span class="mark">sandra.ns.cloudflare.com</span></pre>
+  </figure>
+  <p class="term-note">
+    Son nombres de pila al azar. Los tuyos van a ser otros dos — copiá los que
+    te muestre <em>tu</em> panel, no estos.
+  </p>
+
+  <h3>Dónde se cambian</h3>
+  <p>
+    <strong>No en Cloudflare: en tu registrador</strong> — donde compraste el
+    dominio. Buscá la sección de nameservers, que según el proveedor se llama:
+  </p>
+  <ul>
+    <li>Nameservers · Servidores de nombres · DNS</li>
+    <li>Custom DNS · Use custom nameservers</li>
+    <li>Cambiar servidores DNS</li>
+  </ul>
+
+  <p>
+    Ahí <strong>borrás los dos que están</strong> y ponés los dos de Cloudflare.
+    Guardar.
+  </p>
+
+  <div class="note warn">
+    <span class="tag">Los dos, no uno</span>
+    <p>
+      Tiene que quedar exactamente lo que te dio Cloudflare. Si dejás mezclados
+      uno viejo y uno nuevo, el dominio va a responder distinto según a quién le
+      pregunten — y vas a perseguir un problema que aparece y desaparece.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="esperar">
+  <h2><span class="num">08</span> La espera</h2>
+  <div class="rule"></div>
+
+  <p>
+    El cambio de nameservers tarda en propagarse. Cloudflare dice hasta 24 horas;
+    en la práctica suele ser mucho menos, pero no se puede apurar.
+  </p>
+
+  <p>Para saber si ya pasó, sin depender del panel:</p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> PowerShell — ¿ya cambió?</figcaption>
+<pre><span class="cmd">Resolve-DnsName TUDOMINIO.com -Type NS | Select NameHost</span>
+
+<span class="dim"># Todavía no:</span>
+ns1.registrador-viejo.com
+ns2.registrador-viejo.com
+
+<span class="dim"># Ya está:</span>
+<span class="ok">jay.ns.cloudflare.com</span>
+<span class="ok">sandra.ns.cloudflare.com</span></pre>
+  </figure>
+
+  <p>
+    Cuando conteste los de Cloudflare, el dominio está activo ahí y Cloudflare te
+    manda un correo avisando.
+  </p>
+
+  <div class="note good">
+    <span class="tag">Mientras tanto</span>
+    <p>
+      <strong>El túnel rápido sigue funcionando.</strong> No hay que apagar nada
+      ni avisarle nada al proveedor todavía. La mudanza no interrumpe lo que ya
+      está andando.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="login">
+  <h2><span class="num">09</span> Autenticar cloudflared</h2>
+  <div class="rule"></div>
+
+  <p>De acá en adelante es todo terminal. Una sola vez por PC:</p>
+
+<pre class="plain">cloudflared tunnel login</pre>
+
+  <p>
+    Abre el navegador, te pide iniciar sesión y <strong>elegir el dominio</strong>.
+    Al aceptar, guarda un certificado en
+    <code>%USERPROFILE%\.cloudflared\cert.pem</code>. Ese archivo es lo que
+    autoriza a esta PC a crear túneles en tu cuenta.
+  </p>
+
+  <p>
+    Si te salteás este paso, todo lo demás falla con este error — que no dice en
+    ningún lado que lo que falta es hacer login:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> El error de saltearse el login</figcaption>
+<pre><span class="cmd">cloudflared tunnel list</span>
+
+<span class="bad">ERR Cannot determine default origin certificate path.
+    No file cert.pem in [~/.cloudflared ~/.cloudflare-warp
+    ~/cloudflare-warp]. You need to specify the origin
+    certificate path by specifying the origincert option
+    in the configuration file, or set TUNNEL_ORIGIN_CERT
+    environment variable</span>
+<span class="bad">Error locating origin cert: client didn't specify origincert path</span></pre>
+  </figure>
+  <p class="term-note">
+    Capturado en esta PC. Traducido: <em>no hiciste <code>tunnel login</code></em>.
+  </p>
+
+  <div class="note danger">
+    <span class="tag">Ese archivo es una llave</span>
+    <p>
+      <code>cert.pem</code> permite crear túneles y tocar el DNS de tu dominio.
+      No se comparte, no se sube a ningún repositorio, y si la PC cambia de manos
+      se borra.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="crear">
+  <h2><span class="num">10</span> Crear el túnel</h2>
+  <div class="rule"></div>
+
+  <p>Ahora sí, un comando:</p>
+
+<pre class="plain">cloudflared tunnel create smartolt-api</pre>
+
+  <p>
+    Devuelve un <strong>UUID</strong> —el identificador del túnel— y escribe un
+    archivo de credenciales <code>&lt;UUID&gt;.json</code> en la misma carpeta.
+    Para ver los que tenés:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> cloudflared — comandos disponibles</figcaption>
+<pre><span class="cmd">cloudflared tunnel --help</span>
+
+   <span class="hi">login</span>     Generate a configuration file with your login details
+   <span class="hi">create</span>    Create a new tunnel with given name
+   <span class="hi">route</span>     Define which traffic routed from Cloudflare edge to
+             this tunnel: requests to a DNS hostname […]
+   <span class="hi">run</span>       Proxy a local web server by running the given tunnel
+   <span class="hi">list</span>      List existing tunnels
+   <span class="hi">info</span>      List details about the active connectors for a tunnel
+   <span class="hi">delete</span>    Delete existing tunnel by UUID or name</pre>
+  </figure>
+  <p class="term-note">Salida real de <code>cloudflared 2026.8.2</code>.</p>
+
+  <div class="note warn">
+    <span class="tag">No crees dos con el mismo nombre</span>
+    <p>
+      No da error, pero deja dos UUID distintos. Después el archivo de
+      configuración apunta a uno y el DNS al otro, y el síntoma es un
+      <code>530</code> que no explica nada. Antes de crear, <code>tunnel list</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="dns">
+  <h2><span class="num">11</span> Apuntar el subdominio</h2>
+  <div class="rule"></div>
+
+<pre class="plain">cloudflared tunnel route dns smartolt-api api.TUDOMINIO.com</pre>
+
+  <p>
+    Crea un <code>CNAME</code> de <code>api.TUDOMINIO.com</code> hacia
+    <code>&lt;UUID&gt;.cfargotunnel.com</code>. Ese destino no existe en el DNS
+    público: solo Cloudflare sabe resolverlo, y lo resuelve hacia tu túnel.
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> cloudflared — la opción que hay que conocer</figcaption>
+<pre><span class="cmd">cloudflared tunnel route dns --help</span>
+
+USAGE:
+   cloudflared tunnel route dns [TUNNEL] [HOSTNAME]
+
+OPTIONS:
+   <span class="hi">--overwrite-dns, -f</span>  Overwrites existing DNS records with
+                        this hostname (default: false)</pre>
+  </figure>
+
+  <p>
+    Si ese nombre ya existe, el comando falla en vez de pisarlo — que es lo
+    correcto. Solo cuando estés seguro de que el registro viejo no sirve:
+  </p>
+
+<pre class="plain">cloudflared tunnel route dns -f smartolt-api api.TUDOMINIO.com</pre>
+
+  <h3>Elegir el nombre</h3>
+  <p>
+    Cualquier subdominio libre sirve. <code>api</code> es el obvio;
+    <code>crm-api</code> dice para qué es y no choca con nada. Lo que no
+    conviene es usar el dominio pelado ni <code>www</code>: esos son del sitio.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="correr">
+  <h2><span class="num">12</span> Levantarlo</h2>
+  <div class="rule"></div>
+
+  <p>
+    Falta decirle qué servir. Eso va en
+    <code>%USERPROFILE%\.cloudflared\config.yml</code>:
+  </p>
+
+<pre class="plain">tunnel: &lt;EL-UUID&gt;
+credentials-file: C:\Users\TU-USUARIO\.cloudflared\&lt;EL-UUID&gt;.json
+
+ingress:
+  - hostname: api.TUDOMINIO.com
+    service: http://localhost:4000
+  - service: http_status:404</pre>
+
+  <div class="note key">
+    <span class="tag">Esa última línea es obligatoria</span>
+    <p>
+      Las reglas de <code>ingress</code> se leen en orden y la última tiene que
+      ser un comodín sin <code>hostname</code>. Sin ella
+      <strong>cloudflared se niega a arrancar</strong>. Lo que hace es rechazar
+      con <code>404</code> cualquier nombre que no sea el tuyo.
+    </p>
+  </div>
+
+  <p>Y se levanta:</p>
+
+<pre class="plain">cloudflared tunnel run smartolt-api</pre>
+
+  <h3>El atajo</h3>
+  <p>
+    Todo esto —crear el túnel, escribir el <code>config.yml</code> con las rutas
+    correctas, apuntar el DNS— está en un script del proyecto:
+  </p>
+
+<pre class="plain">powershell -ExecutionPolicy Bypass -File deploy\tunel-con-nombre.ps1 `
+    -Hostname api.TUDOMINIO.com</pre>
+
+  <p>
+    Reusa el túnel si ya existe, verifica que el <code>cert.pem</code> esté antes
+    de empezar, y si algo falta te dice qué. El único requisito es haber corrido
+    <code>cloudflared tunnel login</code>.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="servicio">
+  <h2><span class="num">13</span> Que arranque solo</h2>
+  <div class="rule"></div>
+
+  <p>
+    Hasta acá el túnel vive mientras la ventana esté abierta. Como servicio de
+    Windows arranca con la PC, sobrevive a cerrar sesión, y no hay ventana que
+    alguien pueda cerrar sin querer.
+  </p>
+
+  <p>
+    Requiere <strong>PowerShell como Administrador</strong> — botón derecho sobre
+    el ícono, <em>Ejecutar como administrador</em>:
+  </p>
+
+<pre class="plain">cloudflared service install</pre>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> cloudflared — el subcomando</figcaption>
+<pre><span class="cmd">cloudflared service --help</span>
+
+NAME:
+   cloudflared service - Manages the cloudflared Windows service
+
+COMMANDS:
+   <span class="hi">install</span>    Install cloudflared as a Windows service
+   <span class="hi">uninstall</span>  Uninstall the cloudflared service</pre>
+  </figure>
+  <p class="term-note">Salida real. Existe también el camino de vuelta.</p>
+
+  <p>Para comprobar que quedó, y que arranca solo:</p>
+
+<pre class="plain">Get-Service cloudflared | Format-Table Name, Status, StartType</pre>
+
+  <p>
+    Tiene que decir <code>Running</code> y <code>Automatic</code>. Si dice
+    <code>Manual</code>, arranca pero no vuelve solo después de un reinicio.
+  </p>
+
+  <div class="note warn">
+    <span class="tag">Una trampa del servicio</span>
+    <p>
+      El servicio corre como otro usuario de Windows, así que <strong>lee su
+      configuración de otra carpeta</strong>, no de tu perfil. Si lo instalás
+      antes de tener el <code>config.yml</code> listo, arranca sin saber qué
+      servir. El orden es: primero que funcione a mano, después instalarlo.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="probar">
+  <h2><span class="num">14</span> Probar y entregar</h2>
+  <div class="rule"></div>
+
+  <p>Las mismas tres pruebas del manual anterior, ahora contra el nombre fijo:</p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Bash — verificación final</figcaption>
+<pre><span class="cmd">curl -H "X-API-Key: sk_TU_LLAVE" \
+     https://api.TUDOMINIO.com/api/integracion/ping</span>
+{"ok":<span class="ok">true</span>,"llave":"CRM / Bot de WhatsApp",…}
+<span class="dim">HTTP 200</span>
+
+<span class="cmd"># sin llave</span>
+<span class="bad">401</span>
+
+<span class="cmd"># cédula inventada</span>
+{"status":"error","code":<span class="bad">"CLIENTE_NO_ENCONTRADO"</span>,…}
+<span class="dim">HTTP 404</span></pre>
+  </figure>
+
+  <p>Si las tres salen así, ya podés entregarle la dirección definitiva:</p>
+
+<pre class="plain">URL base       : https://api.TUDOMINIO.com/api/v1
+Autenticación  : API Key en header
+Nombre header  : X-API-Key
+Token          : sk_…</pre>
+
+  <h3>Y recién ahora, restringir por IP</h3>
+  <p>
+    Con el túnel rápido no se podía. Con nombre fijo tampoco cambia quién es la
+    IP de origen —sigue siendo Cloudflare— pero ya tenés dónde poner las reglas:
+    <strong>Cloudflare Zero Trust → Access</strong>, delante del túnel. Es el
+    paso siguiente, no éste.
+  </p>
+
+  <div class="note good">
+    <span class="tag">Lo que ganaste</span>
+    <ul>
+      <li>La URL no cambia nunca más.</li>
+      <li>Arranca sola con la PC.</li>
+      <li>HTTPS con certificado válido, sin renovarlo a mano.</li>
+      <li>Sigue sin abrir un solo puerto en el router.</li>
+      <li>Se puede apagar el túnel rápido y olvidarlo.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="problemas">
+  <h2><span class="num">15</span> Cuando algo falla</h2>
+  <div class="rule"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Síntoma</th><th>Causa</th><th>Solución</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Cannot determine default origin certificate path</b></td>
+          <td>Falta el <code>cert.pem</code>.</td>
+          <td><code>cloudflared tunnel login</code>.</td>
+        </tr>
+        <tr>
+          <td><b>Error 1016</b><br><span style="color:var(--muted)">Origin DNS error</span></td>
+          <td>El <code>CNAME</code> apunta a un túnel que no existe o que no está corriendo.</td>
+          <td>Verificar con <code>tunnel list</code> que el UUID coincida con el del <code>config.yml</code>.</td>
+        </tr>
+        <tr>
+          <td><b>Error 530</b></td>
+          <td>El túnel existe pero no hay nadie conectado.</td>
+          <td>No está corriendo. <code>tunnel run</code>, o revisar el servicio.</td>
+        </tr>
+        <tr>
+          <td><b>502 Bad Gateway</b></td>
+          <td>El túnel llega, pero nada escucha en el 4000.</td>
+          <td><code>npm run dev</code>.</td>
+        </tr>
+        <tr>
+          <td><b>failed to parse ingress</b></td>
+          <td>Falta la regla final <code>http_status:404</code>.</td>
+          <td>Agregarla como última línea del <code>config.yml</code>.</td>
+        </tr>
+        <tr>
+          <td><b>record already exists</b></td>
+          <td>Ya hay algo con ese nombre.</td>
+          <td>Otro subdominio, o <code>-f</code> si estás seguro.</td>
+        </tr>
+        <tr>
+          <td><b>El dominio sigue sin activarse</b></td>
+          <td>Los nameservers no cambiaron o quedaron mezclados.</td>
+          <td><code>Resolve-DnsName -Type NS</code>. Tienen que ser los dos de Cloudflare y ninguno más.</td>
+        </tr>
+        <tr>
+          <td><b>Se cayó el correo</b></td>
+          <td>Faltan los <code>MX</code>, o quedaron en nube naranja.</td>
+          <td>DNS → agregarlos con la copia del paso 3, en gris.</td>
+        </tr>
+        <tr>
+          <td><b>El servicio corre pero no responde</b></td>
+          <td>El servicio lee la configuración de otra carpeta.</td>
+          <td><code>cloudflared service uninstall</code>, dejarlo andando a mano, y recién ahí reinstalar.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Si hay que volver atrás</h3>
+  <p>
+    Poner de nuevo los nameservers viejos en el registrador. El dominio vuelve a
+    como estaba, con la misma demora de propagación. Por eso el paso 3 —la copia
+    de los registros— es la red de seguridad de todo este manual.
+  </p>
+</section>
+
+<footer class="foot">
+  <p>
+    <strong>Manual de estudio, volumen II — La dirección fija.</strong>
+    Las salidas de terminal son capturas reales de esta PC con
+    <code>cloudflared 2026.8.2</code>. Las pantallas web son esquemas de qué
+    campo va dónde, no fotos del panel de Cloudflare.
+  </p>
+  <p style="margin-top:14px">
+    Volumen I: <em>El túnel de salida</em> ·
+    Script: <code>deploy\tunel-con-nombre.ps1</code> ·
+    Para el proveedor: <code>docs\mapeo-lookup-client.md</code>
+  </p>
+</footer>
+
+</div>

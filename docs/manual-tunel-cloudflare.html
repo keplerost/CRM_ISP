@@ -1,0 +1,1206 @@
+<title>El Túnel de Salida</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  /* ---------------------------------------------------------------
+     Paleta clara. Todo color del documento sale de acá.
+     Los neutros tiran a azul pizarra —el color del equipo de red—
+     y el acento es un ámbar de señal: el naranja del túnel activo.
+     --------------------------------------------------------------- */
+  :root {
+    --paper:      #f6f7f9;
+    --surface:    #ffffff;
+    --surface-2:  #eef1f5;
+    --ink:        #131922;
+    --ink-soft:   #3d4756;
+    --muted:      #5b6675;
+    --line:       #dde1e7;
+    --line-soft:  #e8ebef;
+    --accent:     #b45606;
+    --accent-soft:#fdf1e3;
+    --pass:       #177245;
+    --pass-soft:  #e6f4ec;
+    --fail:       #a8201a;
+    --fail-soft:  #fbeceb;
+    --warn:       #8a5a00;
+    --warn-soft:  #fdf6e3;
+
+    /* La terminal es una terminal en los dos temas. Paleta propia,
+       fija, pintada explícitamente. */
+    --term-bg:    #10151c;
+    --term-bar:   #1b222c;
+    --term-ink:   #d6dce5;
+    --term-dim:   #77839a;
+    --term-green: #6cc48c;
+    --term-amber: #e8a33d;
+    --term-red:   #e8756b;
+    --term-blue:  #7aaee8;
+
+    --measure: 68ch;
+    --radius: 6px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0d1117;
+      --surface:    #151b23;
+      --surface-2:  #1c242e;
+      --ink:        #e6e9ee;
+      --ink-soft:   #c3cad4;
+      --muted:      #8b96a5;
+      --line:       #262f3b;
+      --line-soft:  #1e262f;
+      --accent:     #f0932b;
+      --accent-soft:#2a1f11;
+      --pass:       #5cc98a;
+      --pass-soft:  #10251a;
+      --fail:       #ef7a72;
+      --fail-soft:  #2a1615;
+      --warn:       #e0b054;
+      --warn-soft:  #262013;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0d1117;
+    --surface:    #151b23;
+    --surface-2:  #1c242e;
+    --ink:        #e6e9ee;
+    --ink-soft:   #c3cad4;
+    --muted:      #8b96a5;
+    --line:       #262f3b;
+    --line-soft:  #1e262f;
+    --accent:     #f0932b;
+    --accent-soft:#2a1f11;
+    --pass:       #5cc98a;
+    --pass-soft:  #10251a;
+    --fail:       #ef7a72;
+    --fail-soft:  #2a1615;
+    --warn:       #e0b054;
+    --warn-soft:  #262013;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 24px 120px;
+  }
+
+  /* ---------------- Cabecera ---------------- */
+
+  header.head {
+    padding: 72px 0 40px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 18px;
+  }
+
+  h1 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(38px, 6.5vw, 60px);
+    line-height: 1.02;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+  }
+
+  .standfirst {
+    font-size: 20px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    margin-top: 32px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .meta-strip b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ---------------- Índice ---------------- */
+
+  nav.toc {
+    margin: 40px 0 0;
+    padding: 24px 26px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  nav.toc h2 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  nav.toc ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 7px;
+    counter-reset: toc;
+  }
+  nav.toc li { counter-increment: toc; }
+  nav.toc a {
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 16px;
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    border-bottom: 1px solid transparent;
+  }
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--accent);
+    flex: none;
+  }
+  nav.toc a:hover { border-bottom-color: var(--accent); }
+  nav.toc a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  /* ---------------- Secciones ---------------- */
+
+  section { padding-top: 64px; }
+
+  h2 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1.16;
+    letter-spacing: -0.017em;
+    text-wrap: balance;
+    margin: 0 0 6px;
+    display: flex;
+    gap: 16px;
+    align-items: baseline;
+  }
+  h2 .num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    flex: none;
+    letter-spacing: 0;
+  }
+
+  h3 {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
+    font-size: 19px;
+    letter-spacing: -0.008em;
+    margin: 38px 0 10px;
+  }
+
+  .rule {
+    height: 1px;
+    background: var(--line);
+    margin: 14px 0 26px;
+  }
+
+  p { margin: 0 0 18px; max-width: var(--measure); }
+  section > ul, section > ol { max-width: var(--measure); }
+
+  li { margin-bottom: 8px; }
+
+  strong { font-weight: 600; }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.86em;
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 1px 5px;
+    word-break: break-word;
+  }
+
+  a { color: var(--accent); }
+
+  /* ---------------- Terminal ---------------- */
+
+  figure.term {
+    margin: 24px 0 26px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--term-bar);
+    background: var(--term-bg);
+  }
+  figure.term figcaption {
+    background: var(--term-bar);
+    color: var(--term-dim);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  figure.term figcaption .dots {
+    display: flex;
+    gap: 5px;
+    flex: none;
+  }
+  figure.term figcaption .dots i {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #39424f;
+    display: block;
+  }
+  figure.term pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow-x: auto;
+    color: var(--term-ink);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.62;
+    tab-size: 2;
+  }
+  figure.term .cmd   { color: var(--term-amber); font-weight: 500; }
+  figure.term .ok    { color: var(--term-green); }
+  figure.term .bad   { color: var(--term-red); }
+  figure.term .dim   { color: var(--term-dim); }
+  figure.term .hi    { color: var(--term-blue); }
+  figure.term .mark  {
+    color: #10151c;
+    background: var(--term-amber);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+
+  .term-note {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13.5px;
+    color: var(--muted);
+    margin: -14px 0 26px;
+    max-width: var(--measure);
+  }
+
+  /* ---------------- Bloques de código simples ---------------- */
+
+  pre.plain {
+    margin: 20px 0;
+    padding: 15px 17px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  /* ---------------- Tablas ---------------- */
+
+  .tablewrap {
+    overflow-x: auto;
+    margin: 22px 0 26px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 15.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 11px 15px;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  thead th {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { font-size: 12.8px; }
+  .nums { font-variant-numeric: tabular-nums; }
+
+  /* ---------------- Avisos ---------------- */
+
+  .note {
+    margin: 24px 0;
+    padding: 16px 18px 16px 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--muted);
+    background: var(--surface);
+    max-width: var(--measure);
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note .tag {
+    display: block;
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+  .note.danger { border-left-color: var(--fail); background: var(--fail-soft); }
+  .note.danger .tag { color: var(--fail); }
+  .note.warn   { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.warn .tag { color: var(--warn); }
+  .note.good   { border-left-color: var(--pass); background: var(--pass-soft); }
+  .note.good .tag { color: var(--pass); }
+  .note.key    { border-left-color: var(--accent); background: var(--accent-soft); }
+  .note.key .tag { color: var(--accent); }
+
+  /* ---------------- Diagrama ---------------- */
+
+  .diagram {
+    margin: 28px 0 30px;
+    display: grid;
+    gap: 16px;
+  }
+  .flow {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .flow-title {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .flow.no .flow-title  { color: var(--fail); }
+  .flow.yes .flow-title { color: var(--pass); }
+  .chain {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: max-content;
+  }
+  .node {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--surface-2);
+    padding: 9px 13px;
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13.5px;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .node small {
+    display: block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .node.acc { border-color: var(--accent); background: var(--accent-soft); }
+  .arrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 15px;
+    color: var(--muted);
+    flex: none;
+  }
+  .arrow.blocked { color: var(--fail); font-weight: 600; }
+  .arrow.flows   { color: var(--pass); }
+
+  /* ---------------- Cierre ---------------- */
+
+  footer.foot {
+    margin-top: 90px;
+    padding-top: 26px;
+    border-top: 2px solid var(--ink);
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  footer.foot p { max-width: 62ch; }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 18px 80px; }
+    header.head { padding-top: 48px; }
+    h2 { font-size: 25px; flex-direction: column; gap: 4px; }
+    figure.term pre { font-size: 12px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <p class="eyebrow">Manual de estudio · SmartOLT</p>
+  <h1>El túnel de salida</h1>
+  <p class="standfirst">
+    Cómo hacer que un sistema que corre en tu PC sea alcanzable desde internet,
+    para que el CRM en la nube pueda consumir la API. Paso a paso, con lo que
+    devolvió cada comando de verdad.
+  </p>
+  <div class="meta-strip">
+    <span>Versión probada · <b>cloudflared 2026.8.2</b></span>
+    <span>Windows 10 · <b>AMD64</b></span>
+    <span>Middleware · <b>puerto 4000</b></span>
+    <span>Fecha · <b>19/08/2026</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#problema">Qué problema resuelve</a></li>
+    <li><a href="#antes">Antes de empezar</a></li>
+    <li><a href="#instalar">Instalar cloudflared</a></li>
+    <li><a href="#middleware">Comprobar que el middleware está arriba</a></li>
+    <li><a href="#levantar">Levantar el túnel</a></li>
+    <li><a href="#probar">Probar que llega desde afuera</a></li>
+    <li><a href="#entregar">Entregarle los datos al proveedor</a></li>
+    <li><a href="#cerrar">Cerrarlo y volver a levantarlo</a></li>
+    <li><a href="#cuando">Cuándo usarlo y cuándo no</a></li>
+    <li><a href="#comparar">Las tres formas de exponer, comparadas</a></li>
+    <li><a href="#problemas">Cuando algo falla</a></li>
+    <li><a href="#seguridad">Lo que no hay que hacer nunca</a></li>
+  </ol>
+</nav>
+
+<!-- ==================================================================== -->
+<section id="problema">
+  <h2><span class="num">01</span> Qué problema resuelve</h2>
+  <div class="rule"></div>
+
+  <p>
+    Tu sistema corre en tu PC. La API vive en <code>http://localhost:4000</code>.
+    Eso funciona perfecto mientras quien la usa esté <em>en</em> esa PC o en tu
+    red local.
+  </p>
+
+  <p>
+    El CRM de WhatsApp no está ahí: corre en la nube. Y acá está el punto que
+    hace perder más tiempo del que parece —
+    <strong>para un servidor en internet, <code>localhost</code> es él mismo</strong>,
+    no tu PC. Si le pasás esa dirección, va a buscar el puerto 4000 en su propia
+    máquina, no va a encontrar nada, y el error que muestre no va a decir nada
+    sobre la causa real.
+  </p>
+
+  <p>
+    Tus IP de red local —<code>192.168.1.44</code>, <code>192.168.55.254</code>—
+    tampoco sirven. Los rangos <code>192.168.x.x</code> son privados: existen
+    dentro de tu casa u oficina y en ningún otro lado. Millones de redes usan
+    exactamente esos mismos números.
+  </p>
+
+  <div class="diagram">
+    <div class="flow no">
+      <div class="flow-title">Sin túnel</div>
+      <div class="chain">
+        <div class="node">CRM en la nube<small>Supabase</small></div>
+        <div class="arrow blocked">──✗──</div>
+        <div class="node">localhost:4000<small>su propia máquina</small></div>
+        <div class="arrow blocked">╳</div>
+        <div class="node">Tu PC<small>inalcanzable</small></div>
+      </div>
+    </div>
+    <div class="flow yes">
+      <div class="flow-title">Con túnel</div>
+      <div class="chain">
+        <div class="node">CRM en la nube<small>Supabase</small></div>
+        <div class="arrow flows">───▶</div>
+        <div class="node acc">Cloudflare<small>URL pública HTTPS</small></div>
+        <div class="arrow flows">───▶</div>
+        <div class="node">cloudflared<small>corriendo en tu PC</small></div>
+        <div class="arrow flows">───▶</div>
+        <div class="node">localhost:4000<small>tu middleware</small></div>
+      </div>
+    </div>
+  </div>
+
+  <p>
+    El túnel resuelve esto sin tocar el router. <strong>La conexión la abre tu
+    PC hacia afuera</strong>, no al revés: <code>cloudflared</code> se conecta a
+    Cloudflare y deja ese canal abierto. Cuando llega un pedido a la URL pública,
+    Cloudflare lo empuja por ese canal hasta tu puerto 4000.
+  </p>
+
+  <p>
+    Por eso no hace falta abrir puertos en el módem, ni pedirle IP fija al
+    proveedor de internet, ni configurar NAT. Es la diferencia entre publicar tu
+    casa en el mapa y salir vos a buscar el correo.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="antes">
+  <h2><span class="num">02</span> Antes de empezar</h2>
+  <div class="rule"></div>
+
+  <p>Tres cosas tienen que estar en su lugar:</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Qué</th><th>Cómo se comprueba</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>El middleware corriendo</b></td>
+          <td><code>npm run dev</code> desde <code>G:\TALLER_SMARTOLT</code>. Levanta la API en el 4000 y la web en el 5173.</td>
+        </tr>
+        <tr>
+          <td><b>Una llave emitida</b></td>
+          <td>Ajustes → Gestión de personal → ícono del enchufe 🔌 → Generar. Empieza con <code>sk_</code>.</td>
+        </tr>
+        <tr>
+          <td><b>Internet en la PC</b></td>
+          <td>El túnel necesita salida a <code>api.cloudflare.com</code> por HTTPS y UDP.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">Lo que más cuesta descubrir</span>
+    <p>
+      <strong>Si el middleware está caído, el túnel se levanta igual</strong> y
+      devuelve <code>502</code> a todo. Parece que falló el túnel cuando lo que
+      falta es <code>npm run dev</code>. Por eso el atajo del paso 8 lo verifica
+      antes de arrancar.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="instalar">
+  <h2><span class="num">03</span> Instalar cloudflared</h2>
+  <div class="rule"></div>
+
+  <p>
+    Se instala una sola vez por máquina. En Windows, con el gestor de paquetes
+    que ya trae el sistema:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> PowerShell — instalación</figcaption>
+<pre><span class="cmd">winget install --id Cloudflare.cloudflared</span>
+
+Encontrado cloudflared [Cloudflare.cloudflared] Versión 2026.8.2
+El propietario de esta aplicación le concede una licencia.
+Microsoft no es responsable, ni tampoco concede ninguna licencia
+de paquetes de terceros.
+Descargando https://github.com/cloudflare/cloudflared/releases/
+            download/2026.8.2/cloudflared-windows-amd64.msi
+<span class="ok">El hash del instalador se verificó correctamente</span>
+Iniciando instalación de paquete...
+<span class="ok">Instalado correctamente</span></pre>
+  </figure>
+  <p class="term-note">Salida real de la instalación en esta PC.</p>
+
+  <div class="note">
+    <span class="tag">En esta PC en particular</span>
+    <p>
+      <code>winget</code> no está en el PATH: escribirlo suelto da
+      <em>«no se reconoce como nombre de un cmdlet»</em>. El ejecutable existe,
+      hay que llamarlo por su ruta completa:
+    </p>
+<pre class="plain">&amp; "$env:LOCALAPPDATA\Microsoft\WindowsApps\winget.exe" `
+    install --id Cloudflare.cloudflared -e `
+    --accept-source-agreements --accept-package-agreements</pre>
+  </div>
+
+  <h3>Dónde queda instalado</h3>
+  <p>
+    En <code>C:\Program Files (x86)\cloudflared\cloudflared.exe</code>. Para
+    confirmar la versión:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> PowerShell — verificación</figcaption>
+<pre><span class="cmd">&amp; "C:\Program Files (x86)\cloudflared\cloudflared.exe" --version</span>
+
+cloudflared version <span class="hi">2026.8.2</span> (built 2026-08-14T04:22 UTC)</pre>
+  </figure>
+
+  <div class="note">
+    <span class="tag">Ojo con las actualizaciones</span>
+    <p>
+      El propio programa avisa: <em>«cloudflared will not automatically update
+      on Windows systems»</em>. En Windows no se actualiza solo. Cada tanto,
+      <code>winget upgrade Cloudflare.cloudflared</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="middleware">
+  <h2><span class="num">04</span> Comprobar que el middleware está arriba</h2>
+  <div class="rule"></div>
+
+  <p>
+    Antes de exponer nada, verificá que haya algo que exponer. La API tiene un
+    endpoint que existe justamente para esto:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Bash — ping local</figcaption>
+<pre><span class="cmd">curl -H "X-API-Key: sk_TU_LLAVE" \
+     http://localhost:4000/api/integracion/ping</span>
+
+{
+  <span class="hi">"ok"</span>: <span class="ok">true</span>,
+  <span class="hi">"llave"</span>: "CRM / Bot de WhatsApp",
+  <span class="hi">"permisos"</span>: ["clientes.ver", "facturacion.ver",
+                "pagos.registrar", "red.diagnostico", …],
+  <span class="hi">"pagos"</span>: "se acreditan al instante"
+}</pre>
+  </figure>
+
+  <p>
+    Ese <code>"pagos": "se acreditan al instante"</code> no es decorativo:
+    te está diciendo que esa llave <strong>mete plata en la caja sin que nadie
+    confirme</strong>. Conviene saberlo antes de dársela a alguien.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Si contesta</th><th>Qué pasa</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="nums"><b>200</b></td><td>Todo bien, seguí al paso siguiente.</td></tr>
+        <tr><td class="nums"><b>401</b></td><td>El middleware está arriba pero la llave está mal escrita o revocada.</td></tr>
+        <tr><td><b>No contesta</b></td><td>El middleware está caído. <code>npm run dev</code>.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <span class="tag">Un detalle que engaña</span>
+    <p>
+      Si tocaste código del middleware, <strong>hay que reiniciarlo</strong>.
+      El navegador se refresca solo; el servidor no. Un cambio que
+      «no aparece» casi siempre es esto.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="levantar">
+  <h2><span class="num">05</span> Levantar el túnel</h2>
+  <div class="rule"></div>
+
+  <p>Un solo comando:</p>
+
+<pre class="plain">cloudflared tunnel --url http://localhost:4000</pre>
+
+  <p>
+    Lo que sigue es lo que imprimió de verdad. Es largo, pero vale la pena leerlo
+    entero una vez: cada bloque dice algo útil.
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> cloudflared — arranque</figcaption>
+<pre><span class="dim">03:46:29Z INF</span> Thank you for trying Cloudflare Tunnel. Doing so,
+  without a Cloudflare account, is a quick way to experiment and
+  try it out. <span class="bad">However, be aware that these account-less Tunnels
+  have no uptime guarantee</span> […] If you intend to use Tunnels in
+  production you should use a pre-created named tunnel.
+
+<span class="dim">03:46:29Z INF</span> Requesting new quick Tunnel on trycloudflare.com...
+
+<span class="dim">03:46:34Z INF</span> +--------------------------------------------------------+
+<span class="dim">03:46:34Z INF</span> |  Your quick Tunnel has been created! Visit it at:       |
+<span class="dim">03:46:34Z INF</span> |  <span class="mark">https://providence-springfield-vii-buzz.trycloudflare.com</span> |
+<span class="dim">03:46:34Z INF</span> +--------------------------------------------------------+
+
+<span class="dim">03:46:34Z INF</span> Version 2026.8.2
+<span class="dim">03:46:34Z INF</span> Settings: map[ha-connections:1 protocol:quic
+                       url:http://localhost:4000]
+<span class="dim">03:46:34Z INF</span> Starting metrics server on 127.0.0.1:20241/metrics</pre>
+  </figure>
+
+  <p>
+    <strong>Esa URL resaltada es el dato.</strong> Todo lo demás es contexto.
+  </p>
+
+  <h3>Las pre-comprobaciones</h3>
+  <p>
+    Antes de darse por listo, <code>cloudflared</code> se prueba a sí mismo. Esta
+    tabla es la primera que hay que mirar cuando algo no anda:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> cloudflared — connectivity pre-checks</figcaption>
+<pre>+-----------------------------------------------------------------------+
+|                        CONNECTIVITY PRE-CHECKS                        |
++-----------------------------------------------------------------------+
+|  COMPONENT         TARGET                     STATUS  DETAILS         |
+|  DNS Resolution    region1.v2.argotunnel.com  <span class="ok">PASS</span>    DNS Resolved    |
+|  DNS Resolution    region2.v2.argotunnel.com  <span class="ok">PASS</span>    DNS Resolved    |
+|  UDP Connectivity  region1.v2.argotunnel.com  <span class="ok">PASS</span>    QUIC successful |
+|  UDP Connectivity  region2.v2.argotunnel.com  <span class="ok">PASS</span>    QUIC successful |
+|  TCP Connectivity  region1.v2.argotunnel.com  <span class="ok">PASS</span>    HTTP/2 success  |
+|  TCP Connectivity  region2.v2.argotunnel.com  <span class="ok">PASS</span>    HTTP/2 success  |
+|  Cloudflare API    api.cloudflare.com:443     <span class="ok">PASS</span>    API is reachable|
+|                                                                       |
+|  SUMMARY: <span class="ok">Environment is healthy.</span> cloudflared will use 'quic'.   |
++-----------------------------------------------------------------------+
+
+<span class="dim">03:46:35Z INF</span> Registered tunnel connection <span class="hi">location=uio01</span> protocol=quic</pre>
+  </figure>
+
+  <p>
+    <code>location=uio01</code> es el centro de datos de Cloudflare que te tocó:
+    Quito. Cuanto más cerca, menos latencia — el primer pedido por el túnel tardó
+    <span class="nums">1,2 s</span> y los siguientes bajaron bastante.
+  </p>
+
+  <div class="note danger">
+    <span class="tag">Mientras esa ventana esté abierta</span>
+    <p>
+      <strong>El túnel vive mientras el proceso viva.</strong> Si cerrás la
+      ventana, apagás la PC o se reinicia sola por una actualización de Windows,
+      la URL deja de existir. Y al volver a levantarlo,
+      <strong>la URL es otra</strong>: hay que pasarle la nueva al proveedor
+      cada vez.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="probar">
+  <h2><span class="num">06</span> Probar que llega desde afuera</h2>
+  <div class="rule"></div>
+
+  <p>
+    Que el túnel diga que está arriba no prueba que tu API responda a través de
+    él. Hay que pedirle algo real:
+  </p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Bash — prueba de punta a punta</figcaption>
+<pre><span class="cmd">curl -H "X-API-Key: sk_TU_LLAVE" \
+  "https://…trycloudflare.com/api/v1/cliente/consultar-deuda?cedula=99900030"</span>
+
+{
+  "status": <span class="ok">"success"</span>,
+  "cliente": {
+    "id": "9248d012-540b-4ca1-845b-8d21a548630a",
+    "nombre": "DEMO CARTERA UNO",
+    "cedula": "99900030",
+    "estado_servicio": "ACTIVO"
+  },
+  "deuda_total": <span class="hi">0</span>,
+  "facturas_pendientes": [],
+  "falla_masiva_sector": false
+}
+<span class="dim">HTTP 200  (1.198346s)</span></pre>
+  </figure>
+
+  <p>Y las dos pruebas que confirman que la seguridad sigue en pie:</p>
+
+  <figure class="term">
+    <figcaption><span class="dots"><i></i><i></i><i></i></span> Bash — control</figcaption>
+<pre><span class="cmd"># sin llave</span>
+curl -o /dev/null -w "%{http_code}" https://…/api/integracion/ping
+<span class="bad">401</span>
+
+<span class="cmd"># cédula que no existe</span>
+curl https://…/api/v1/cliente/consultar-deuda?cedula=1799999999
+{"status":"error","code":<span class="bad">"CLIENTE_NO_ENCONTRADO"</span>,
+ "message":"No hay ningún abonado con la identificación 1799999999."}
+<span class="dim">HTTP 404</span></pre>
+  </figure>
+
+  <div class="note good">
+    <span class="tag">Las tres respuestas que buscás</span>
+    <p>
+      <strong>200</strong> con la llave · <strong>401</strong> sin ella ·
+      <strong>404</strong> con una cédula inventada. Si las tres salen así, el
+      túnel funciona y la API está protegida. Recién ahí se le entrega la URL al
+      proveedor.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="entregar">
+  <h2><span class="num">07</span> Entregarle los datos al proveedor</h2>
+  <div class="rule"></div>
+
+  <p>Son cuatro líneas. Ni una más:</p>
+
+<pre class="plain">URL base       : https://<span style="color:var(--accent)">TU-URL</span>.trycloudflare.com/api/v1
+Autenticación  : API Key en header
+Nombre header  : X-API-Key
+Token          : sk_…</pre>
+
+  <p>
+    Si su panel solo ofrece <em>Bearer Token</em>, también funciona: header
+    <code>Authorization</code>, valor <code>Bearer sk_…</code>. Las dos formas
+    están probadas.
+  </p>
+
+  <p>
+    Y adjuntale la documentación de los endpoints —
+    <code>docs\api-v1-resumen.md</code> y
+    <code>docs\mapeo-lookup-client.md</code>.
+  </p>
+
+  <div class="note danger">
+    <span class="tag">Mientras uses túnel</span>
+    <p>
+      <strong>No le cargues IP permitidas a la llave.</strong> Los pedidos llegan
+      con la IP de Cloudflare, que cambia sola. La restricción tumbaría la
+      integración de un momento a otro y el error no diría nada sobre la causa.
+      Las IP se restringen recién cuando haya dominio propio.
+    </p>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<section id="cerrar">
+  <h2><span class="num">08</span> Cerrarlo y volver a levantarlo</h2>
+  <div class="rule"></div>
+
+  <h3>Cerrarlo</h3>
+  <p>
+    Cerrás la ventana, o si quedó corriendo en segundo plano, por su número de
+    proceso:
+  </p>
+<pre class="plain">Stop-Process -Id 14312</pre>
+
+  <h3>Volver a levantarlo</h3>
+  <p>Hay un atajo cargado en el proyecto:</p>
+<pre class="plain">npm run tunel</pre>
+
+  <p>Hace tres cosas en orden, y esa es toda su gracia:</p>
+  <ol>
+    <li>Verifica que el middleware conteste en el 4000 — si no, te lo dice en vez de darte una URL que devuelve <code>502</code>.</li>
+    <li>Levanta el túnel y espera a que aparezca la URL.</li>
+    <li>La imprime lista para copiar, junto con el PID por si hay que cerrarlo.</li>
+  </ol>
+
+  <p>
+    El archivo es <code>deploy\tunel.ps1</code>. Está comentado: se puede leer
+    para entender qué hace cada parte.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="cuando">
+  <h2><span class="num">09</span> Cuándo usarlo y cuándo no</h2>
+  <div class="rule"></div>
+
+  <p>
+    Esta es la parte que importa más que los comandos. El túnel rápido es una
+    herramienta excelente para una cosa y mala para otra, y confundirlas sale
+    caro.
+  </p>
+
+  <h3>Usalo cuando</h3>
+  <ul>
+    <li><b>Estás integrando y probando.</b> Es exactamente para lo que Cloudflare lo hizo.</li>
+    <li><b>Le tenés que mostrar algo a un proveedor</b> y no querés armar infraestructura para una demo.</li>
+    <li><b>Querés confirmar que el problema es de red y no de tu código</b> — si por el túnel anda, el código está bien.</li>
+    <li><b>Es por unas horas o unos días</b>, con alguien esperando del otro lado.</li>
+  </ul>
+
+  <h3>No lo uses cuando</h3>
+  <ul>
+    <li><b>El servicio tiene que estar disponible siempre.</b> El propio Cloudflare lo dice en el arranque: <em>«no uptime guarantee»</em>. No hay nadie a quien reclamarle.</li>
+    <li><b>Los clientes dependen de eso.</b> Si el bot de WhatsApp cobra de verdad, un túnel caído a las 11 de la noche es plata que no entra.</li>
+    <li><b>La URL tiene que ser estable.</b> Cambia en cada arranque. Cualquier cosa que la guarde —una config, un webhook, un integrador— se rompe.</li>
+    <li><b>Necesitás restringir por IP.</b> Con túnel no se puede: la IP de origen es de Cloudflare.</li>
+  </ul>
+
+  <div class="note key">
+    <span class="tag">La regla corta</span>
+    <p>
+      <strong>El túnel rápido es un andamio, no una pared.</strong> Sirve para
+      construir; no se deja puesto cuando el edificio ya está habitado. En cuanto
+      el proveedor confirme que la integración funciona, el paso siguiente es
+      dominio propio y HTTPS.
+    </p>
+  </div>
+
+  <h3>El paso intermedio que casi nadie conoce</h3>
+  <p>
+    Entre «túnel rápido» y «servidor con dominio» hay una opción del medio: el
+    <strong>túnel con nombre</strong>. Es el mismo <code>cloudflared</code>, pero
+    con una cuenta gratuita de Cloudflare y un dominio tuyo apuntado ahí. Lo que
+    cambia:
+  </p>
+  <ul>
+    <li><b>La URL no cambia nunca.</b> Es tu subdominio, por ejemplo <code>api.tudominio.com</code>.</li>
+    <li><b>Se puede correr como servicio de Windows</b>, así arranca solo cuando prende la PC.</li>
+    <li><b>Sigue sin abrir puertos</b> en el router.</li>
+  </ul>
+  <p>
+    Es lo que el propio programa recomienda en su mensaje de arranque
+    —<em>«use a pre-created named tunnel»</em>— y es el camino más corto a algo
+    estable si todavía no querés montar un servidor.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="comparar">
+  <h2><span class="num">10</span> Las tres formas de exponer, comparadas</h2>
+  <div class="rule"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Túnel rápido</th>
+          <th>Túnel con nombre</th>
+          <th>Dominio + nginx</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Para qué</b></td>
+          <td>Probar</td>
+          <td>Producción chica</td>
+          <td>Producción</td>
+        </tr>
+        <tr>
+          <td><b>Tiempo de armado</b></td>
+          <td>2 minutos</td>
+          <td>1 hora</td>
+          <td>Medio día</td>
+        </tr>
+        <tr>
+          <td><b>Costo</b></td>
+          <td>Gratis</td>
+          <td>Gratis + dominio</td>
+          <td>Servidor + dominio</td>
+        </tr>
+        <tr>
+          <td><b>URL estable</b></td>
+          <td style="color:var(--fail)">No</td>
+          <td style="color:var(--pass)">Sí</td>
+          <td style="color:var(--pass)">Sí</td>
+        </tr>
+        <tr>
+          <td><b>Arranca solo</b></td>
+          <td style="color:var(--fail)">No</td>
+          <td style="color:var(--pass)">Sí, como servicio</td>
+          <td style="color:var(--pass)">Sí</td>
+        </tr>
+        <tr>
+          <td><b>Garantía de servicio</b></td>
+          <td style="color:var(--fail)">Ninguna</td>
+          <td>La de Cloudflare</td>
+          <td>La tuya</td>
+        </tr>
+        <tr>
+          <td><b>Restringir por IP</b></td>
+          <td style="color:var(--fail)">No</td>
+          <td>Con Access</td>
+          <td style="color:var(--pass)">Sí</td>
+        </tr>
+        <tr>
+          <td><b>Abrir puertos del router</b></td>
+          <td style="color:var(--pass)">No hace falta</td>
+          <td style="color:var(--pass)">No hace falta</td>
+          <td style="color:var(--fail)">Sí</td>
+        </tr>
+        <tr>
+          <td><b>HTTPS</b></td>
+          <td style="color:var(--pass)">Incluido</td>
+          <td style="color:var(--pass)">Incluido</td>
+          <td>Let's Encrypt</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Para la tercera columna ya está escrito el archivo de configuración:
+    <code>deploy\nginx-smartolt.conf</code> trae el proxy armado hacia
+    <code>127.0.0.1:4000</code>. Falta el dominio y el certificado.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<section id="problemas">
+  <h2><span class="num">11</span> Cuando algo falla</h2>
+  <div class="rule"></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Síntoma</th><th>Causa</th><th>Solución</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>HTTP 0</b><br><span style="color:var(--muted)">o «no se pudo conectar»</span></td>
+          <td>No hubo pedido. El que llama no salió a la red.</td>
+          <td>El problema está del lado del CRM: URL sin cargar o endpoint sin configurar. No es tu API.</td>
+        </tr>
+        <tr>
+          <td><b>502 Bad Gateway</b></td>
+          <td>El túnel llega, pero atrás no hay nadie en el 4000.</td>
+          <td><code>npm run dev</code>. El middleware está caído.</td>
+        </tr>
+        <tr>
+          <td><b>404 en todo</b></td>
+          <td>Falta <code>/api/v1</code> al final de la URL base.</td>
+          <td>La URL base termina en <code>/api/v1</code>, no en el dominio suelto.</td>
+        </tr>
+        <tr>
+          <td><b>401 con la llave puesta</b></td>
+          <td>Mal copiada, o el nombre del header está mal escrito.</td>
+          <td>Tiene que ser exactamente <code>X-API-Key</code>. Probá primero contra <code>localhost</code>.</td>
+        </tr>
+        <tr>
+          <td><b>403 fue revocada</b></td>
+          <td>Esa llave ya no sirve.</td>
+          <td>Ajustes → Integraciones. Emitir una nueva.</td>
+        </tr>
+        <tr>
+          <td><b>Andaba y dejó de andar</b></td>
+          <td>Se cayó el túnel o se reinició la PC.</td>
+          <td><code>npm run tunel</code> y pasarle la URL nueva al proveedor.</td>
+        </tr>
+        <tr>
+          <td><b>«no se reconoce winget»</b></td>
+          <td>No está en el PATH de esta PC.</td>
+          <td>Llamarlo por ruta completa (paso 3).</td>
+        </tr>
+        <tr>
+          <td><b>Algún pre-check en FAIL</b></td>
+          <td>Un firewall o el antivirus bloquea UDP/QUIC.</td>
+          <td>Suele seguir funcionando por HTTP/2. Si no, permitir <code>cloudflared.exe</code> en el firewall.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Dónde mirar cuando nada de eso alcanza</h3>
+  <p>
+    El túnel escribe todo lo que hace en su log. Si lo levantaste con
+    <code>npm run tunel</code>, está en <code>%TEMP%\tunel-smartolt.log</code>.
+    Las últimas líneas casi siempre dicen qué pasó:
+  </p>
+<pre class="plain">Get-Content $env:TEMP\tunel-smartolt.log -Tail 30</pre>
+</section>
+
+<!-- ==================================================================== -->
+<section id="seguridad">
+  <h2><span class="num">12</span> Lo que no hay que hacer nunca</h2>
+  <div class="rule"></div>
+
+  <div class="note danger">
+    <span class="tag">Publicar por HTTP plano</span>
+    <p>
+      La llave viaja en cada pedido. En HTTP viaja legible y cualquiera en el
+      camino se la queda. El túnel de Cloudflare ya te da HTTPS — es una de las
+      razones por las que conviene sobre abrir un puerto a mano.
+    </p>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">Entregar la clave de Supabase</span>
+    <p>
+      Ni la <code>service_role</code>, ni la contraseña del sistema, ni acceso
+      directo a la base. La llave <code>sk_</code> es lo único que el proveedor
+      necesita, y está limitada: no puede eliminar abonados ni anular cobros
+      aunque quiera. Si alguien pide acceso a la base, no le hace falta.
+    </p>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">Dejar llaves de prueba activas</span>
+    <p>
+      Una llave con «acreditar pagos al instante» encendida <strong>mete plata en
+      la caja sin que nadie confirme</strong>. Las de prueba se revocan cuando
+      terminó la prueba, no cuando alguien se acuerda. Ajustes → Integraciones
+      muestra todas, con su último uso.
+    </p>
+  </div>
+
+  <div class="note danger">
+    <span class="tag">Mandar la llave por un canal que no controlás</span>
+    <p>
+      Si terminó en un grupo de WhatsApp, en un correo reenviado o en un chat con
+      soporte de un tercero, se revoca y se emite otra. Toma treinta segundos y
+      el registro de lo que hizo la vieja queda igual.
+    </p>
+  </div>
+</section>
+
+<footer class="foot">
+  <p>
+    <strong>Manual de estudio — El túnel de salida.</strong>
+    Todas las salidas de terminal de este documento son capturas reales de la
+    instalación en esta PC, no ejemplos. Las URL y las llaves están recortadas a
+    propósito.
+  </p>
+  <p style="margin-top:14px">
+    Documentos relacionados: <code>docs\datos-para-el-crm.md</code> ·
+    <code>docs\mapeo-lookup-client.md</code> ·
+    <code>docs\api-v1-resumen.md</code> ·
+    <code>docs\guia-integracion-crm.md</code>
+  </p>
+</footer>
+
+</div>
