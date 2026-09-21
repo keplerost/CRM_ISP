@@ -49,6 +49,10 @@ const CLIENTE = {
   email: 'sanchezlucia2901@gmail.com',
   tarifa_preferencial: false,
   acepta_arbitraje: false,
+  // La respuesta del anexo 2, que la migración 184 agregó a la ficha. Va en
+  // `false` y no ausente a propósito: `false` es "el abonado dijo que no",
+  // que es una respuesta; ausente es "nadie preguntó", que es un hueco.
+  acepta_datos_personales: false,
   equipo_modalidad: 'arrendamiento',
 }
 
@@ -291,6 +295,10 @@ test('avisa lo que quedaría en blanco antes de imprimir', () => {
   assert.ok(falta.some((f) => /parroquia/i.test(f)), 'el domicilio desglosado')
   assert.ok(falta.some((f) => /adulto mayor/i.test(f)), 'la tarifa preferencial')
   assert.ok(falta.some((f) => /arbitraje/i.test(f)))
+  // El anexo 2 se firmaba en blanco y había que marcarlo a lapicera: es el
+  // agujero que arregló la migración 184. Sin esta línea, el aviso podía
+  // volver a perderse sin que nada se pusiera en rojo.
+  assert.ok(falta.some((f) => /datos personales/i.test(f)), 'la aceptación del anexo 2')
   assert.ok(falta.some((f) => /compartici.n/i.test(f)))
 })
 

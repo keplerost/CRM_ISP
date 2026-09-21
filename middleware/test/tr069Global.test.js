@@ -4,6 +4,25 @@ import net from 'node:net'
 
 import { alcanzable, puertoDeUrl } from '../src/services/tr069Global.js'
 
+/**
+ * Que al otro lado corten de golpe es lo NORMAL acá, no una falla.
+ *
+ * `alcanzable` solo comprueba si el puerto del ACS acepta conexiones, así que
+ * en cuanto le contestan cierra de una: no le interesa la respuesta. Del lado
+ * del servidor eso llega como ECONNRESET, y un socket sin oyente de `error`
+ * convierte ese reset en una excepción del proceso entero.
+ *
+ * Corriendo este archivo solo, el reset llega antes de que la prueba termine y
+ * no se nota. Con la suite entera —cien archivos peleando por el procesador—
+ * llega después, cuando el runner ya cerró la prueba, y node lo reporta como
+ * "actividad asincrónica después de que el test terminó": da el ARCHIVO por
+ * fallado sin marcar ninguna prueba. Era exactamente lo que pasaba.
+ *
+ * Por lo mismo el cierre del servidor ahora se espera. `close()` sin esperar
+ * devuelve enseguida y deja la escucha abierta un rato más.
+ */
+const noImporta = () => {}
+
 test('saca host y puerto de la URL del ACS', () => {
   assert.deepEqual(puertoDeUrl('http://192.168.55.254:7547'), {
     host: '192.168.55.254',
@@ -25,7 +44,7 @@ test('lo que no es una URL http no se prueba', () => {
 })
 
 test('un puerto que acepta conexiones se informa alcanzable', async () => {
-  const servidor = net.createServer(() => {})
+  const servidor = net.createServer((socket) => socket.on('error', noImporta))
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r))
   const puerto = servidor.address().port
 
@@ -34,7 +53,7 @@ test('un puerto que acepta conexiones se informa alcanzable', async () => {
     assert.equal(r.ok, true, JSON.stringify(r))
     assert.equal(r.puerto, puerto)
   } finally {
-    servidor.close()
+    await new Promise((r) => servidor.close(r))
   }
 })
 
@@ -49,6 +68,7 @@ test('un servidor que contesta 405 sigue estando ALCANZABLE', async () => {
    * está perfecto.
    */
   const servidor = net.createServer((socket) => {
+    socket.on('error', noImporta)
     socket.end('HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\n\r\n')
   })
   await new Promise((r) => servidor.listen(0, '127.0.0.1', r))
@@ -58,7 +78,7 @@ test('un servidor que contesta 405 sigue estando ALCANZABLE', async () => {
     const r = await alcanzable(`http://127.0.0.1:${puerto}`)
     assert.equal(r.ok, true, 'un 405 es un ACS sano, no uno caído')
   } finally {
-    servidor.close()
+    await new Promise((r) => servidor.close(r))
   }
 })
 
