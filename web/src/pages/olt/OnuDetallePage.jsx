@@ -930,7 +930,7 @@ export default function OnuDetallePage() {
           subtitle="Lo que el equipo tiene en ejecución para esta ONT, ahora mismo"
           icon={FileCode2}
         >
-          <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-[11px] leading-relaxed text-slate-300">
+          <pre className="overflow-x-auto t-panel p-3 text-[11px] leading-relaxed text-slate-300">
             {configActiva.texto || 'El equipo no devolvió configuración para esta ONT.'}
           </pre>
           <p className="mt-2 text-[11px] leading-snug text-slate-500">

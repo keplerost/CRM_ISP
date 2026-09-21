@@ -36,7 +36,7 @@ export default function MetricasPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Métricas ópticas</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Métricas ópticas</h1>
         <p className="text-xs text-slate-500">
           Potencia Rx/Tx, distancia y alerta de señal baja por debajo de -27 dBm
         </p>

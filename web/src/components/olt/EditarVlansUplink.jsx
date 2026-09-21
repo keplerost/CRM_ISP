@@ -78,7 +78,7 @@ export default function EditarVlansUplink({ olt, puerto, onListo, onCerrar }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-3">
+      <div className="t-panel px-4 py-3">
         <p className="font-mono text-sm text-slate-100">
           0/{puerto.slot}/{puerto.puerto}
         </p>

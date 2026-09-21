@@ -79,7 +79,7 @@ export default function AltasPorDia({ filas, dias = 45 }) {
         </div>
       </div>
 
-      <div className="flex h-36 items-end gap-[2px] overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+      <div className="flex h-36 items-end gap-[2px] overflow-x-auto t-panel p-2">
         {barras.map((b) => (
           <div
             key={b.dia}

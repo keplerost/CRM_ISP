@@ -21,7 +21,7 @@ import { Aviso, Badge, Button, Cargando, ErrorBanner, Field, Input, Select } fro
 function Fijo({ label, valor, hint }) {
   return (
     <Field label={label} hint={hint}>
-      <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+      <div className="t-card-sm px-3 py-2 text-sm text-slate-300">
         {valor ?? '—'}
       </div>
     </Field>
@@ -340,7 +340,7 @@ function FichaManual({ ficha }) {
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-3">
+      <div className="t-card-sm px-3">
         <p className="pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           Internet — WAN en modo {ficha.modo}
         </p>
@@ -349,7 +349,7 @@ function FichaManual({ ficha }) {
         <Dato etiqueta="VLAN" valor={ficha.vlan} cual="v" />
       </div>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-3">
+      <div className="t-card-sm px-3">
         <p className="pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           WiFi
         </p>
@@ -358,7 +358,7 @@ function FichaManual({ ficha }) {
       </div>
 
       {ficha.gestion && (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-3">
+        <div className="t-card-sm px-3">
           <p className="pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Gestión — opcional, pero con esto el sistema la va a poder alcanzar
           </p>

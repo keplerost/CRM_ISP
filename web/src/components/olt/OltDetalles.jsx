@@ -354,7 +354,7 @@ export default function OltDetalles({ olt, onRecargar }) {
                 <p className="text-xs text-slate-400">{olt.hw_version ?? 'modelo sin leer'}</p>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+              <div className="flex items-center justify-between t-panel px-3 py-2">
                 <span className="flex items-center gap-2 text-xs text-slate-400">
                   <Punto estado={olt.estado} />
                   {olt.estado === 'online'
@@ -367,11 +367,11 @@ export default function OltDetalles({ olt, onRecargar }) {
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-center">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-2">
-                  <p className="text-lg font-semibold text-slate-100">{olt.onus_total ?? 0}</p>
+                <div className="t-panel px-2 py-2">
+                  <p className="t-titulo text-lg font-bold text-slate-100">{olt.onus_total ?? 0}</p>
                   <p className="text-[10px] uppercase tracking-wider text-slate-500">ONUs</p>
                 </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-2">
+                <div className="t-panel px-2 py-2">
                   <p className="text-lg font-semibold text-emerald-400">{olt.onus_online ?? 0}</p>
                   <p className="text-[10px] uppercase tracking-wider text-slate-500">en línea</p>
                 </div>

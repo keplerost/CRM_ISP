@@ -18,7 +18,7 @@ import { Aviso, Button, Cargando, ErrorBanner, Modal } from '../ui'
 
 function Fila({ icono: Icono, color, titulo, children }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2.5">
+    <div className="flex items-start gap-3 t-panel px-3 py-2.5">
       <Icono size={16} className={`mt-0.5 shrink-0 ${color}`} />
       <div className="min-w-0 flex-1 text-sm">
         <p className="text-slate-200">{titulo}</p>

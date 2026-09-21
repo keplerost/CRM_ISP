@@ -47,7 +47,7 @@ export default function Tr069Page() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">TR-069</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">TR-069</h1>
         <p className="text-xs text-slate-500">
           Un servidor de gestión para todas las OLTs. Los perfiles se leen del equipo cada vez: acá
           no hay copia que pueda quedar vieja.
@@ -215,7 +215,7 @@ function Perfiles() {
 
 /** El ACS del propio sistema, para comparar contra lo que está escrito en las OLTs. */
 const NuestroAcs = ({ acs }) => (
-  <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3">
+  <div className="flex flex-wrap items-center gap-4 t-card px-4 py-3">
     <span className="text-xs uppercase tracking-wide text-slate-500">Nuestro ACS</span>
     {acs.configurado ? (
       <>
@@ -622,7 +622,7 @@ function ConsultarOnt({ olts }) {
 
         {estado && (
           <div className="space-y-3">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+            <div className="t-card p-4">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Dato label="Estado" valor={estado.estado} />
                 <Dato

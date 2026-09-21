@@ -112,7 +112,7 @@ export default function ONUStatsCard({ olt, ubicacion, onuId, etiqueta }) {
             </div>
 
             {historial.length > 1 && (
-              <div className="h-48 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+              <div className="h-48 t-panel p-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={historial}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />

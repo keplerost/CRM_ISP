@@ -107,7 +107,7 @@ export default function TraficoVivo({ oltId, onuId }) {
       )}
 
       {serie.length > 1 && (
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+        <div className="t-panel p-2">
           <svg viewBox={`0 0 ${MUESTRAS} 40`} preserveAspectRatio="none" className="h-24 w-full">
             {['bajada', 'subida'].map((cual) => (
               <polyline
@@ -151,7 +151,7 @@ export default function TraficoVivo({ oltId, onuId }) {
 
 function Medida({ titulo, valor, color }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+    <div className="t-panel px-3 py-2">
       <p className="text-[11px] text-slate-500">{titulo}</p>
       <p className={`text-xl font-semibold ${color}`}>
         {valor == null ? <span className="text-slate-600">—</span> : `${valor.toFixed(2)} Mbps`}

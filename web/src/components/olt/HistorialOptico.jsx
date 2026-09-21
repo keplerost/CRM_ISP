@@ -119,7 +119,7 @@ export default function HistorialOptico({ onuId, nombre }) {
 
       <svg
         viewBox={`0 0 ${ANCHO} ${ALTO}`}
-        className="w-full rounded-lg border border-slate-800 bg-slate-950/50"
+        className="w-full t-panel"
         preserveAspectRatio="none"
       >
         {/* Umbral: por debajo de esta línea hay pérdida de paquetes. */}

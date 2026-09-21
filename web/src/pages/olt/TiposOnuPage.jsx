@@ -106,7 +106,7 @@ export default function TiposOnuPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Tipos de ONU</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Tipos de ONU</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Los modelos de equipo que usa el ISP, para todas las OLTs. Definen qué se le propone al
           autorizar, qué se le puede pedir por TR069 y qué tiene que configurar el técnico cuando el
@@ -396,7 +396,7 @@ function Formulario({ tipo, planes, onListo, onCancelar }) {
         Volver al listado
       </Button>
 
-      <h1 className="text-lg font-semibold text-slate-100">
+      <h1 className="t-titulo text-lg font-bold text-slate-100">
         {tipo.id ? `${tipo.marca} ${tipo.modelo}` : 'Nuevo tipo de ONU'}
       </h1>
 

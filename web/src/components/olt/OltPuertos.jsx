@@ -266,7 +266,7 @@ export default function OltPuertos({ olt }) {
       <div className="space-y-4">
         {/* Acciones sobre toda la placa. Van juntas y separadas de la tabla:
             son de otra naturaleza que mirar un puerto. */}
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 t-panel px-3 py-2">
           <span className="text-[11px] uppercase tracking-wider text-slate-500">
             Placa {slot || '—'}
           </span>

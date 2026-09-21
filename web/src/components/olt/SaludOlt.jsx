@@ -36,7 +36,7 @@ const colorTemp = (c) =>
 
 function Dato({ icono: Icono, etiqueta, valor, sub, color = 'text-slate-100' }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+    <div className="t-panel p-4">
       <div className="flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-wider text-slate-500">{etiqueta}</span>
         {Icono && <Icono size={15} className="text-slate-600" />}
@@ -183,7 +183,7 @@ export default function SaludOlt({ olt, onCerrar, auto = true }) {
 
             {/* El reloj no rompe nada hoy, pero deja los eventos del equipo sin
                 poder cruzarse con los del resto del sistema. */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 t-panel px-4 py-2.5 text-xs">
               <span className="text-slate-400">
                 Hora del equipo:{' '}
                 <span className="font-mono text-slate-200">{salud.hora?.texto ?? '—'}</span>

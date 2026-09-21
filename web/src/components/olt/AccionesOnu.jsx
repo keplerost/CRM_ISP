@@ -109,7 +109,7 @@ export default function AccionesOnu({ olt, onu, planes, onListo, onCerrar }) {
         </Aviso>
       )}
 
-      <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-3 text-sm">
+      <div className="t-panel px-4 py-3 text-sm">
         <p className="text-slate-100">{onu.cliente ?? onu.nombre_en_la_olt ?? onu.sn}</p>
         <p className="mt-0.5 text-xs text-slate-500">
           <span className="font-mono">{onu.sn}</span> · placa {onu.slot} puerto {onu.puerto} · ONT{' '}

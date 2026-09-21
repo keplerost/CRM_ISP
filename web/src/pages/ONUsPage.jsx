@@ -60,7 +60,7 @@ export default function ONUsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">ONUs</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">ONUs</h1>
           <p className="text-xs text-slate-500">
             Descubrimiento, aprovisionamiento y baja de equipos de cliente
           </p>

@@ -110,7 +110,7 @@ export default function OltOptica({ olt }) {
 
         {datos && (
           <>
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-4 t-panel px-4 py-3">
               {Object.entries(NIVELES).map(([clave, n]) => {
                 const cuantas = datos.onts.filter(
                   (o) => nivelDe(o.rx_dbm) === clave,

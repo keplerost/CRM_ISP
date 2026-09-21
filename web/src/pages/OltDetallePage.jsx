@@ -137,7 +137,7 @@ export default function OltDetallePage() {
             </Button>
           </Link>
           <div>
-            <h1 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
+            <h1 className="flex items-center gap-2 t-titulo text-lg font-bold text-slate-100">
               <Punto estado={olt.estado} />
               {olt.nombre}
               <Badge color={olt.marca === 'Huawei' ? 'rojo' : 'azul'}>{olt.marca}</Badge>

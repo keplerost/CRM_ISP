@@ -264,7 +264,7 @@ export default function OltPoolsIp({ olt }) {
 
 function Metrica({ titulo, valor, color, ayuda }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3" title={ayuda}>
+    <div className="t-card-sm p-3" title={ayuda}>
       <p className="text-[11px] uppercase tracking-wider text-slate-500">{titulo}</p>
       <p className={`mt-1 text-xl font-semibold ${color ?? 'text-slate-100'}`}>{valor}</p>
     </div>

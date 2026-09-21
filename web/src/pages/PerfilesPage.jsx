@@ -16,7 +16,7 @@ export default function PerfilesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Perfiles y puntos de red</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Perfiles y puntos de red</h1>
         <p className="text-xs text-slate-500">
           Catálogo de ONTs, perfiles de línea (VLAN) y cajas NAP
         </p>

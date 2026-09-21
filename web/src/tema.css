@@ -430,3 +430,39 @@
   outline-offset: 2px;
   border-radius: 0.5rem;
 }
+
+/* ── Superficies heredadas del tema oscuro ────────────────────────────── */
+
+/*
+ * El sistema oscuro tenía tres niveles de superficie y los expresaba con la
+ * paleta: sobre el fondo (#0b1220), `bg-slate-900` era una tarjeta ELEVADA y
+ * `bg-slate-950` un panel HUNDIDO —más oscuro que el fondo, como un hueco
+ * dentro de la tarjeta—.
+ *
+ * Al invertir la paleta los dos quedan blancos y la jerarquía se pierde: un
+ * panel hundido dentro de una tarjeta blanca es blanco sobre blanco.
+ *
+ * Estas dos clases la reponen con la lógica del tema claro, donde lo elevado
+ * es más claro y lo hundido más gris. Es la traducción fiel de lo que cada
+ * nivel significaba, no una reinterpretación.
+ */
+
+/* Tarjeta chica: lo que en el sistema viejo era `rounded-lg` con fondo de
+   tarjeta. Mismo lenguaje que .t-card pero con el radio de un elemento
+   interno — 18px en una pastilla de tres centímetros la deja con forma de
+   pastilla, no de tarjeta. */
+.t-card-sm {
+  background: var(--tema-superficie);
+  border-radius: 12px;
+  border: 1px solid var(--tema-borde);
+  box-shadow: var(--tema-sombra-suave);
+}
+
+/* Panel hundido: el hueco dentro de una tarjeta. Sin sombra —lo hundido no
+   proyecta— y con un gris apenas por debajo del blanco, que es lo que lo
+   separa del fondo de la tarjeta sin dibujarle un marco. */
+.t-panel {
+  background: #f6f8fb;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  border-radius: 12px;
+}

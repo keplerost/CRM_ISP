@@ -142,7 +142,7 @@ export default function OLTPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">OLTs</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">OLTs</h1>
           <p className="text-xs text-slate-500">
             {olts.length} equipos GPON · {olts.filter((o) => o.estado === 'online').length} en línea
           </p>

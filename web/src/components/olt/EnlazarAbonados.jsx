@@ -102,7 +102,7 @@ export default function EnlazarAbonados({ olt, onListo }) {
               ['Para revisar', previa.ambiguas, 'text-amber-400'],
               ['Sin ficha', previa.a_crear, 'text-sky-400'],
             ].map(([etiqueta, valor, color]) => (
-              <div key={etiqueta} className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div key={etiqueta} className="t-panel p-3">
                 <p className={`text-xl font-semibold ${color}`}>{valor}</p>
                 <p className="text-[11px] text-slate-500">{etiqueta}</p>
               </div>

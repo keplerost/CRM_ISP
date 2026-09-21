@@ -267,7 +267,7 @@ export default function DashboardGponPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Tablero GPON</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Tablero GPON</h1>
           <p className="text-xs text-slate-500">
             {cargando
               ? 'Cargando…'
@@ -502,7 +502,7 @@ export default function DashboardGponPage() {
                 <Link
                   key={o.olt_id}
                   to={`/olts/${o.olt_id}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2.5 transition hover:border-slate-700 hover:bg-slate-900"
+                  className="flex items-center justify-between gap-3 t-panel px-3 py-2.5 transition hover:border-slate-700 hover:bg-slate-900"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <Punto estado={o.olt_estado} />

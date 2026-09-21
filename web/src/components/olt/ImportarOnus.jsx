@@ -92,7 +92,7 @@ export default function ImportarOnus({ olt, onListo }) {
               ['Cambiaron de puerto', previa.mudadas, 'text-amber-400'],
               ['Ya estaban', previa.sin_cambios, 'text-slate-400'],
             ].map(([etiqueta, valor, color]) => (
-              <div key={etiqueta} className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div key={etiqueta} className="t-panel p-3">
                 <p className={`text-xl font-semibold ${color}`}>{valor}</p>
                 <p className="text-[11px] text-slate-500">{etiqueta}</p>
               </div>
