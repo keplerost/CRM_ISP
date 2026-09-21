@@ -70,7 +70,7 @@ export default function Layout() {
  */
 const NoSePudoVerificar = ({ error }) => (
   <div className="mx-auto max-w-md py-16 text-center">
-    <h2 className="text-lg font-semibold text-slate-100">No se pudo verificar tu perfil</h2>
+    <h2 className="t-titulo text-lg font-bold text-slate-100">No se pudo verificar tu perfil</h2>
     <p className="mt-2 text-sm text-slate-400">
       El sistema no pudo leer quién sos, así que no muestra nada hasta saberlo. Suele ser la
       conexión.
@@ -78,7 +78,7 @@ const NoSePudoVerificar = ({ error }) => (
     <button
       type="button"
       onClick={() => window.location.reload()}
-      className="mt-5 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+      className="mt-5 rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
     >
       Reintentar
     </button>
@@ -94,7 +94,7 @@ const Cargando = () => (
     <div className="h-4 w-72 animate-pulse rounded bg-slate-800/40" />
     <div className="mt-6 grid gap-3 md:grid-cols-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-800/40" />
+        <div key={i} className="h-28 animate-pulse rounded-[18px] bg-slate-800/60" />
       ))}
     </div>
   </div>

@@ -88,7 +88,7 @@ export default function Campana() {
       <button
         type="button"
         onClick={() => setAbierta((a) => !a)}
-        className="relative grid h-10 w-10 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+        className="relative grid h-10 w-10 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
         aria-label={`Notificaciones${sinLeer ? `: ${sinLeer} sin leer` : ''}`}
       >
         <Bell size={18} />
@@ -106,8 +106,8 @@ export default function Campana() {
       </button>
 
       {abierta && (
-        <div className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-slate-800 bg-slate-900 shadow-xl shadow-black/40">
-          <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+        <div className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto t-card">
+          <div className="flex items-center justify-between border-b border-[rgba(15,23,42,0.06)] px-3 py-2">
             <span className="text-[13px] font-medium text-slate-200">Notificaciones</span>
             {avisos.some((a) => a.se_puede_marcar && !a.leida) && (
               <button
@@ -131,7 +131,7 @@ export default function Campana() {
                 const Icono = a.urgencia === 0 ? AlertTriangle : Info
                 const cuerpo = (
                   <div
-                    className={`flex gap-2.5 px-3 py-2.5 transition hover:bg-slate-800/50 ${
+                    className={`flex gap-2.5 px-3 py-2.5 transition hover:bg-slate-800/60 ${
                       a.leida ? 'opacity-50' : ''
                     }`}
                   >
@@ -178,7 +178,7 @@ export default function Campana() {
           {/* Las condiciones no se marcan como leídas: se resuelven. Decirlo
               evita que alguien busque el botón que falta. */}
           {avisos.some((a) => !a.se_puede_marcar) && (
-            <p className="border-t border-slate-800 px-3 py-2 text-[11px] text-slate-500">
+            <p className="border-t border-[rgba(15,23,42,0.06)] px-3 py-2 text-[11px] text-slate-500">
               Los avisos sin tilde desaparecen solos cuando resolvés lo que los causa.
             </p>
           )}

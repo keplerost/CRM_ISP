@@ -46,10 +46,10 @@ export default function Navbar() {
   }[middleware.estado]
 
   return (
-    <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950/40 px-6 py-3">
+    <header className="flex items-center justify-between border-b border-[rgba(15,23,42,0.06)] bg-white px-6 py-3">
       <div className="flex items-center gap-3 text-xs text-slate-400">
         {modoDemo && (
-          <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 font-medium text-amber-300">
+          <span className="rounded-full bg-[#FFFBEB] px-2.5 py-0.5 font-semibold text-amber-300">
             MODO DEMO — datos de ejemplo
           </span>
         )}
@@ -77,10 +77,10 @@ export default function Navbar() {
             to="/pagos"
             title="Registrar un pago"
             className={({ isActive }) =>
-              `flex size-8 items-center justify-center rounded-lg border transition ${
+              `flex size-8 items-center justify-center rounded-xl border transition ${
                 isActive
-                  ? 'border-emerald-700 bg-emerald-950/40 text-emerald-300'
-                  : 'border-slate-700 text-emerald-400 hover:bg-slate-800 hover:text-emerald-300'
+                  ? 'border-transparent bg-[#ECFDF5] text-emerald-400'
+                  : 'border-slate-700 text-emerald-400 hover:bg-slate-800'
               }`
             }
           >
@@ -92,7 +92,7 @@ export default function Navbar() {
         <span className="hidden text-xs text-slate-400 sm:inline">{usuario?.email}</span>
         <button
           onClick={cerrarSesion}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-800"
+          className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-800"
         >
           <LogOut size={13} />
           Salir

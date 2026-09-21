@@ -1,36 +1,71 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Info, Loader2, X } from 'lucide-react'
 
-/** Primitivas de UI compartidas. Tailwind puro, sin librería de componentes. */
+/**
+ * Primitivas de UI compartidas. Tailwind puro, sin librería de componentes.
+ *
+ * ── Por qué este archivo es el primero del rediseño ──
+ *
+ * Lo usan casi las cuarenta pantallas del sistema. El remapeo de paleta de
+ * `tema.css` ya dejó todo en claro, pero "claro" no es lo mismo que "con el
+ * tema": la tarjeta blanca de radio 18 con su sombra de dos capas, el badge sin
+ * borde, la franja de marca del KPI y el encabezado con barrita solo aparecen
+ * si estos componentes los usan.
+ *
+ * Cambiar acá es lo que hace que el sistema entero se vea como el panel nuevo
+ * sin tocar las pantallas una por una.
+ *
+ * Las APIs no cambiaron: mismos nombres, mismos props, mismos valores
+ * aceptados. Lo único que se tocó es cómo se dibujan.
+ */
 
 export function Card({ title, subtitle, icon: Icon, actions, children, className = '' }) {
   return (
-    <section
-      className={`rounded-xl border border-slate-800 bg-slate-900/60 shadow-lg shadow-black/20 ${className}`}
-    >
+    <section className={`t-card overflow-hidden ${className}`}>
       {(title || actions) && (
-        <header className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
-          <div className="min-w-0">
-            <h2 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-slate-100">
-              {Icon && <Icon size={16} className="text-sky-400" />}
-              {title}
-            </h2>
-            {subtitle && <p className="mt-1 text-xs text-slate-400">{subtitle}</p>}
+        <header className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.06)] px-6 pt-5 pb-4">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* La barrita vertical de marca. Es `aria-hidden` porque no dice
+                nada que el título no diga ya: quien escucha la pantalla no
+                necesita enterarse de que hay una raya celeste. */}
+            <span
+              className="h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-sky-700 to-sky-400"
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <h2 className="t-titulo flex items-center gap-2 text-sm font-bold text-slate-100">
+                {Icon && <Icon size={15} className="text-sky-400" />}
+                {title}
+              </h2>
+              {subtitle && <p className="mt-0.5 text-[11.5px] text-slate-500">{subtitle}</p>}
+            </div>
           </div>
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </section>
   )
 }
 
+/**
+ * El primario lleva el degradado de marca; el resto son neutros.
+ *
+ * Un solo color de marca para todo lo que no es un estado: si el botón de
+ * guardar fuera verde y el de borrar rojo, el verde dejaría de significar "en
+ * línea" y el rojo "crítico", que es lo que de verdad hay que poder leer de un
+ * vistazo en una pantalla de red.
+ *
+ * `peligro` sí es rojo, y es la excepción correcta: ahí el color ES el estado
+ * de lo que va a pasar.
+ */
 const VARIANTES = {
-  primario: 'bg-sky-600 hover:bg-sky-500 text-white border-sky-500',
+  primario:
+    'bg-gradient-to-r from-sky-700 to-sky-500 hover:from-sky-800 hover:to-sky-600 text-white border-transparent shadow-[0_6px_16px_-6px_rgba(3,105,161,0.6)]',
   secundario: 'bg-slate-800 hover:bg-slate-700 text-slate-100 border-slate-700',
-  peligro: 'bg-red-600/90 hover:bg-red-500 text-white border-red-500',
+  peligro: 'bg-red-600 hover:bg-red-700 text-white border-transparent',
   fantasma: 'bg-transparent hover:bg-slate-800 text-slate-300 border-transparent',
-  exito: 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500',
+  exito: 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent',
   alerta: 'bg-amber-500 hover:bg-amber-600 text-[#0F172A] border-amber-500',
 }
 
@@ -46,7 +81,7 @@ export function Button({
     <button
       {...props}
       disabled={props.disabled || cargando}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition
+      className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition
         disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTES[variante]} ${className}`}
     >
       {cargando ? <Loader2 size={15} className="animate-spin" /> : Icon && <Icon size={15} />}
@@ -58,16 +93,19 @@ export function Button({
 export function Field({ label, hint, children, className = '' }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1 block text-xs font-medium text-slate-400">{label}</span>
+      <span className="mb-1 block text-xs font-semibold text-slate-400">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-slate-500">{hint}</span>}
+      {hint && <span className="mt-1 block text-[11px] text-slate-600">{hint}</span>}
     </label>
   )
 }
 
+/* Fondo blanco y no gris: un campo de formulario tiene que parecer un hueco
+   donde escribir, y sobre una tarjeta blanca eso se consigue con el borde, no
+   con el relleno. */
 const ESTILO_CAMPO =
-  'w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 ' +
-  'placeholder:text-slate-600 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500/40'
+  'w-full rounded-xl border border-slate-700 bg-white px-3 py-2 text-sm text-slate-100 ' +
+  'placeholder:text-slate-600 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20'
 
 export const Input = (props) => <input {...props} className={`${ESTILO_CAMPO} ${props.className || ''}`} />
 
@@ -81,20 +119,28 @@ export const Select = ({ children, ...props }) => (
   </select>
 )
 
+/**
+ * Badges sin borde: fondo suave y texto del color.
+ *
+ * El borde de la versión anterior servía sobre fondo oscuro, donde un relleno
+ * al 15% casi no se distingue del panel. Sobre blanco sobra: el fondo suave ya
+ * recorta la pastilla, y el borde solo agrega ruido cuando hay cinco en una
+ * fila de tabla.
+ *
+ * Y siempre con texto, nunca solo color. Un estado que se distingue únicamente
+ * por el color no existe para quien no distingue ese color —ni para nadie
+ * mirando el celular al sol.
+ */
 const COLORES_BADGE = {
-  verde: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  rojo: 'bg-red-500/15 text-red-300 border-red-500/30',
-  ambar: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  azul: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-  gris: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
+  verde: 't-badge-ok',
+  rojo: 't-badge-critico',
+  ambar: 't-badge-aviso',
+  azul: 't-badge-marca',
+  gris: 't-badge-neutro',
 }
 
 export const Badge = ({ color = 'gris', children }) => (
-  <span
-    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${COLORES_BADGE[color]}`}
-  >
-    {children}
-  </span>
+  <span className={`t-badge ${COLORES_BADGE[color]}`}>{children}</span>
 )
 
 /** Badge de estado de una ONU/ONT. */
@@ -111,28 +157,24 @@ export function EstadoBadge({ estado }) {
 export function Table({ columnas, filas, vacio = 'Sin datos', renderFila, bajoEncabezado }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[600px] text-left text-sm">
+      <table className="t-tabla min-w-[600px]">
         <thead>
-          <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-500">
+          <tr>
             {/* La clave va por posición: una columna puede ser JSX (un botón de
                 ordenar) o venir vacía, y en los dos casos usarla como clave da
                 duplicados. Las columnas no se reordenan, así que el índice es
                 estable. */}
             {columnas.map((c, i) => (
-              <th key={i} className="px-3 py-2 font-medium">
-                {c}
-              </th>
+              <th key={i}>{c}</th>
             ))}
           </tr>
           {/* Una segunda fila de encabezado, para quien la necesite: la usa el
               listado de abonados para poner una casilla de búsqueda debajo de
               cada columna. Va acá y no como filas normales para que quede
               pegada al encabezado y no se mezcle con los datos. */}
-          {bajoEncabezado && (
-            <tr className="border-b border-slate-800 bg-slate-950/40">{bajoEncabezado}</tr>
-          )}
+          {bajoEncabezado && <tr className="bg-slate-800/40">{bajoEncabezado}</tr>}
         </thead>
-        <tbody className="divide-y divide-slate-800/70">
+        <tbody>
           {filas.length === 0 ? (
             <tr>
               <td colSpan={columnas.length} className="px-3 py-8 text-center text-slate-500">
@@ -157,19 +199,19 @@ export function ErrorBanner({ error, onCerrar }) {
   const mensaje = error.message || String(error)
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm">
+    <div className="flex items-start gap-3 rounded-xl bg-[#FEF2F2] px-4 py-3 text-sm">
       <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-400" />
       <div className="min-w-0 flex-1">
-        <p className="font-medium text-red-200">{mensaje}</p>
-        {error.hint && <p className="mt-1 text-xs text-red-300/80">{error.hint}</p>}
+        <p className="font-semibold text-red-400">{mensaje}</p>
+        {error.hint && <p className="mt-1 text-xs text-red-300">{error.hint}</p>}
         {error.detalle && (
-          <pre className="mt-2 max-h-32 overflow-auto rounded bg-black/30 p-2 text-[11px] text-red-200/70">
+          <pre className="t-dato mt-2 max-h-32 overflow-auto rounded-lg bg-white/70 p-2 text-[11px] text-red-300">
             {error.detalle}
           </pre>
         )}
       </div>
       {onCerrar && (
-        <button onClick={onCerrar} className="shrink-0 text-red-300 hover:text-red-100">
+        <button onClick={onCerrar} className="shrink-0 text-red-400 hover:text-red-200">
           <X size={16} />
         </button>
       )}
@@ -179,12 +221,12 @@ export function ErrorBanner({ error, onCerrar }) {
 
 export function Aviso({ children, tipo = 'info' }) {
   const estilos = {
-    info: 'border-sky-500/30 bg-sky-500/10 text-sky-200',
-    alerta: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+    info: 'bg-[#F0F9FF] text-sky-200',
+    alerta: 'bg-[#FFFBEB] text-amber-300',
   }
   const Icono = tipo === 'alerta' ? AlertTriangle : Info
   return (
-    <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${estilos[tipo]}`}>
+    <div className={`flex items-start gap-3 rounded-xl px-4 py-3 text-sm ${estilos[tipo]}`}>
       <Icono size={16} className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
@@ -202,20 +244,24 @@ export function Modal({ abierto, titulo, onCerrar, children, ancho = 'max-w-lg' 
   if (!abierto) return null
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-16 backdrop-blur-[2px]"
       onClick={onCerrar}
     >
       <div
-        className={`w-full ${ancho} rounded-xl border border-slate-700 bg-slate-900 shadow-2xl`}
+        className={`t-card w-full ${ancho} overflow-hidden shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-          <h3 className="text-sm font-semibold text-slate-100">{titulo}</h3>
-          <button onClick={onCerrar} className="text-slate-400 hover:text-slate-100">
+        <header className="flex items-center justify-between border-b border-[rgba(15,23,42,0.06)] px-6 py-4">
+          <h3 className="t-titulo text-sm font-bold text-slate-100">{titulo}</h3>
+          <button
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-100"
+          >
             <X size={18} />
           </button>
         </header>
-        <div className="p-5">{children}</div>
+        <div className="p-6">{children}</div>
       </div>
     </div>
   )
@@ -280,17 +326,19 @@ export function PedirMotivo({
 
         {sugerencias.length > 0 && (
           <div>
-            <span className="mb-2 block text-xs font-medium text-slate-400">Motivos frecuentes</span>
+            <span className="mb-2 block text-xs font-semibold text-slate-400">
+              Motivos frecuentes
+            </span>
             <div className="flex flex-wrap gap-2">
               {sugerencias.map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => setMotivo(m)}
-                  className={`rounded-full border px-3 py-1 text-[11px] transition ${
+                  className={`rounded-full px-3 py-1 text-[11px] font-medium transition ${
                     motivo === m
-                      ? 'border-sky-500 bg-sky-500/15 text-sky-200'
-                      : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 hover:text-slate-100'
+                      ? 'bg-[#F0F9FF] text-sky-400'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
                   }`}
                 >
                   {m}
@@ -336,12 +384,12 @@ export function PedirMotivo({
 /** La ficha de datos de las ventanas de decisión: dos columnas, valor a la derecha. */
 export function DatosEnFicha({ datos }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+    <div className="rounded-xl bg-slate-800/60 p-3.5">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         {datos.map(([k, v]) => (
           <div key={k} className="contents">
             <dt className="text-slate-500">{k}</dt>
-            <dd className="text-right font-medium text-slate-200">{v ?? '—'}</dd>
+            <dd className="t-dato text-right font-semibold text-slate-200">{v ?? '—'}</dd>
           </div>
         ))}
       </dl>
@@ -358,7 +406,7 @@ export function DatosEnFicha({ datos }) {
  */
 export function Tabs({ tabs, activa, onCambiar }) {
   return (
-    <div className="overflow-x-auto border-b border-slate-800">
+    <div className="overflow-x-auto border-b border-[rgba(15,23,42,0.06)]">
       <nav className="flex min-w-max gap-1">
         {tabs.map((t) => {
           const esta = t.clave === activa
@@ -367,20 +415,22 @@ export function Tabs({ tabs, activa, onCambiar }) {
               key={t.clave}
               type="button"
               onClick={() => onCambiar(t.clave)}
-              className={`relative whitespace-nowrap px-4 py-2.5 text-[13px] font-medium transition ${
-                esta ? 'text-sky-300' : 'text-slate-400 hover:text-slate-200'
+              className={`relative whitespace-nowrap px-4 py-2.5 text-[13px] font-semibold transition ${
+                esta ? 'text-sky-400' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <span className="flex items-center gap-2">
                 {t.icon && <t.icon size={14} />}
                 {t.label}
                 {t.contador != null && (
-                  <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+                  <span className="t-dato rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
                     {t.contador}
                   </span>
                 )}
               </span>
-              {esta && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded bg-sky-400" />}
+              {esta && (
+                <span className="absolute inset-x-2 -bottom-px h-0.5 rounded bg-gradient-to-r from-sky-700 to-sky-400" />
+              )}
             </button>
           )
         })}
@@ -397,7 +447,7 @@ export function Tabs({ tabs, activa, onCambiar }) {
  * datos.
  */
 export const Skeleton = ({ className = 'h-4 w-full' }) => (
-  <div className={`animate-pulse rounded bg-slate-800/70 ${className}`} />
+  <div className={`animate-pulse rounded-lg bg-slate-800 ${className}`} />
 )
 
 export const SkeletonTabla = ({ filas = 5, columnas = 4 }) => (
@@ -421,8 +471,8 @@ export const SkeletonTabla = ({ filas = 5, columnas = 4 }) => (
  */
 export function Punto({ estado, titulo }) {
   const estilos = {
-    online: 'bg-emerald-400 shadow-[0_0_6px] shadow-emerald-400/60',
-    offline: 'bg-rose-500 shadow-[0_0_6px] shadow-rose-500/60',
+    online: 'bg-emerald-500',
+    offline: 'bg-rose-500',
     desconocido: 'bg-slate-600',
   }
   return (
@@ -433,16 +483,23 @@ export function Punto({ estado, titulo }) {
   )
 }
 
-/** Tarjeta de métrica del Dashboard. */
+/**
+ * Tarjeta de métrica del Dashboard.
+ *
+ * Franja de marca de 3px arriba, número grande en Sora con cifras tabulares.
+ * Lo tabular no es un detalle: sin eso el ancho del número cambia con cada
+ * actualización en vivo y la fila entera de KPIs se mueve sola.
+ */
 export function Stat({ label, valor, sub, icon: Icon, color = 'text-sky-400' }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+    <div className="t-card relative overflow-hidden p-5">
+      <span className="t-stripe" aria-hidden="true" />
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-400">{label}</span>
+        <span className="text-xs font-semibold text-slate-400">{label}</span>
         {Icon && <Icon size={16} className={color} />}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-slate-100">{valor}</p>
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+      <p className="t-kpi-valor mt-3">{valor}</p>
+      {sub && <p className="mt-1.5 text-[11px] text-slate-500">{sub}</p>}
     </div>
   )
 }

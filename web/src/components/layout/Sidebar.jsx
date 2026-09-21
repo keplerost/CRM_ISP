@@ -353,10 +353,10 @@ function useContadores(puede) {
 }
 
 const CLASE_ITEM = (activo) =>
-  `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+  `flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
     activo
-      ? 'bg-sky-600/15 font-medium text-sky-300'
-      : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+      ? 'bg-[#F0F9FF] font-semibold text-sky-400 shadow-[inset_3px_0_0_var(--marca)]'
+      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
   }`
 
 
@@ -384,7 +384,7 @@ const MenuCargando = ({ plegado }) => (
 /** El número al lado de un ítem. Solo aparece si hay algo: un "0" es ruido. */
 const Insignia = ({ n }) =>
   n > 0 ? (
-    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-sky-500/20 px-1.5 text-[11px] font-semibold text-sky-300">
+    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-[#F0F9FF] px-1.5 text-[11px] font-semibold text-sky-400">
       {n > 99 ? '99+' : n}
     </span>
   ) : null
@@ -424,17 +424,17 @@ function Grupo({ item, contadores, plegado }) {
       </button>
 
       {abierto && !plegado && (
-        <div className="mt-1 space-y-0.5 border-l border-slate-800 pl-3 ml-4">
+        <div className="mt-1 space-y-0.5 border-l border-[rgba(15,23,42,0.08)] pl-3 ml-4">
           {item.hijos.map((h) => (
             <NavLink
               key={h.to}
               to={h.to}
               end={h.end}
               className={({ isActive }) =>
-                `flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition ${
+                `flex items-center gap-2 rounded-xl px-3 py-1.5 text-[13px] transition ${
                   isActive
-                    ? 'bg-sky-600/15 font-medium text-sky-300'
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                    ? 'bg-[#F0F9FF] font-semibold text-sky-400 shadow-[inset_3px_0_0_var(--marca)]'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                 }`
               }
             >
@@ -502,23 +502,23 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`flex shrink-0 flex-col border-r border-slate-800 bg-slate-950/60 transition-[width] ${
+      className={`flex shrink-0 flex-col border-r border-[rgba(15,23,42,0.06)] bg-white transition-[width] ${
         plegado ? 'w-16' : 'w-60'
       }`}
     >
       {/* La marca sale de la configuración, no está escrita acá: cada ISP que
           instala el sistema pone la suya en Ajustes → General. */}
-      <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-4">
+      <div className="flex items-center gap-2 border-b border-[rgba(15,23,42,0.06)] px-4 py-4">
         {marca?.logo_b64 ? (
           <img src={marca.logo_b64} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
         ) : (
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-sky-600 text-sm font-bold text-white">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-tr from-sky-700 to-sky-400 text-sm font-bold text-white">
             {(marca?.nombre_sistema ?? 'S').trim().charAt(0).toUpperCase()}
           </div>
         )}
         {!plegado && (
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-semibold text-slate-100">
+            <p className="t-titulo truncate text-sm font-bold text-slate-100">
               {marca?.nombre_sistema ?? 'SmartOLT'}
             </p>
             <p className="truncate text-[11px] text-slate-500">{marca?.lema ?? ''}</p>
@@ -588,7 +588,7 @@ export default function Sidebar() {
       <button
         type="button"
         onClick={() => setPlegado((v) => !v)}
-        className="flex items-center gap-3 border-t border-slate-800 px-4 py-3 text-[12px] text-slate-500 transition hover:text-slate-300"
+        className="flex items-center gap-3 border-t border-[rgba(15,23,42,0.06)] px-4 py-3 text-[12px] text-slate-500 transition hover:text-slate-300"
         title={plegado ? 'Mostrar el menú' : 'Ocultar el menú'}
       >
         <ChevronsLeft size={16} className={`transition-transform ${plegado ? 'rotate-180' : ''}`} />
