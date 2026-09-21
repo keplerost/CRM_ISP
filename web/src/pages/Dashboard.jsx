@@ -359,13 +359,17 @@ export default function Dashboard() {
             tono={m.abiertos.length ? 'aviso' : 'ok'}
           />
         )}
+        {/* Abre el listado ya filtrado por deuda. Es un conjunto un poco más
+            ancho que el número de arriba —el saldo de la ficha es el total por
+            cobrar y no distingue lo vencido de lo que todavía no venció— pero
+            contiene a todos los vencidos, que es lo que uno va a buscar. */}
         {abre('/clientes') && (
           <KpiCard
             icon={DollarSign}
             etiqueta="Cartera vencida"
             valor={moneda(m.vencidoMonto)}
             pista={`${numero(m.vencidasCuentas)} cuentas con saldo vencido`}
-            a="/clientes"
+            a="/clientes?deuda=si"
             tono={m.vencidoMonto > 0 ? 'critico' : 'ok'}
           />
         )}

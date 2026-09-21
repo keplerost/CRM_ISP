@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useConfirmar } from '../lib/confirmar'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   Columns3,
+  DollarSign,
   Download,
   ExternalLink,
   Filter,
@@ -118,6 +119,21 @@ export default function ClientesPage() {
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+
+  /**
+   * "Solo con deuda", encendible desde la URL.
+   *
+   * El panel de inicio enlaza acá con `?deuda=si` para que el KPI de cartera
+   * abra la lista y no la bandeja entera: un número que obliga a volver a
+   * filtrar a mano lo que ya decía no sirve para decidir.
+   *
+   * Se siembra al arrancar y después vive en la pantalla, como el resto de los
+   * filtros. Y tiene interruptor a la vista a propósito: un filtro que solo se
+   * enciende por la URL deja a alguien mirando una lista recortada sin nada en
+   * pantalla que explique por qué faltan abonados ni cómo traerlos de vuelta.
+   */
+  const [params] = useSearchParams()
+  const [soloDeuda, setSoloDeuda] = useState(() => params.get('deuda') === 'si')
   const [enFormulario, setEnFormulario] = useState(null)
   const [exportando, setExportando] = useState(false)
 
@@ -203,14 +219,18 @@ export default function ClientesPage() {
     () =>
       filtrarPorCampo(
         filtrarPorColumnas(
-          filtrarAbonados(clientes, { busqueda, estado: filtroEstado }),
+          filtrarAbonados(clientes, {
+            busqueda,
+            estado: filtroEstado,
+            deuda: soloDeuda ? 'si' : '',
+          }),
           filtrosVigentes,
           ctx,
         ),
         { campo, valor },
         ctx,
       ),
-    [clientes, busqueda, filtroEstado, filtrosVigentes, campo, valor, ctx],
+    [clientes, busqueda, filtroEstado, soloDeuda, filtrosVigentes, campo, valor, ctx],
   )
 
   /* El orden lo manda el catálogo, no el orden en que se marcaron: si no, la
@@ -227,7 +247,10 @@ export default function ClientesPage() {
    * detalle: quedarse en la página 4 de un filtro que ahora devuelve dos
    * abonados muestra una tabla vacía, y eso se lee como "no hay ninguno".
    */
-  useEffect(() => setPagina(1), [busqueda, filtroEstado, filtrosVigentes, campo, valor, porPagina])
+  useEffect(
+    () => setPagina(1),
+    [busqueda, filtroEstado, soloDeuda, filtrosVigentes, campo, valor, porPagina],
+  )
 
   /* Y si la lista se achicó por debajo de la página en la que estábamos —se
      borró un abonado, cambió el estado de varios— se retrocede hasta la última
@@ -386,6 +409,28 @@ export default function ClientesPage() {
                     <option value="baja">Retirados</option>
                   </Select>
                 </div>
+
+                {/* El interruptor de "solo con deuda".
+
+                    Va como botón y no como casilla porque es lo que hace el
+                    resto de la fila: se aprieta y se ve encendido. Lleva
+                    `aria-pressed` para que quien escucha la pantalla se
+                    entere de que está activo — si no, la lista recortada no se
+                    explica por ninguna parte. */}
+                <button
+                  type="button"
+                  onClick={() => setSoloDeuda((v) => !v)}
+                  aria-pressed={soloDeuda}
+                  title="Dejar solo los abonados con saldo pendiente"
+                  className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                    soloDeuda
+                      ? 'bg-[#FEF2F2] text-red-400'
+                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <DollarSign size={13} />
+                  Con deuda
+                </button>
 
                 {/* `ml-auto` lo empuja hasta el borde derecho de la fila. */}
                 <div className="ml-auto w-56 shrink-0">

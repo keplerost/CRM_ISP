@@ -68,12 +68,27 @@ export function enlace(cliente) {
   return { texto: e, color: 'gris' }
 }
 
-/** El filtro del listado. Todo lo vacío no filtra. */
-export function filtrarAbonados(filas, { busqueda = '', estado = '', router = '', zona = '', plan = '' } = {}) {
+/**
+ * El filtro del listado. Todo lo vacío no filtra.
+ *
+ * `deuda` es el único que no compara contra un valor: es un sí o no. Vale
+ * "si" para dejar solo a los que tienen saldo pendiente.
+ *
+ * Es saldo PENDIENTE, no saldo VENCIDO. La ficha del abonado trae el total
+ * por cobrar —la suma de todas sus facturas con saldo, hayan vencido o no— y
+ * no publica cuánto de eso está vencido. Distinguirlo pediría consultar las
+ * facturas una por una, así que el filtro dice lo que de verdad puede decir.
+ * Quien tiene deuda vencida está siempre adentro de este conjunto.
+ */
+export function filtrarAbonados(
+  filas,
+  { busqueda = '', estado = '', router = '', zona = '', plan = '', deuda = '' } = {},
+) {
   const q = String(busqueda).trim().toLowerCase()
 
   return (filas ?? []).filter((c) => {
     if (estado && c.estado !== estado) return false
+    if (deuda === 'si' && !(Number(c.saldo ?? 0) > 0)) return false
     if (router && String(c.router_id) !== String(router)) return false
     if (zona && (c.zona ?? '') !== zona) return false
     if (plan && String(c.plan_id) !== String(plan)) return false
