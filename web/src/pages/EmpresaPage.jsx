@@ -109,7 +109,7 @@ export default function EmpresaPage() {
       </Link>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Empresa</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Empresa</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Quién factura. Estos datos salen impresos en cada factura, en el recibo y en los
           contratos, y son los que el SRI valida contra tu RUC.

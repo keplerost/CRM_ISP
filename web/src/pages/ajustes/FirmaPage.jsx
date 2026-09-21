@@ -151,7 +151,7 @@ export default function FirmaPage() {
       </div>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Firma del contrato</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Firma del contrato</h1>
         <p className="mt-0.5 text-xs text-slate-500">
           Cómo firma el abonado, y qué pasa el día que el proveedor no responde.
         </p>
@@ -166,7 +166,7 @@ export default function FirmaPage() {
             pantalla. "Apagado" no es "roto": es el modo en que se trabaja
             mientras no haya proveedor contratado.
           */}
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+          <label className="flex cursor-pointer items-start gap-3 t-panel p-3">
             <input
               type="checkbox"
               checked={Boolean(form.api_habilitada)}

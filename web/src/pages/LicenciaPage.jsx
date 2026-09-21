@@ -76,7 +76,7 @@ export default function LicenciaPage({ suelta = false }) {
               ← Volver a Ajustes
             </Link>
           )}
-          <h1 className="text-lg font-semibold text-slate-100">Licencia</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Licencia</h1>
           <Aviso>
             Esta instalación no está bajo licencia: funciona sin límite ni vencimiento. Es lo
             normal en la copia del proveedor y en los ambientes de prueba.
@@ -118,7 +118,7 @@ export default function LicenciaPage({ suelta = false }) {
         )}
 
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Licencia</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Licencia</h1>
           <p className="mt-0.5 text-xs text-slate-500">
             El permiso que habilita este sistema. Se renueva solo cuando el pago se acredita.
           </p>
@@ -235,7 +235,7 @@ export default function LicenciaPage({ suelta = false }) {
 }
 
 const Dato = ({ titulo, valor, color }) => (
-  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+  <div className="t-card-sm p-3">
     <p className="text-[11px] uppercase tracking-wider text-slate-500">{titulo}</p>
     <p className={`mt-1 text-lg font-semibold ${color ?? 'text-slate-100'}`}>{valor}</p>
   </div>

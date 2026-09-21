@@ -105,7 +105,7 @@ export default function AsignacionRouters({ plan, onCerrar }) {
               <div
                 key={r.id}
                 className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition ${
-                  r.asignado ? 'border-sky-500/50 bg-sky-500/10' : 'border-slate-800 bg-slate-950/40'
+                  r.asignado ? 'border-sky-500/50 bg-sky-500/10' : 'border-slate-800 bg-[#F6F8FB]'
                 }`}
               >
                 <label className="flex flex-1 cursor-pointer items-center gap-3">

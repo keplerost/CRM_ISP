@@ -212,7 +212,7 @@ export default function ComisionesPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Comisiones e incentivos</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Comisiones e incentivos</h1>
           <p className="text-xs text-slate-500">
             {esquema.nombre} · vigente desde {esquema.vigente_desde}
             {esquema.vigente_hasta ? ` hasta ${esquema.vigente_hasta}` : ''}
@@ -416,7 +416,7 @@ export default function ComisionesPage() {
         </div>
 
         {/* La cuenta, mientras se edita. Un porcentaje solo no permite decidir. */}
-        <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+        <div className="mt-4 t-panel p-3">
           <p className="text-[11px] uppercase tracking-wide text-slate-500">
             Qué paga cada nivel, con la base promedio de {dinero(basePromedio)}
           </p>
@@ -546,7 +546,7 @@ export default function ComisionesPage() {
           {REQUISITOS.map((r) => (
             <label
               key={r.campo}
-              className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5"
+              className="flex cursor-pointer items-start gap-2.5 t-card-sm p-2.5"
             >
               <input
                 type="checkbox"
@@ -850,7 +850,7 @@ function Auditoria() {
       ) : (
         <div className="space-y-1.5">
           {filas.map((a) => (
-            <div key={a.id} className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+            <div key={a.id} className="t-card-sm px-3 py-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-[13px] text-slate-200">{a.descripcion}</p>
                 <p className="text-[11px] text-slate-500">
@@ -937,7 +937,7 @@ function MotivosBaja({ motivos, soloLectura, onGuardado, onError }) {
           {activos.map((m) => (
             <div
               key={m.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2"
+              className="flex items-center justify-between gap-2 t-card-sm px-3 py-2"
             >
               <span className="min-w-0 truncate text-[13px] text-slate-200" title={m.nombre}>
                 {m.nombre}
@@ -1031,7 +1031,7 @@ function FormularioMotivo({ motivo, guardando, onCerrar, onGuardar }) {
           />
         </Field>
 
-        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+        <label className="flex cursor-pointer items-start gap-2 t-panel p-3">
           <input
             type="checkbox"
             checked={Boolean(form.afecta_calidad)}

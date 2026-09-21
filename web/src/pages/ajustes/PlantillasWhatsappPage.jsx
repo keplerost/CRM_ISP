@@ -88,7 +88,7 @@ export default function PlantillasWhatsappPage() {
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Plantillas de WhatsApp</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Plantillas de WhatsApp</h1>
           <p className="text-xs text-slate-500">
             {aprobadas} de {filas.length} aprobadas en Meta.
           </p>

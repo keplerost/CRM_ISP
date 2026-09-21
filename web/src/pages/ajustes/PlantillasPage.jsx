@@ -57,7 +57,7 @@ export default function PlantillasPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Editor de plantillas</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Editor de plantillas</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Todo lo que el sistema le dice al abonado: documentos, correos, mensajes y páginas web.
           Los <code className="text-slate-400">{'{{marcadores}}'}</code> se reemplazan al enviar.
@@ -136,7 +136,7 @@ function Tarjeta({ plantilla: p, onEditar, onVer }) {
   const sinValor = marcadoresSinValor(`${p.asunto ?? ''} ${p.cuerpo ?? ''}`)
 
   return (
-    <div className="group relative rounded-lg border border-slate-800 bg-slate-900/40 p-3 transition hover:border-slate-600">
+    <div className="group relative t-card-sm p-3 transition hover:border-slate-600">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-slate-100">{p.nombre}</p>
         {p.del_sistema && (
@@ -408,7 +408,7 @@ function Render({ plantilla: p }) {
   if (tipo) return <RenderCorreo plantilla={p} tipo={tipo} />
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+    <div className="t-panel p-3">
       {asunto && (
         <p className="mb-2 border-b border-slate-800 pb-2 text-sm font-medium text-slate-100">
           {asunto}
@@ -428,7 +428,7 @@ function Render({ plantilla: p }) {
           title="Vista previa"
           sandbox=""
           srcDoc={`<style>body{font-family:system-ui,sans-serif;font-size:14px;color:#e2e8f0;background:#020617;margin:0;padding:8px}</style>${cuerpo}`}
-          className="h-64 w-full rounded border-0 bg-slate-950"
+          className="h-64 w-full rounded border-0 bg-[#F6F8FB]"
         />
       ) : (
         <pre className="whitespace-pre-wrap font-sans text-sm text-slate-300">{cuerpo}</pre>
@@ -479,7 +479,7 @@ function RenderCorreo({ plantilla: p, tipo }) {
 
   return (
     <div className="space-y-2">
-      <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+      <div className="t-panel p-3">
         <p className="text-[11px] uppercase tracking-wide text-slate-500">Asunto</p>
         <p className="text-sm font-medium text-slate-100">{previa.asunto}</p>
       </div>

@@ -152,7 +152,7 @@ export default function TareasPage() {
       </Link>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Tareas programadas</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Tareas programadas</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Lo que el sistema hace solo, sin que nadie apriete nada. Los cambios se aplican al
           guardar: no hace falta reiniciar el servidor.

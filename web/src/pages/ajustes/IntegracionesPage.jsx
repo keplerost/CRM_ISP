@@ -262,7 +262,7 @@ export default function IntegracionesPage() {
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Integraciones</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Integraciones</h1>
           <p className="text-xs text-slate-500">
             Las llaves con las que el CRM, el bot de WhatsApp y las pasarelas hablan con el sistema.
           </p>
@@ -445,7 +445,7 @@ export default function IntegracionesPage() {
                 {PERMISOS.map((p) => (
                   <label
                     key={p.clave}
-                    className="flex cursor-pointer gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2.5"
+                    className="flex cursor-pointer gap-2 t-panel p-2.5"
                   >
                     <input
                       type="checkbox"
@@ -592,7 +592,7 @@ export default function IntegracionesPage() {
                 {PERMISOS.map((p) => (
                   <label
                     key={p.clave}
-                    className="flex cursor-pointer gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2.5"
+                    className="flex cursor-pointer gap-2 t-panel p-2.5"
                   >
                     <input
                       type="checkbox"
@@ -731,7 +731,7 @@ export default function IntegracionesPage() {
               revocarla y emitir otra.
             </Aviso>
 
-            <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 p-3">
+            <div className="flex items-center gap-2 t-panel p-3">
               <code className="flex-1 break-all font-mono text-[12px] text-emerald-300">
                 {emitida.llave}
               </code>
@@ -747,7 +747,7 @@ export default function IntegracionesPage() {
               </Button>
             </div>
 
-            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-[12px] text-slate-400">
+            <div className="t-panel p-3 text-[12px] text-slate-400">
               <p className="mb-2 text-slate-300">Cómo la usa el proveedor:</p>
               <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed">
 {`curl -H "X-API-Key: ${emitida.llave}" \\

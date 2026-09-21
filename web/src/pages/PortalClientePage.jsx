@@ -54,7 +54,7 @@ export default function PortalClientePage() {
       </Link>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Portal del cliente</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Portal del cliente</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Tus abonados entran con su cédula y un código al celular a ver sus facturas, reportar
           fallas y cambiar su clave de WiFi.
@@ -118,7 +118,7 @@ function Enlace() {
 }
 
 const Metrica = ({ titulo, valor, de, color }) => (
-  <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+  <div className="t-card-sm p-3">
     <p className="text-[11px] uppercase tracking-wider text-slate-500">{titulo}</p>
     <p className={`mt-1 text-xl font-semibold ${color ?? 'text-slate-100'}`}>
       {valor}
@@ -169,7 +169,7 @@ function Pedidos({ pedidos, onCambio, onError }) {
         {pedidos.map((p) => (
           <div
             key={p.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3"
+            className="flex flex-wrap items-center gap-3 t-card-sm p-3"
           >
             <div className="min-w-0 flex-1">
               <p className="text-sm text-slate-200">{p.cliente}</p>
@@ -184,7 +184,7 @@ function Pedidos({ pedidos, onCambio, onError }) {
                 No se pudo descifrar — pedile que lo vuelva a cargar
               </span>
             ) : (
-              <code className="select-all rounded border border-slate-700 bg-slate-950 px-2 py-1 font-mono text-sm text-emerald-300">
+              <code className="select-all rounded border border-slate-700 bg-[#F6F8FB] px-2 py-1 font-mono text-sm text-emerald-300">
                 {p.valor}
               </code>
             )}
@@ -310,7 +310,7 @@ function Buscador({ onError }) {
         )}
 
         {resultados?.map((c) => (
-          <div key={c.id} className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+          <div key={c.id} className="t-card-sm p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link to={`/clientes/${c.id}`} className="text-sm text-slate-200 hover:text-sky-300">

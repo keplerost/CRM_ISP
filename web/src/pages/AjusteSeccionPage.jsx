@@ -43,7 +43,7 @@ export default function AjusteSeccionPage() {
           <Icono size={20} />
         </span>
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">{seccion.nombre}</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">{seccion.nombre}</h1>
           <p className="flex items-center gap-1.5 text-xs text-amber-400">
             <HardHat size={13} /> Todavía no está construida
           </p>

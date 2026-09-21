@@ -62,7 +62,7 @@ export default function AjustesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Ajustes</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Ajustes</h1>
         <p className="mt-0.5 text-xs text-slate-500">
           {listos.length} de {visibles.length} secciones ya funcionan. Las demás abren igual y
           explican qué van a hacer.

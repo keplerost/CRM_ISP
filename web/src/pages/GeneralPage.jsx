@@ -84,7 +84,7 @@ export default function GeneralPage() {
       </Link>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">General</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">General</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Cómo se ve el sistema por dentro: el nombre y el logo que ven quienes lo usan todos los
           días.

@@ -111,7 +111,7 @@ export default function PaginaCortePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Página del abonado cortado</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Página del abonado cortado</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Lo que ve alguien suspendido cuando abre el navegador: por qué se le cortó, cuánto debe,
           dónde depositar y a quién avisarle que pagó.

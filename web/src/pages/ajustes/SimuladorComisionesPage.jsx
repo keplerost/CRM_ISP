@@ -226,7 +226,7 @@ export default function SimuladorComisionesPage() {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Simulador de comisiones</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Simulador de comisiones</h1>
           <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
             Mové lo que quieras: nada de esto toca la configuración hasta que la apliques. Los
             números se recalculan solos.

@@ -201,7 +201,7 @@ export default function PrestadorPage() {
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-100">Prestador del servicio</h1>
+          <h1 className="t-titulo text-lg font-bold text-slate-100">Prestador del servicio</h1>
           <p className="mt-0.5 text-xs text-slate-500">
             Lo que va en el contrato de adhesión y sus anexos. Es un trámite distinto del SRI: acá
             se carga lo que la configuración de facturación no puede saber.

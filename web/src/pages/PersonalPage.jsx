@@ -631,7 +631,7 @@ export default function PersonalPage() {
                 qué deja de ver es cómo se termina con un cobrador que no puede
                 trabajar y una llamada al soporte. */}
             {rolActual && !editandoseASiMismo && (
-              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3">
+              <div className="t-card p-3">
                 <p className="text-[13px] text-slate-300">{rolActual.resumen}</p>
                 <div className="mt-2 grid gap-3 text-[12px] md:grid-cols-2">
                   <div>
@@ -679,7 +679,7 @@ export default function PersonalPage() {
                     if (!disponibles.length) return null
                     const todos = disponibles.every((p) => editando.permisos.includes(p.clave))
                     return (
-                      <div key={g.clave} className="rounded-xl border border-slate-800 bg-slate-900/40 p-2">
+                      <div key={g.clave} className="t-card p-2">
                         <label className="mb-1 flex cursor-pointer items-center gap-2 border-b border-slate-800 px-2 pb-1.5">
                           <input
                             type="checkbox"
@@ -736,7 +736,7 @@ export default function PersonalPage() {
               revocarla y generar otra.
             </Aviso>
 
-            <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+            <div className="t-panel p-3">
               <code className="block break-all font-mono text-[12px] text-emerald-300">
                 {apiGenerada.llave}
               </code>
@@ -749,7 +749,7 @@ export default function PersonalPage() {
               Copiar
             </Button>
 
-            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-[12px] text-slate-400">
+            <div className="t-panel p-3 text-[12px] text-slate-400">
               <p className="text-slate-300">
                 Permisos copiados de {apiGenerada.copiada_de}:
               </p>
@@ -864,7 +864,7 @@ export default function PersonalPage() {
             </p>
           ) : (
             historial.map((a) => (
-              <div key={a.id} className="rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
+              <div key={a.id} className="t-card-sm p-2.5">
                 <div className="text-[13px] text-slate-200">{a.descripcion}</div>
                 <div className="mt-0.5 flex gap-3 text-[11px] text-slate-500">
                   <span>{fecha(a.creado_en)}</span>

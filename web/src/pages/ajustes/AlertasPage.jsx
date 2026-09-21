@@ -389,7 +389,7 @@ function Regla({ r, onGuardar }) {
   )
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+    <div className="t-panel p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label className="flex cursor-pointer items-center gap-2">

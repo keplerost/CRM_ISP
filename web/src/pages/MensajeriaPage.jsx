@@ -94,7 +94,7 @@ export default function MensajeriaPage() {
       </Link>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Mensajería</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Mensajería</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Por dónde le escribe el sistema al abonado: avisos de vencimiento, de corte y de
           reconexión. Acá van las cuentas y los tokens; los textos de cada aviso se editan en sus

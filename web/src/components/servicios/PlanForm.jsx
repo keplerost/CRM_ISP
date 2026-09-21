@@ -258,7 +258,7 @@ export default function PlanForm({
         </div>
 
         {/* El desglose, mientras se escribe. */}
-        <div className="grid grid-cols-3 gap-2 rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-center">
+        <div className="grid grid-cols-3 gap-2 t-panel p-3 text-center">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-slate-500">Base</p>
             <p className="text-sm font-semibold text-slate-200">{dinero(cuentas.base)}</p>
@@ -314,7 +314,7 @@ export default function PlanForm({
             Todo opcional: si no se llena, el contrato deja esas líneas en
             blanco y se completan a mano. Una velocidad mínima efectiva puesta
             al azar es una promesa contractual que después hay que cumplir. */}
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+        <div className="t-panel p-3">
           <p className="text-xs font-medium text-slate-300">
             En el contrato <span className="font-normal text-slate-500">· anexo 1f, opcional</span>
           </p>
@@ -365,7 +365,7 @@ export default function PlanForm({
             quedaron dos planes apuntando a tablas inexistentes y uno a la de
             1 Gbps mientras vendía 100 megas. Ahora se elige de las que el
             equipo tiene de verdad. */}
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+        <div className="t-panel p-3">
           <p className="text-xs font-medium text-slate-300">En fibra (GPON)</p>
 
           {velocidades === null ? (
@@ -440,7 +440,7 @@ export default function PlanForm({
           )}
         </div>
 
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+        <div className="t-panel p-3">
           <p className="text-xs font-medium text-slate-300">{SHAPING.pppoe.label}</p>
 
           <div className="mt-3">
@@ -489,7 +489,7 @@ export default function PlanForm({
           )}
         </div>
 
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+        <div className="t-panel p-3">
           <p className="text-xs font-medium text-slate-300">
             {SHAPING.ip.label} → {SHAPING.ip.donde}
           </p>
@@ -565,7 +565,7 @@ export default function PlanForm({
                 className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${
                   enRouters.has(r.id)
                     ? 'border-sky-500/50 bg-sky-500/10'
-                    : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
+                    : 'border-slate-800 bg-[#F6F8FB] hover:border-slate-700'
                 }`}
               >
                 <input

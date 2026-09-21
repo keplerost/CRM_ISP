@@ -106,7 +106,7 @@ export default function ServidorCorreoPage() {
       </Link>
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Servidor de correo</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Servidor de correo</h1>
         <p className="mt-0.5 max-w-2xl text-xs leading-snug text-slate-500">
           La casilla desde la que el sistema le escribe al abonado. Se configura una vez y la usan
           todos los envíos: la factura con su XML, el aviso de vencimiento, el de corte y lo que
