@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, LifeBuoy, Plus, Radio, Waves } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { Button, Card, ErrorBanner, Modal, Stat } from '../components/ui'
@@ -40,7 +40,14 @@ export default function SoportePage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [creando, setCreando] = useState(false)
-  const [filtro, setFiltro] = useState('pendientes')
+  // El filtro sale de la URL para que el panel pueda enlazar ya filtrado:
+  // "14 tickets abiertos" tiene que abrir los 14, no la bandeja entera para
+  // que uno vuelva a elegir a mano lo que el número ya decía.
+  //
+  // Solo se lee al arrancar. Lo que se elija después vive en la pantalla y no
+  // reescribe la URL: el filtro es una vista, no un lugar.
+  const [params] = useSearchParams()
+  const [filtro, setFiltro] = useState(() => params.get('estado') ?? 'pendientes')
   const { puede, perfil } = usePermisos()
 
   /**

@@ -1,135 +1,838 @@
-import { AlertTriangle, Network, Radio, Router as RouterIcon, Waves } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useTabla } from '../lib/useTabla'
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  DollarSign,
+  HardHat,
+  Inbox,
+  LifeBuoy,
+  Network,
+  Radio,
+  Truck,
+  Users,
+  Waves,
+  Wifi,
+  WifiOff,
+  XCircle,
+} from 'lucide-react'
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
+import { supabase } from '../lib/supabaseClient'
+import { usePermisos } from '../lib/AuthContext'
+import { puedeEntrar } from '../lib/rutasPermisos'
 import { UMBRAL_RX_DBM } from '../components/olt/ONUStatsCard'
-import { Aviso, Badge, Card, Cargando, ErrorBanner, Stat, Table } from '../components/ui'
+import { ErrorBanner, Skeleton } from '../components/ui'
 import ResumenAreas from '../components/layout/ResumenAreas'
 
+/**
+ * El panel de inicio.
+ *
+ * ── Qué es y qué no es ──
+ *
+ * No es un informe: es la puerta del sistema. Todo lo que muestra es un enlace
+ * a la pantalla donde eso se trabaja, con el filtro ya puesto cuando la
+ * pantalla de destino sabe recibirlo. Un número que obliga a abrir un módulo y
+ * volver a buscar lo mismo a mano no sirve para decidir — queda de adorno.
+ *
+ * Por eso cada KPI, cada fila de OLT, cada ticket y cada cobro es un `<Link>`
+ * de verdad y no un `div` con `onClick`: se abre en pestaña nueva con el botón
+ * del medio, se copia la dirección, y quien navega con teclado lo alcanza con
+ * el tabulador y ve dónde está parado.
+ *
+ * ── Por qué las tarjetas se preguntan el permiso ──
+ *
+ * Una tarjeta que lleva a una pantalla que rebota es peor que no tenerla:
+ * enseña que la pantalla existe y hace perder un clic. Cada bloque consulta el
+ * MISMO mapa de rutas que usa el guardián del layout (`puedeEntrar`), así que
+ * el panel no puede contradecirlo: el día que una ruta cambie de permiso, la
+ * tarjeta lo sigue sola.
+ *
+ * ── Por qué los datos se piden con `allSettled` ──
+ *
+ * Son diez consultas independientes contra vistas distintas. Con `Promise.all`
+ * una sola que falle —una instalación a la que le falta una migración, una
+ * vista sin permiso de lectura— deja el panel entero en blanco. Así cada
+ * bloque muestra lo suyo y el que no pudo cargar se dice a sí mismo, sin
+ * arrastrar a los demás.
+ */
+
+/* ── El día de hoy, en hora local ──────────────────────────────────────────
+   `toISOString()` da UTC, y en Ecuador eso hace que después de las 19:00 el
+   sistema empiece a contar el día siguiente. El síntoma es un panel en cero a
+   la tarde. Ya pasó una vez en el resumen de áreas; se resuelve igual acá. */
+const hoyLocal = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+const ABIERTO = (t) => !['resuelto', 'cancelado'].includes(t.estado)
+
+/**
+ * Contador animado.
+ *
+ * Cuenta desde cero respetando prefijo, sufijo y decimales, para que "$2.340"
+ * siga siendo "$2.340" mientras sube. Con `prefers-reduced-motion` no anima:
+ * para algunas personas el movimiento no es elegancia, es mareo.
+ */
+function useContador(valor) {
+  const [mostrado, setMostrado] = useState(valor)
+  const anterior = useRef(null)
+
+  useEffect(() => {
+    const texto = String(valor)
+    const sinMovimiento =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+    // Solo anima la primera vez que llega un valor. Si animara en cada
+    // refresco, el panel estaría contando sin parar y sería imposible leerlo.
+    if (sinMovimiento || anterior.current === texto || anterior.current !== null) {
+      anterior.current = texto
+      setMostrado(texto)
+      return undefined
+    }
+    anterior.current = texto
+
+    const m = texto.match(/^([^\d-]*)(-?[\d.,]+)(.*)$/)
+    if (!m) {
+      setMostrado(texto)
+      return undefined
+    }
+    const [, prefijo, numero, sufijo] = m
+    const destino = parseFloat(numero.replace(/\./g, '').replace(',', '.'))
+    if (!Number.isFinite(destino)) {
+      setMostrado(texto)
+      return undefined
+    }
+    const decimales = (numero.split(',')[1] || '').length
+    const inicio = performance.now()
+    let raf
+
+    const paso = (ahora) => {
+      const p = Math.min(1, (ahora - inicio) / 900)
+      const suave = 1 - Math.pow(1 - p, 3)
+      setMostrado(
+        prefijo +
+          (suave * destino).toLocaleString('es-EC', {
+            minimumFractionDigits: decimales,
+            maximumFractionDigits: decimales,
+          }) +
+          sufijo,
+      )
+      if (p < 1) raf = requestAnimationFrame(paso)
+    }
+    raf = requestAnimationFrame(paso)
+    return () => cancelAnimationFrame(raf)
+  }, [valor])
+
+  return mostrado
+}
+
+const moneda = (n) =>
+  `$${Number(n || 0).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+const numero = (n) => Number(n || 0).toLocaleString('es-EC')
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PIEZAS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Tarjeta de KPI.
+ *
+ * Es un enlace entero, no una tarjeta con un enlace adentro: el área de clic
+ * es toda la tarjeta, que es lo que uno intenta apretar.
+ */
+function KpiCard({ icon: Icon, etiqueta, valor, pista, a, tono = 'marca' }) {
+  const mostrado = useContador(valor)
+
+  // El color solo aparece cuando el número ES un estado. Un KPI neutro va del
+  // color de marca como todo lo demás; si "abonados activos" fuera verde, el
+  // verde dejaría de significar "en línea" en la pantalla de al lado.
+  const tonos = {
+    marca: 'bg-[#F0F9FF] text-sky-400',
+    ok: 'bg-[#ECFDF5] text-emerald-400',
+    aviso: 'bg-[#FFFBEB] text-amber-400',
+    critico: 'bg-[#FEF2F2] text-red-400',
+  }
+
+  return (
+    <Link to={a} className="t-card t-card-hover relative block overflow-hidden p-5">
+      <span className="t-stripe" aria-hidden="true" />
+      <div className="flex items-start justify-between">
+        <span className={`t-kpi-icon ${tonos[tono]}`}>
+          <Icon size={18} />
+        </span>
+        <ArrowRight size={14} className="mt-1 text-slate-600" aria-hidden="true" />
+      </div>
+      <p className="t-kpi-valor mt-3.5">{mostrado}</p>
+      <p className="mt-1.5 text-xs font-semibold text-slate-300">{etiqueta}</p>
+      {pista && <p className="mt-0.5 text-[11px] text-slate-500">{pista}</p>}
+    </Link>
+  )
+}
+
+/** Tarjeta de sección: encabezado con barrita de marca y enlace al módulo. */
+function Seccion({ titulo, subtitulo, a, etiquetaEnlace = 'Ver todo', children, className = '' }) {
+  return (
+    <section className={`t-card overflow-hidden ${className}`}>
+      <header className="flex items-center justify-between gap-4 border-b border-[rgba(15,23,42,0.06)] px-6 pt-5 pb-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className="h-5 w-1 shrink-0 rounded-full bg-gradient-to-b from-sky-700 to-sky-400"
+            aria-hidden="true"
+          />
+          <div className="min-w-0">
+            <h2 className="t-titulo truncate text-sm font-bold text-slate-100">{titulo}</h2>
+            {subtitulo && <p className="mt-0.5 text-[11.5px] text-slate-500">{subtitulo}</p>}
+          </div>
+        </div>
+        {a && (
+          <Link
+            to={a}
+            className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-sky-400 transition hover:bg-[#F0F9FF]"
+          >
+            {etiquetaEnlace}
+            <ChevronRight size={13} />
+          </Link>
+        )}
+      </header>
+      <div className="p-6">{children}</div>
+    </section>
+  )
+}
+
+/** El hueco cuando no hay nada que mostrar. Dice qué significa el vacío. */
+const Vacio = ({ icon: Icon = CheckCircle2, titulo, sub }) => (
+  <div className="flex flex-col items-center justify-center px-4 py-10 text-center">
+    <div className="mb-3 grid h-10 w-10 place-items-center rounded-full bg-slate-800">
+      <Icon size={18} className="text-slate-600" />
+    </div>
+    <p className="text-xs font-semibold text-slate-400">{titulo}</p>
+    {sub && <p className="mt-1 text-[11px] text-slate-500">{sub}</p>}
+  </div>
+)
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EL PANEL
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 export default function Dashboard() {
-  const { filas: olts, cargando: c1, error: e1 } = useTabla('olts')
-  const { filas: routers, cargando: c2 } = useTabla('routers_mikrotik')
-  const { filas: onus, cargando: c3 } = useTabla('onus')
-  const { filas: planes } = useTabla('planes_velocidad')
+  const { puede } = usePermisos()
+  const abre = useCallback((ruta) => puedeEntrar(puede, ruta), [puede])
 
-  const cargando = c1 || c2 || c3
+  const [d, setD] = useState(null)
+  const [error, setError] = useState(null)
 
-  const online = onus.filter((o) => o.estado === 'online').length
-  const conAlerta = onus.filter((o) => o.rx_power_dbm != null && o.rx_power_dbm < UMBRAL_RX_DBM)
+  useEffect(() => {
+    let vivo = true
+    const hoy = hoyLocal()
+
+    // Todas de solo lectura y todas contra vistas que el sistema ya usaba en
+    // otras pantallas. El panel no consulta nada que no se consultara ya.
+    const consultas = [
+      supabase
+        .from('v_olt_resumen')
+        .select('olt_id, numero, nombre, olt_estado, onus, online, caidas, los')
+        .order('numero'),
+      supabase.from('v_nodos_red').select('id, nombre, equipo, ip, estado, punto').order('nombre'),
+      supabase.from('v_tickets').select('*').order('created_at', { ascending: false }).limit(80),
+      supabase.from('v_pagos').select('*').order('created_at', { ascending: false }).limit(12),
+      supabase.from('v_facturas_por_cobrar').select('client_id, saldo, fecha_vencimiento'),
+      supabase.from('v_clientes_ficha').select('id, estado'),
+      supabase
+        .from('onus')
+        .select('id, sn, nombre_cliente, rx_power_dbm, estado')
+        .not('rx_power_dbm', 'is', null)
+        .lt('rx_power_dbm', UMBRAL_RX_DBM)
+        .order('rx_power_dbm'),
+      supabase
+        .from('v_instalaciones')
+        .select('id, numero, cliente, nombre, tecnico_nombre, estado, hora')
+        .eq('fecha', hoy),
+      supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
+      supabase.from('v_expedientes').select('id').eq('completo', false),
+    ]
+
+    Promise.allSettled(consultas).then((res) => {
+      if (!vivo) return
+      // Una vista que falla devuelve lista vacía y el resto del panel sigue.
+      const filas = (i) => (res[i].status === 'fulfilled' ? (res[i].value.data ?? []) : [])
+
+      // Si TODAS fallaron no es una vista faltante, es la conexión: ahí sí
+      // conviene decirlo en vez de mostrar un panel lleno de ceros.
+      const todasFallaron = res.every(
+        (r) => r.status === 'rejected' || r.value?.error,
+      )
+      if (todasFallaron) {
+        setError(res.find((r) => r.value?.error)?.value.error ?? new Error('Sin conexión'))
+      }
+
+      setD({
+        olts: filas(0),
+        nodos: filas(1),
+        tickets: filas(2),
+        pagos: filas(3).filter((p) => !p.anulado),
+        facturas: filas(4),
+        clientes: filas(5),
+        onusBajas: filas(6),
+        instalaciones: filas(7),
+        tecnicos: filas(8),
+        expedientes: filas(9),
+      })
+    })
+
+    return () => {
+      vivo = false
+    }
+  }, [])
+
+  const m = useMemo(() => {
+    if (!d) return null
+    const hoy = hoyLocal()
+
+    const conSaldo = d.facturas.filter((f) => Number(f.saldo) > 0)
+    const vencidas = conSaldo.filter((f) => f.fecha_vencimiento && f.fecha_vencimiento < hoy)
+    const porVencer = conSaldo.filter((f) => f.fecha_vencimiento && f.fecha_vencimiento >= hoy)
+
+    return {
+      activos: d.clientes.filter((c) => c.estado === 'activo').length,
+      abiertos: d.tickets.filter(ABIERTO),
+      vencidoMonto: vencidas.reduce((s, f) => s + Number(f.saldo || 0), 0),
+      vencidasCuentas: new Set(vencidas.map((f) => f.client_id)).size,
+      cartera: [
+        { nombre: 'Al día', valor: d.clientes.filter((c) => c.estado === 'activo').length - new Set(conSaldo.map((f) => f.client_id)).size, color: '#10B981' },
+        { nombre: 'Por vencer', valor: new Set(porVencer.map((f) => f.client_id)).size, color: '#F59E0B' },
+        { nombre: 'Vencido', valor: new Set(vencidas.map((f) => f.client_id)).size, color: '#EF4444' },
+      ].map((x) => ({ ...x, valor: Math.max(0, x.valor) })),
+      visitasHoy: d.instalaciones,
+      enCurso: d.instalaciones.filter((i) => i.estado === 'en_curso').length,
+      cobradoHoy: d.pagos
+        .filter((p) => String(p.fecha_pago || '').slice(0, 10) === hoy)
+        .reduce((s, p) => s + Number(p.monto || 0), 0),
+    }
+  }, [d])
+
+  if (!d || !m) return <PanelCargando />
 
   return (
     <div className="space-y-6">
+      {/* ── Encabezado ─────────────────────────────────────────────────── */}
       <div>
-        <h1 className="t-titulo text-lg font-bold text-slate-100">Dashboard</h1>
-        <p className="text-xs text-slate-500">Resumen de la red</p>
+        <h1 className="t-titulo text-xl font-extrabold text-slate-100">Panel</h1>
+        <p className="mt-0.5 text-xs text-slate-500">
+          El estado del sistema, y la puerta a cada módulo
+        </p>
       </div>
 
-      <ErrorBanner error={e1} />
+      <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      {/* Las dos áreas antes que la red.
-          Quien abre esta pantalla dirige: primero quiere saber si hay algo raro
-          en ventas o en campo, y recién después mirar equipos. Va arriba y no
-          se espera a que carguen las OLTs — son consultas distintas y una lenta
-          no tiene por qué tapar a la otra. */}
+      {/* ── KPIs ───────────────────────────────────────────────────────────
+          Seis números, y cada uno abre la pantalla donde se trabaja. Los dos
+          que el prototipo traía —uptime de red y throughput pico— no están:
+          este sistema no guarda ni histórico de disponibilidad ni medición de
+          tráfico, así que serían un número inventado. En su lugar van dos que
+          sí existen y que además se miran todos los días. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {abre('/clientes') && (
+          <KpiCard
+            icon={Users}
+            etiqueta="Abonados activos"
+            valor={numero(m.activos)}
+            pista={`de ${numero(d.clientes.length)} en el padrón`}
+            a="/clientes"
+          />
+        )}
+        {abre('/soporte') && (
+          <KpiCard
+            icon={LifeBuoy}
+            etiqueta="Tickets abiertos"
+            valor={numero(m.abiertos.length)}
+            pista={`${m.abiertos.filter((t) => t.prioridad === 'alta').length} de prioridad alta`}
+            a="/soporte?estado=pendientes"
+            tono={m.abiertos.length ? 'aviso' : 'ok'}
+          />
+        )}
+        {abre('/clientes') && (
+          <KpiCard
+            icon={DollarSign}
+            etiqueta="Cartera vencida"
+            valor={moneda(m.vencidoMonto)}
+            pista={`${numero(m.vencidasCuentas)} cuentas con saldo vencido`}
+            a="/clientes"
+            tono={m.vencidoMonto > 0 ? 'critico' : 'ok'}
+          />
+        )}
+        {abre('/metricas') && (
+          <KpiCard
+            icon={Waves}
+            etiqueta="ONUs con señal baja"
+            valor={numero(d.onusBajas.length)}
+            pista={`por debajo de ${UMBRAL_RX_DBM} dBm`}
+            a="/metricas"
+            tono={d.onusBajas.length ? 'critico' : 'ok'}
+          />
+        )}
+        {abre('/clientes/instalaciones') && (
+          <KpiCard
+            icon={Truck}
+            etiqueta="Visitas técnicas hoy"
+            valor={numero(m.visitasHoy.length)}
+            pista={`${m.enCurso} en curso`}
+            a="/clientes/instalaciones"
+          />
+        )}
+        {abre('/instalaciones/nuevas') && (
+          <KpiCard
+            icon={Inbox}
+            etiqueta="Por despachar"
+            valor={numero(d.expedientes.length)}
+            pista="ventas cerradas sin orden"
+            a="/instalaciones/nuevas"
+            tono={d.expedientes.length ? 'aviso' : 'ok'}
+          />
+        )}
+      </div>
+
+      {/* El resumen de áreas que ya existía. Es otra pregunta —qué pasó hoy en
+          ventas y en campo, con el detalle a un clic— y sigue siendo suya. */}
       <ResumenAreas />
 
-      {cargando ? (
-        <Cargando />
-      ) : (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="OLTs" valor={olts.length} icon={Network} />
-            <Stat label="Routers MikroTik" valor={routers.length} icon={RouterIcon} />
-            <Stat
-              label="ONUs registradas"
-              valor={onus.length}
-              sub={`${online} online`}
-              icon={Radio}
-            />
-            <Stat
-              label="Señal baja"
-              valor={conAlerta.length}
-              sub={`bajo ${UMBRAL_RX_DBM} dBm`}
-              icon={Waves}
-              color={conAlerta.length ? 'text-red-400' : 'text-emerald-400'}
-            />
-          </div>
-
-          {olts.length === 0 && (
-            <Aviso>
-              Todavía no hay equipos cargados. Empezá registrando una OLT en{' '}
-              <Link to="/olts" className="underline">
-                OLTs
-              </Link>{' '}
-              o un router en{' '}
-              <Link to="/red/routers" className="underline">
-                Routers MikroTik
-              </Link>
-              .
-            </Aviso>
-          )}
-
-          {conAlerta.length > 0 && (
-            <Card
-              title="ONUs con señal baja"
-              subtitle={`Potencia Rx por debajo de ${UMBRAL_RX_DBM} dBm en la última lectura`}
-              icon={AlertTriangle}
-            >
-              <Table
-                columnas={['Cliente', 'SN', 'Puerto', 'Rx', 'Última lectura']}
-                filas={conAlerta}
-                renderFila={(o) => (
-                  <tr key={o.id} className="text-slate-300">
-                    <td className="px-3 py-2 text-slate-100">{o.nombre_cliente || '—'}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{o.sn}</td>
-                    <td className="px-3 py-2">{o.puerto}</td>
-                    <td className="px-3 py-2">
-                      <Badge color="rojo">{o.rx_power_dbm} dBm</Badge>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-slate-500">
-                      {o.ultima_lectura ? new Date(o.ultima_lectura).toLocaleString('es') : '—'}
-                    </td>
-                  </tr>
-                )}
+      {/* ── Red ────────────────────────────────────────────────────────── */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {abre('/gpon') && (
+          <Seccion
+            titulo="Topología GPON"
+            subtitulo="Cada OLT, con sus ONUs en línea y caídas"
+            a="/gpon"
+            className="lg:col-span-2"
+          >
+            {d.olts.length === 0 ? (
+              <Vacio
+                icon={Network}
+                titulo="No hay OLTs cargadas"
+                sub="Registrá la primera en el módulo OLT"
               />
-            </Card>
-          )}
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {d.olts.map((o) => {
+                  const caidas = Number(o.caidas || 0)
+                  const total = Number(o.onus || 0)
+                  const salud =
+                    o.olt_estado === 'down' || caidas > total * 0.2
+                      ? 'critico'
+                      : caidas > 0
+                        ? 'aviso'
+                        : 'ok'
+                  const etiqueta = { ok: 'Operativa', aviso: 'Degradada', critico: 'Crítica' }[salud]
 
-          <Card title="Últimas ONUs registradas" icon={Radio}>
-            <Table
-              columnas={['Cliente', 'SN', 'Ubicación', 'Plan', 'Estado']}
-              filas={onus.slice(0, 10)}
-              vacio="Todavía no se aprovisionó ninguna ONU."
-              renderFila={(o) => (
-                <tr key={o.id} className="text-slate-300">
-                  <td className="px-3 py-2 text-slate-100">{o.nombre_cliente || '—'}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{o.sn}</td>
-                  <td className="px-3 py-2 text-xs">
-                    {o.frame}/{o.slot}/{o.puerto} · ONT {o.onu_index}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-slate-400">{o.plan_velocidad || '—'}</td>
-                  <td className="px-3 py-2">
-                    <Badge color={o.estado === 'online' ? 'verde' : 'gris'}>{o.estado}</Badge>
-                  </td>
-                </tr>
-              )}
-            />
-          </Card>
+                  return (
+                    <Link
+                      key={o.olt_id}
+                      to={`/olts/${o.olt_id}`}
+                      className="t-panel t-lift block p-4"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="t-titulo truncate text-[13px] font-bold text-slate-100">
+                            {o.nombre}
+                          </p>
+                          <p className="t-dato mt-0.5 text-[11px] text-slate-500">
+                            OLT-{String(o.numero).padStart(2, '0')}
+                          </p>
+                        </div>
+                        <span className={`t-badge t-badge-${salud === 'ok' ? 'ok' : salud}`}>
+                          {etiqueta}
+                        </span>
+                      </div>
 
-          <Card title="Planes cargados">
-            <div className="flex flex-wrap gap-2">
-              {planes.length === 0 ? (
-                <p className="text-sm text-slate-500">Sin planes definidos.</p>
-              ) : (
-                planes.map((p) => (
-                  <Badge key={p.id} color="azul">
-                    {p.nombre} — {p.bajada_kbps / 1000}/{p.subida_kbps / 1000} Mbps
-                  </Badge>
-                ))
-              )}
+                      <div className="mt-3 flex items-end justify-between">
+                        <div>
+                          <p className="t-dato text-lg font-bold leading-none text-slate-100">
+                            {numero(o.online)}
+                            <span className="text-xs font-medium text-slate-500">
+                              {' '}
+                              / {numero(total)}
+                            </span>
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-500">ONUs en línea</p>
+                        </div>
+                        {caidas > 0 && (
+                          <span className="t-dato text-[11px] font-semibold text-red-400">
+                            {numero(caidas)} caídas
+                          </span>
+                        )}
+                      </div>
+
+                      {/* La barra dice lo mismo que el número, pero se lee sin
+                          leer. Va con `aria-hidden` porque el número ya está
+                          escrito ahí arriba. */}
+                      <div
+                        className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"
+                        aria-hidden="true"
+                      >
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-sky-700 to-sky-400"
+                          style={{ width: `${total ? (Number(o.online) / total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </Seccion>
+        )}
+
+        {abre('/monitoreo') && (
+          <Seccion titulo="Alertas técnicas" subtitulo="Lo que hay que mirar ahora" a="/monitoreo/incidencias">
+            {d.onusBajas.length === 0 && d.nodos.filter((n) => n.estado === 'down').length === 0 ? (
+              <Vacio titulo="Sin alertas activas" sub="Todo operando con normalidad" />
+            ) : (
+              <ul className="space-y-2">
+                {d.nodos
+                  .filter((n) => n.estado === 'down')
+                  .slice(0, 4)
+                  .map((n) => (
+                    <li key={`n-${n.id}`}>
+                      <Link to="/monitoreo" className="t-panel t-lift flex items-start gap-2.5 p-3">
+                        <XCircle size={15} className="mt-0.5 shrink-0 text-red-400" />
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-slate-200">
+                            {n.nombre} sin responder
+                          </p>
+                          <p className="t-dato mt-0.5 truncate text-[11px] text-slate-500">
+                            {n.equipo} · {n.ip}
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                {d.onusBajas.slice(0, 4).map((o) => (
+                  <li key={`o-${o.id}`}>
+                    <Link to="/metricas" className="t-panel t-lift flex items-start gap-2.5 p-3">
+                      <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-400" />
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-slate-200">
+                          Señal degradada{o.nombre_cliente ? ` · ${o.nombre_cliente}` : ''}
+                        </p>
+                        <p className="t-dato mt-0.5 truncate text-[11px] text-slate-500">
+                          {o.sn} · {o.rx_power_dbm} dBm
+                        </p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Seccion>
+        )}
+      </div>
+
+      {/* ── Operación ──────────────────────────────────────────────────── */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {abre('/soporte') && (
+          <Seccion
+            titulo="Tickets de soporte"
+            subtitulo="Por estado, los más recientes primero"
+            a="/soporte"
+            className="lg:col-span-2"
+          >
+            {m.abiertos.length === 0 ? (
+              <Vacio titulo="No hay tickets sin resolver" sub="La bandeja está limpia" />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-3">
+                {[
+                  ['Sin asignar', ['abierto']],
+                  ['Asignados', ['asignado']],
+                  ['En curso', ['en_ruta', 'en_proceso']],
+                ].map(([titulo, estados]) => {
+                  const lista = m.abiertos.filter((t) => estados.includes(t.estado))
+                  return (
+                    <div key={titulo}>
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                          {titulo}
+                        </p>
+                        <span className="t-dato text-[11px] font-bold text-slate-400">
+                          {lista.length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {lista.length === 0 ? (
+                          <p className="t-panel p-3 text-[11px] text-slate-500">Ninguno</p>
+                        ) : (
+                          lista.slice(0, 3).map((t) => (
+                            <Link
+                              key={t.id}
+                              to={`/soporte/${t.id}`}
+                              className="t-panel t-lift block p-3"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="t-dato text-[10px] font-bold text-slate-500">
+                                  #{t.codigo}
+                                </p>
+                                {t.prioridad && (
+                                  <span
+                                    className={`t-badge t-badge-${
+                                      { alta: 'critico', media: 'aviso', baja: 'neutro' }[
+                                        t.prioridad
+                                      ] ?? 'neutro'
+                                    }`}
+                                  >
+                                    {t.prioridad}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 truncate text-xs font-semibold text-slate-200">
+                                {t.cliente || t.nombre || 'Sin cliente'}
+                              </p>
+                              {t.tecnico && (
+                                <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                                  {t.tecnico}
+                                </p>
+                              )}
+                            </Link>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Seccion>
+        )}
+
+        {abre('/soporte/tecnicos') && (
+          <Seccion titulo="Personal en campo" subtitulo="Quién está y con qué" a="/soporte/tecnicos">
+            {d.tecnicos.length === 0 ? (
+              <Vacio icon={HardHat} titulo="No hay técnicos activos" />
+            ) : (
+              <ul className="space-y-2">
+                {d.tecnicos.slice(0, 5).map((t) => {
+                  const suyas = m.visitasHoy.filter((i) => i.tecnico_nombre === t.nombre)
+                  const enCurso = suyas.find((i) => i.estado === 'en_curso')
+                  return (
+                    <li key={t.id}>
+                      <Link
+                        to="/soporte/tecnicos"
+                        className="t-panel t-lift flex items-center gap-3 p-3"
+                      >
+                        <span className="t-dato grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F0F9FF] text-[11px] font-bold text-sky-400">
+                          {t.nombre
+                            .split(' ')
+                            .slice(0, 2)
+                            .map((p) => p[0])
+                            .join('')
+                            .toUpperCase()}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-slate-200">{t.nombre}</p>
+                          <p className="truncate text-[11px] text-slate-500">
+                            {enCurso
+                              ? `En sitio · ${enCurso.cliente ?? enCurso.nombre ?? ''}`
+                              : suyas.length
+                                ? `${suyas.length} visita${suyas.length > 1 ? 's' : ''} hoy`
+                                : 'Sin visitas hoy'}
+                          </p>
+                        </div>
+                        <span className={`t-badge ${enCurso ? 't-badge-aviso' : 't-badge-ok'}`}>
+                          {enCurso ? 'En sitio' : 'Libre'}
+                        </span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Seccion>
+        )}
+      </div>
+
+      {/* ── Dinero ─────────────────────────────────────────────────────── */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        {abre('/pagos') && (
+          <Seccion
+            titulo="Últimos cobros registrados"
+            subtitulo={`${moneda(m.cobradoHoy)} cobrados hoy`}
+            a="/pagos"
+            className="lg:col-span-2"
+          >
+            {d.pagos.length === 0 ? (
+              <Vacio icon={DollarSign} titulo="Todavía no se registró ningún cobro" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="t-tabla">
+                  <thead>
+                    <tr>
+                      <th>Abonado</th>
+                      <th>Forma de pago</th>
+                      <th className="text-right">Monto</th>
+                      <th>Cuándo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.pagos.slice(0, 6).map((p) => (
+                      <tr key={p.id}>
+                        <td>
+                          {/* La fila lleva a la ficha del abonado, que es lo
+                              que uno quiere mirar después de ver un cobro. */}
+                          <Link
+                            to={p.client_id ? `/clientes/${p.client_id}` : '/pagos'}
+                            className="font-semibold text-slate-200 hover:text-sky-400"
+                          >
+                            {p.cliente || p.cliente_nombre || '—'}
+                          </Link>
+                        </td>
+                        <td className="text-slate-500">{p.forma_pago || '—'}</td>
+                        <td className="t-dato text-right font-bold text-slate-100">
+                          {moneda(p.monto)}
+                        </td>
+                        <td className="t-dato text-[11px] text-slate-500">
+                          {p.created_at
+                            ? new Date(p.created_at).toLocaleString('es-EC', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Seccion>
+        )}
+
+        {abre('/clientes') && (
+          <Seccion titulo="Estado de la cartera" subtitulo="Abonados por situación de pago" a="/clientes">
+            <div className="flex items-center gap-5">
+              <div className="h-[132px] w-[132px] shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={m.cartera}
+                      dataKey="valor"
+                      nameKey="nombre"
+                      innerRadius={42}
+                      outerRadius={62}
+                      paddingAngle={2}
+                      stroke="none"
+                      isAnimationActive={false}
+                    >
+                      {m.cartera.map((c) => (
+                        <Cell key={c.nombre} fill={c.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              {/* La leyenda lleva el número al lado del color: el color solo
+                  no dice cuánto, y para quien no lo distingue no dice nada. */}
+              <ul className="min-w-0 flex-1 space-y-2.5">
+                {m.cartera.map((c) => (
+                  <li key={c.nombre} className="flex items-center gap-2.5">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: c.color }}
+                      aria-hidden="true"
+                    />
+                    <span className="flex-1 truncate text-xs text-slate-400">{c.nombre}</span>
+                    <span className="t-dato text-xs font-bold text-slate-100">
+                      {numero(c.valor)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </Card>
-        </>
+          </Seccion>
+        )}
+      </div>
+
+      {/* ── Enlaces de radio ───────────────────────────────────────────── */}
+      {abre('/monitoreo') && (
+        <Seccion
+          titulo="Enlaces de radio y PTP"
+          subtitulo="Los nodos que sostienen la red fuera de la fibra"
+          a="/monitoreo"
+        >
+          {d.nodos.length === 0 ? (
+            <Vacio icon={Radio} titulo="No hay nodos cargados" sub="Se registran en Monitoreo de red" />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="t-tabla">
+                <thead>
+                  <tr>
+                    <th>Nodo</th>
+                    <th>Equipo</th>
+                    <th>Dirección IP</th>
+                    <th>Ubicación</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.nodos.slice(0, 8).map((n) => {
+                    const meta = {
+                      up: ['t-badge-ok', 'En línea', Wifi, 'text-emerald-400'],
+                      down: ['t-badge-critico', 'Sin conexión', WifiOff, 'text-red-400'],
+                      degradado: ['t-badge-aviso', 'Degradada', Activity, 'text-amber-400'],
+                    }[n.estado] ?? ['t-badge-neutro', 'Sin datos', Clock, 'text-slate-500']
+                    const [clase, texto, Icono, colorIcono] = meta
+
+                    return (
+                      <tr key={n.id}>
+                        <td className="font-semibold text-slate-200">
+                          <Link to="/monitoreo" className="hover:text-sky-400">
+                            {n.nombre}
+                          </Link>
+                        </td>
+                        <td className="text-slate-500">{n.equipo || '—'}</td>
+                        <td className="t-dato text-slate-400">{n.ip || '—'}</td>
+                        <td className="text-slate-500">{n.punto || '—'}</td>
+                        <td>
+                          <span className={`t-badge ${clase}`}>
+                            <Icono size={11} className={colorIcono} />
+                            {texto}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Seccion>
       )}
     </div>
   )
 }
+
+/** El panel mientras carga: el hueco con la forma que va a tener. */
+const PanelCargando = () => (
+  <div className="space-y-6">
+    <div>
+      <Skeleton className="h-6 w-32" />
+      <Skeleton className="mt-2 h-3 w-64" />
+    </div>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="t-card h-[132px] animate-pulse" />
+      ))}
+    </div>
+    <div className="grid gap-5 lg:grid-cols-3">
+      <div className="t-card h-64 animate-pulse lg:col-span-2" />
+      <div className="t-card h-64 animate-pulse" />
+    </div>
+  </div>
+)
