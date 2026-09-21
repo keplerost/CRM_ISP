@@ -478,7 +478,7 @@ export default function ClientesPage() {
                             }
                             placeholder="Busca"
                             title={`Buscar en ${col.titulo}${col.exacto ? ' (coincidencia exacta)' : ''}`}
-                            className="w-full min-w-[4.5rem] rounded border border-slate-700 bg-slate-950/60 px-1.5 py-1 text-[11px] font-normal normal-case tracking-normal text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none"
+                            className="w-full min-w-[4.5rem] rounded border border-slate-700 bg-[#F6F8FB] px-1.5 py-1 text-[11px] font-normal normal-case tracking-normal text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none"
                           />
                         </th>
                       ))}

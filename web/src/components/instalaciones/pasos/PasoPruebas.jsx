@@ -20,7 +20,7 @@ import { Aviso, Button } from '../../ui'
 
 function Resultado({ etiqueta, valor, detalle, color = 'text-slate-100' }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
+    <div className="t-panel p-4 text-center">
       <p className="text-[11px] uppercase tracking-wider text-slate-500">{etiqueta}</p>
       <p className={`mt-1 text-2xl font-semibold ${color}`}>{valor}</p>
       {detalle && <p className="mt-1 text-[11px] text-slate-500">{detalle}</p>}

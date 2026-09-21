@@ -136,7 +136,7 @@ function Importar({ router, onError }) {
             className={`cursor-pointer rounded-lg border p-3 text-xs transition ${
               fuentes.includes(f.id)
                 ? 'border-sky-500/40 bg-sky-500/10'
-                : 'border-slate-800 bg-slate-950/40 opacity-60'
+                : 'border-slate-800 bg-[#F6F8FB] opacity-60'
             }`}
           >
             <div className="flex items-center gap-2">

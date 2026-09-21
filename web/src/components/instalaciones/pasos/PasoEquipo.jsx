@@ -109,7 +109,7 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
       <EscanerCodigo onLeer={escaneado} />
 
       {leido && (
-        <p className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-[11px] text-slate-500">
+        <p className="t-panel px-3 py-2 text-[11px] text-slate-500">
           Leído: <span className="break-all text-slate-300">{leido}</span>
         </p>
       )}

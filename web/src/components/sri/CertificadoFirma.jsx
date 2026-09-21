@@ -154,7 +154,7 @@ export default function CertificadoFirma() {
                   accept=".p12,.pfx"
                   onChange={elegirArchivo}
                   required
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-300
+                  className="w-full t-panel px-3 py-2 text-sm text-slate-300
                     file:mr-3 file:rounded file:border-0 file:bg-slate-800 file:px-3 file:py-1 file:text-xs file:text-slate-200"
                 />
               </Field>

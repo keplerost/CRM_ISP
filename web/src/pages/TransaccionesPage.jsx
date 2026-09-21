@@ -452,7 +452,7 @@ export default function TransaccionesPage() {
                     value={busquedas[c.clave] ?? ''}
                     onChange={(e) => setBusquedas((b) => ({ ...b, [c.clave]: e.target.value }))}
                     placeholder="Buscar"
-                    className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-xs font-normal normal-case tracking-normal text-slate-200 placeholder:text-slate-600"
+                    className="w-full rounded border border-slate-800 bg-[#F6F8FB] px-2 py-1 text-xs font-normal normal-case tracking-normal text-slate-200 placeholder:text-slate-600"
                   />
                 </th>
               ))}

@@ -412,7 +412,7 @@ export default function OltVlans({ olt }) {
       )}
 
       {editando && (
-        <div className="space-y-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+        <div className="space-y-3 t-panel p-3">
           <p className="text-sm font-semibold text-slate-100">VLAN {editando.vlan}</p>
           <div className="grid gap-2 sm:grid-cols-4">
             <Field label="Para qué">

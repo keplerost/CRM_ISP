@@ -209,7 +209,7 @@ function Lista({ tipo }) {
 
             esta && (
               <tr key={`${o.onu_id}-historial`}>
-                <td colSpan={7} className="bg-slate-950/60 px-3 py-3">
+                <td colSpan={7} className="bg-[#F6F8FB] px-3 py-3">
                   <HistorialOptico
                     onuId={o.onu_id}
                     nombre={o.cliente ?? o.nombre_en_la_olt ?? o.sn}

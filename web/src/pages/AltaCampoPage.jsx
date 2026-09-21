@@ -227,10 +227,10 @@ export default function AltaCampoPage() {
   const comunes = { orden, onError: setError }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-950">
+    <div className="flex min-h-dvh flex-col bg-[#F6F8FB]">
       {/* Cabecera fija: quién es y dónde queda, que es lo que el técnico
           necesita a la vista todo el tiempo. */}
-      <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-slate-800 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-100">{orden.titular}</p>
@@ -322,7 +322,7 @@ export default function AltaCampoPage() {
       </main>
 
       {/* Navegación abajo, donde llega el pulgar con el teléfono en una mano. */}
-      <footer className="sticky bottom-0 border-t border-slate-800 bg-slate-950/95 px-4 py-3 backdrop-blur">
+      <footer className="sticky bottom-0 border-t border-slate-800 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl gap-2">
           <Button
             icon={ArrowLeft}

@@ -821,7 +821,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
 
                   {desplegada &&
                     pagos.map((p) => (
-                      <tr key={p.id} className="bg-slate-950/40 text-[11px] text-slate-400">
+                      <tr key={p.id} className="bg-[#F6F8FB] text-[11px] text-slate-400">
                         <td />
                         <td className="px-3 py-1.5" colSpan={4}>
                           Recibo N° {String(p.numero ?? '').padStart(6, '0')} ·{' '}

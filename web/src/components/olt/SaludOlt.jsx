@@ -215,7 +215,7 @@ export default function SaludOlt({ olt, onCerrar, auto = true }) {
                     <div
                       key={p.slot}
                       className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
-                        p.ok ? 'border-slate-800 bg-slate-950/40' : 'border-rose-500/50 bg-rose-500/10'
+                        p.ok ? 'border-slate-800 bg-[#F6F8FB]' : 'border-rose-500/50 bg-rose-500/10'
                       }`}
                     >
                       <div className="min-w-0">

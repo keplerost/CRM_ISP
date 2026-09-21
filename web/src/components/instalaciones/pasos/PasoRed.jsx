@@ -259,7 +259,7 @@ export default function PasoRed({ orden, onError, onGuardado }) {
       )}
 
       {form.tipo_ip === 'fija' && (
-        <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+        <div className="space-y-4 t-panel p-4">
           {/* --- El segmento que le toca, deducido de dónde apareció la ONT ---
               La cadena es: puerto PON → VLAN del puerto → subred de esa VLAN.
               Cuando se corta, se dice DÓNDE se cortó: un campo vacío no

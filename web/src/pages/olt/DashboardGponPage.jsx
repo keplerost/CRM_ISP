@@ -373,7 +373,7 @@ export default function DashboardGponPage() {
                 onChange={(e) =>
                   setOltPanel((esperando?.olts ?? []).find((o) => o.olt_id === e.target.value) ?? null)
                 }
-                className="rounded-lg border border-slate-700 bg-slate-950/60 px-2 py-1 text-slate-100"
+                className="t-panel px-2 py-1 text-slate-100"
               >
                 {(esperando?.olts ?? []).map((o) => (
                   <option key={o.olt_id} value={o.olt_id}>

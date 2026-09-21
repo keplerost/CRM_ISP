@@ -68,8 +68,8 @@ export default function LayoutCampo() {
   const enInicio = pathname === '/campo'
 
   return (
-    <div className="min-h-dvh bg-slate-950 pb-24 text-slate-200 md:pb-6">
-      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+    <div className="min-h-dvh bg-[#F6F8FB] pb-24 text-slate-200 md:pb-6">
+      <header className="sticky top-0 z-30 border-b border-slate-800 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             {/* En el inicio, el saludo. En el resto, dónde estás — que ahí es

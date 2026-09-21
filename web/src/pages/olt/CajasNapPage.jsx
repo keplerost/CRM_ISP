@@ -440,7 +440,7 @@ export default function CajasNapPage() {
                     </p>
 
                     {abierto && (
-                      <div className="space-y-3 border-t border-slate-800 bg-slate-950/40 px-3 py-3">
+                      <div className="space-y-3 border-t border-slate-800 bg-[#F6F8FB] px-3 py-3">
                         <div className="grid gap-2 sm:grid-cols-3">
                           <Field label="Nombre de la caja" className="sm:col-span-2">
                             <Input

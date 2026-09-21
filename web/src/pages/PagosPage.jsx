@@ -189,7 +189,7 @@ function Registrar({ onError }) {
         <section className="overflow-hidden t-card">
           {/* La barra con el nombre y el estado: quien cobra tiene que ver de
               entrada si el cliente está cortado. */}
-          <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-950 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F6F8FB] px-4 py-3">
             <div className="flex items-center gap-3">
               <span className="font-semibold uppercase tracking-wide text-slate-100">
                 {cliente.nombre}
@@ -370,7 +370,7 @@ function PagosDelDia({ onError }) {
             type="date"
             value={fecha}
             onChange={(e) => setFecha(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100"
+            className="t-panel px-3 py-2 text-sm text-slate-100"
           />
         }
       >

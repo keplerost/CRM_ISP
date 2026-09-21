@@ -87,7 +87,7 @@ export function NavEscritorio({ pendientes = {} }) {
 export default function BarraInferior({ pendientes = {} }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-white/95 backdrop-blur md:hidden"
       // El teléfono con gesto de inicio se come la última franja: sin esto, el
       // último centímetro de los botones no responde y parece que la app se
       // colgó.

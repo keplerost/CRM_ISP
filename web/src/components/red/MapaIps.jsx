@@ -63,7 +63,7 @@ export default function MapaIps({ cidr, direcciones = [], onElegir }) {
       </div>
 
       {detalle && (
-        <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-sm">
+        <div className="t-panel p-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-slate-100">{detalle.ip}</span>
             <span className={`rounded-full border px-2 py-0.5 text-[11px] ${ESTADOS_IP[detalle.estado].clase}`}>

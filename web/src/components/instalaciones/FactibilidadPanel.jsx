@@ -150,7 +150,7 @@ export default function FactibilidadPanel({ instalacion, onError, onGuardado }) 
                   className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition ${
                     form.punto_id === p.id
                       ? 'border-sky-500/60 bg-sky-500/10'
-                      : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
+                      : 'border-slate-800 bg-[#F6F8FB] hover:border-slate-700'
                   }`}
                 >
                   <div className="min-w-0">

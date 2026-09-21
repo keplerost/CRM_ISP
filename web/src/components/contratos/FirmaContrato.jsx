@@ -251,7 +251,7 @@ export default function FirmaContrato({ instalacion = null, cliente = null, onEr
               <li
                 key={t.id}
                 className={`rounded-lg border px-3 py-2 ${
-                  t.id === actual?.id ? 'border-slate-700 bg-slate-950/40' : 'border-slate-800 opacity-60'
+                  t.id === actual?.id ? 'border-slate-700 bg-[#F6F8FB]' : 'border-slate-800 opacity-60'
                 }`}
               >
                 <div className="flex flex-wrap items-center gap-2">
@@ -281,7 +281,7 @@ export default function FirmaContrato({ instalacion = null, cliente = null, onEr
                     <input
                       readOnly
                       value={t.enlace_firma}
-                      className="min-w-0 flex-1 truncate rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-400"
+                      className="min-w-0 flex-1 truncate rounded border border-slate-800 bg-[#F6F8FB] px-2 py-1 text-[11px] text-slate-400"
                     />
                     <Button
                       variante="fantasma"

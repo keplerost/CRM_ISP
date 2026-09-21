@@ -20,7 +20,7 @@ import { Aviso, Button, Field, Input, Select } from '../../ui'
 /** Un valor grande y legible a un brazo de distancia, colgado de una escalera. */
 function Medicion({ etiqueta, valor, color = 'text-slate-100' }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-center">
+    <div className="t-panel p-4 text-center">
       <p className="text-[11px] uppercase tracking-wider text-slate-500">{etiqueta}</p>
       <p className={`mt-1 text-2xl font-semibold ${color}`}>{valor}</p>
     </div>
@@ -162,7 +162,7 @@ export default function PasoSenal({ orden, onError, onGuardado }) {
 
           {/* Lo que el sistema ya sabe. El técnico no reescribe nada de esto:
               sale de la orden de trabajo, que es donde tiene que estar. */}
-          <dl className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs">
+          <dl className="t-panel px-3 py-2 text-xs">
             <Dato k="Abonado" v={porAutorizar.sabido?.nombre} />
             <Dato k="Dirección" v={porAutorizar.sabido?.direccion} />
             <Dato k="Plan" v={porAutorizar.sabido?.plan} />

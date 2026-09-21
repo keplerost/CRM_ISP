@@ -19,7 +19,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-slate-100">Dashboard</h1>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Dashboard</h1>
         <p className="text-xs text-slate-500">Resumen de la red</p>
       </div>
 

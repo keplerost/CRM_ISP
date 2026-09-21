@@ -556,7 +556,7 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
             className={`rounded-lg border p-3 ${
               previa?.afectados > 100
                 ? 'border-amber-500/40 bg-amber-500/5'
-                : 'border-slate-800 bg-slate-950/40'
+                : 'border-slate-800 bg-[#F6F8FB]'
             }`}
           >
             {calculando ? (

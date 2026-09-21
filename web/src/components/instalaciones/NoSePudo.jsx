@@ -88,7 +88,7 @@ export default function NoSePudo({ orden, onCerrar, onGuardado, onError }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#F6F8FB]">
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold text-slate-100">No se pudo hacer</h2>
@@ -170,7 +170,7 @@ export default function NoSePudo({ orden, onCerrar, onGuardado, onError }) {
         </Field>
       </div>
 
-      <footer className="sticky bottom-0 border-t border-slate-800 bg-slate-950/95 px-4 py-3">
+      <footer className="sticky bottom-0 border-t border-slate-800 bg-white/95 px-4 py-3">
         <div className="mx-auto flex max-w-2xl gap-2">
           <Button onClick={onCerrar} className="flex-1">
             Cancelar
