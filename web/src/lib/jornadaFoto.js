@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { comprimirImagen } from './soporte'
+import { comprimirImagen, distanciaEnMetros, ubicacionActual } from './soporte'
 
 /**
  * La foto con la que el técnico abre su jornada.
@@ -77,4 +77,69 @@ export async function urlDeFoto(ruta, segundos = 300) {
   if (!ruta) return null
   const { data } = await supabase.storage.from(BUCKET).createSignedUrl(ruta, segundos)
   return data?.signedUrl ?? null
+}
+
+/**
+ * Dónde marcó el técnico, y a qué distancia de su primer trabajo.
+ *
+ * ── Por qué el primer trabajo se busca acá y no se recibe ──
+ *
+ * Porque la pantalla que abre la jornada no carga la agenda: pedirle que lo
+ * haga para poder pasarlo la obligaría a saber cómo se ordena el día, que es
+ * conocimiento de otro módulo. Acá se pide lo justo —las órdenes de hoy con
+ * coordenada, la primera por hora— y se devuelve el número.
+ *
+ * ── Qué significa cada NULL ──
+ *
+ * Todos significan "no se pudo saber", nunca "estaba lejos":
+ *
+ *   · sin GPS            el teléfono no respondió o el permiso está negado
+ *   · sin primer trabajo no hay órdenes agendadas para hoy
+ *   · sin coordenada     la orden existe pero nadie le cargó la ubicación
+ *
+ * Distinguirlos importa al revisar: una jornada sin distancia porque el abonado
+ * no tiene coordenada cargada es un problema de datos, no del técnico.
+ */
+export async function ubicacionDelIngreso(tecnicoId, hoy) {
+  const donde = await ubicacionActual()
+  if (!donde) return { lat: null, lng: null, precision: null, primerTrabajoId: null, distancia: null }
+
+  const base = {
+    lat: donde.lat,
+    lng: donde.lng,
+    precision: donde.precision != null ? Math.round(donde.precision) : null,
+    primerTrabajoId: null,
+    distancia: null,
+  }
+
+  if (!tecnicoId || !hoy) return base
+
+  /**
+   * La PRIMERA por hora, y solo entre las que tienen coordenada.
+   *
+   * Si la de las 8:00 no tiene ubicación cargada y la de las 10:00 sí, se
+   * compara contra la de las 10:00 — y por eso se guarda cuál fue. Comparar
+   * contra una orden sin coordenada no da un cero: no da nada.
+   */
+  const { data } = await supabase
+    .from('v_instalaciones')
+    .select('id, latitud, longitud, hora')
+    .eq('tecnico_id', tecnicoId)
+    .eq('fecha', hoy)
+    .not('latitud', 'is', null)
+    .not('longitud', 'is', null)
+    .order('hora', { nullsFirst: false })
+    .limit(1)
+
+  const primera = data?.[0]
+  if (!primera) return base
+
+  return {
+    ...base,
+    primerTrabajoId: primera.id,
+    distancia: distanciaEnMetros(
+      { lat: donde.lat, lng: donde.lng },
+      { lat: primera.latitud, lng: primera.longitud },
+    ),
+  }
 }

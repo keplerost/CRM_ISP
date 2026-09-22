@@ -3,7 +3,8 @@ import { Camera, Check, Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAler
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { hoyISO } from '../../lib/campo'
-import { subirFotoIngreso } from '../../lib/jornadaFoto'
+import { subirFotoIngreso, ubicacionDelIngreso } from '../../lib/jornadaFoto'
+import { RADIO_LLEGADA_M } from '../../lib/soporte'
 import { Button, Field, Input, Select } from '../../components/ui'
 
 /**
@@ -95,6 +96,18 @@ export default function JornadaPage() {
     setGuardando(true)
     setError(null)
     try {
+      /**
+       * La ubicación se pide ANTES de escribir, y su demora se nota.
+       *
+       * El GPS puede tardar varios segundos; pedirlo después dejaría la jornada
+       * ya abierta y la coordenada llegando tarde, o no llegando. Pedirlo antes
+       * la deja guardada en la misma escritura.
+       *
+       * Si falla, devuelve todo en NULL y la jornada se abre igual: el técnico
+       * sin señal o con el permiso de ubicación negado tiene que poder empezar.
+       */
+      const donde = await ubicacionDelIngreso(perfil.tecnico_id, hoyISO())
+
       // `upsert` sobre (tecnico_id, fecha), que es único: si el técnico toca dos
       // veces —o si un reintento llega tarde— actualiza en vez de duplicar.
       const { error: err } = await supabase.from('jornadas').upsert(
@@ -104,6 +117,11 @@ export default function JornadaPage() {
           vehiculo_id: form.vehiculo_id,
           km_inicio: Number(form.km_inicio),
           inicio_at: new Date().toISOString(),
+          lat_ingreso: donde.lat,
+          lng_ingreso: donde.lng,
+          precision_ingreso_m: donde.precision,
+          primer_trabajo_id: donde.primerTrabajoId,
+          distancia_ingreso_m: donde.distancia,
         },
         { onConflict: 'tecnico_id,fecha' },
       )
@@ -300,6 +318,8 @@ export default function JornadaPage() {
                 minute: '2-digit',
               })}
             </p>
+
+            <DistanciaIngreso j={jornada} />
 
             {/* La foto, ya con la jornada abierta: dice si está o no, y deja
                 reintentar. Aparece también con la jornada cerrada — quien
@@ -562,5 +582,47 @@ function FotoIngreso({ foto, onFoto }) {
         />
       </label>
     </div>
+  )
+}
+
+/**
+ * A qué distancia del primer trabajo quedó el ingreso.
+ *
+ * ── Por qué se le muestra al técnico y no solo al jefe ──
+ *
+ * Porque si el número solo lo ve la oficina, el técnico se entera de que algo
+ * estaba mal cuando ya no puede explicarlo. Viéndolo en el momento, el que
+ * marcó desde la esquina equivocada lo sabe ahí y puede decirlo.
+ *
+ * ── Por qué la precisión se muestra al lado ──
+ *
+ * Una distancia de 300 m con un GPS que informa 400 m de error no significa
+ * nada, y sin ese dato parecería que sí. Cuando el error es mayor que la
+ * distancia, el cartel lo dice en vez de acusar.
+ */
+function DistanciaIngreso({ j }) {
+  if (j?.distancia_ingreso_m == null) {
+    // Sin dato no se dibuja nada. Un "no se pudo medir" permanente arriba de la
+    // pantalla es ruido: el técnico no puede hacer nada al respecto.
+    return null
+  }
+
+  const d = j.distancia_ingreso_m
+  const err = j.precision_ingreso_m
+  const dudoso = err != null && err >= d
+  const lejos = d > RADIO_LLEGADA_M && !dudoso
+
+  return (
+    <p
+      className={`text-center text-[11px] leading-snug ${
+        lejos ? 'text-amber-400' : 'text-slate-500'
+      }`}
+    >
+      {dudoso
+        ? `Marcaste a ${d} m del primer trabajo, pero el GPS informó ${err} m de error: el dato no alcanza para concluir nada.`
+        : lejos
+          ? `Marcaste a ${d} m del primer trabajo del día.`
+          : `Marcaste a ${d} m del primer trabajo. Dentro del rango.`}
+    </p>
   )
 }

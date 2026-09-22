@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, Camera, CameraOff, Clock, X } from 'lucide-react'
+import { CalendarDays, Camera, CameraOff, Clock, MapPin, X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { urlDeFoto } from '../../lib/jornadaFoto'
+import { RADIO_LLEGADA_M } from '../../lib/soporte'
 import { Card, ErrorBanner, Input, Modal, SkeletonTabla, Stat } from '../../components/ui'
 
 /**
@@ -85,6 +86,14 @@ export default function JornadasPage() {
 
   const conFoto = (filas ?? []).filter((j) => j.foto_ingreso).length
   const sinFoto = (filas ?? []).filter((j) => j.inicio_at && !j.foto_ingreso).length
+  // Solo los que se pudieron medir con confianza: un GPS que informa más error
+  // que la distancia medida no alcanza para contar a nadie como "lejos".
+  const lejos = (filas ?? []).filter(
+    (j) =>
+      j.distancia_ingreso_m != null &&
+      j.distancia_ingreso_m > RADIO_LLEGADA_M &&
+      !(j.precision_ingreso_m != null && j.precision_ingreso_m >= j.distancia_ingreso_m),
+  ).length
 
   return (
     <div className="space-y-6">
@@ -102,7 +111,7 @@ export default function JornadasPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Jornadas abiertas" valor={filas?.length ?? '—'} icon={CalendarDays} />
         <Stat label="Con foto" valor={conFoto} icon={Camera} color="text-emerald-400" />
         <Stat
@@ -110,6 +119,13 @@ export default function JornadasPage() {
           valor={sinFoto}
           icon={CameraOff}
           color={sinFoto ? 'text-amber-400' : 'text-slate-500'}
+        />
+        <Stat
+          label={`Lejos del 1er trabajo`}
+          valor={lejos}
+          sub={`a más de ${RADIO_LLEGADA_M} m`}
+          icon={MapPin}
+          color={lejos ? 'text-amber-400' : 'text-slate-500'}
         />
       </div>
 
@@ -167,6 +183,8 @@ export default function JornadasPage() {
                     {!j.foto_ingreso && (
                       <p className="mt-0.5 text-[11px] font-medium text-amber-400">Sin foto</p>
                     )}
+
+                    <Distancia j={j} />
                   </div>
                 </div>
               </div>
@@ -206,5 +224,50 @@ export default function JornadasPage() {
         )}
       </Modal>
     </div>
+  )
+}
+
+/**
+ * Dónde marcó, respecto del primer trabajo del día.
+ *
+ * ── Los tres estados, y por qué son tres ──
+ *
+ * "Cerca" y "lejos" no alcanzan. Falta el que no se pudo medir, y es el que
+ * más se presta a leerse mal: una jornada sin distancia no es una jornada
+ * sospechosa, es una donde el GPS no respondió, el técnico no tenía señal o la
+ * primera orden no tiene coordenada cargada — lo último es un problema de
+ * datos de la oficina, no del técnico.
+ *
+ * Y hay un cuarto caso escondido en el segundo: cuando el GPS informa más
+ * error que la distancia medida, el número existe pero no concluye nada. Se
+ * muestra en gris, con el margen al lado, para que no se lea como una falta.
+ */
+function Distancia({ j }) {
+  if (j.distancia_ingreso_m == null) {
+    return (
+      <p className="mt-0.5 text-[11px] text-slate-600">
+        {j.inicio_at ? 'Sin ubicación al marcar' : ''}
+      </p>
+    )
+  }
+
+  const d = j.distancia_ingreso_m
+  const err = j.precision_ingreso_m
+  const dudoso = err != null && err >= d
+  const lejos = d > RADIO_LLEGADA_M && !dudoso
+
+  const texto =
+    d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${d} m`
+
+  return (
+    <p
+      className={`t-dato mt-0.5 flex items-center gap-1 text-[11px] ${
+        dudoso ? 'text-slate-600' : lejos ? 'text-amber-400' : 'text-emerald-400'
+      }`}
+    >
+      <MapPin size={11} className="shrink-0" />
+      {texto} del 1er trabajo
+      {dudoso && <span className="text-slate-600">· margen {err} m</span>}
+    </p>
   )
 }
