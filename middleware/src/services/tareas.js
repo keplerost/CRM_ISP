@@ -410,6 +410,58 @@ export async function estado() {
       mora: estadoMora?.ultimaCorrida ?? null,
       firmas: estadoFirmas?.ultimaCorrida ?? null,
     },
+
+    /**
+     * Lo que salió mal en la última corrida de cada tarea.
+     *
+     * ── Por qué esto sube hasta el panel ──
+     *
+     * Un corte que falla porque el router no respondía no deja al sistema
+     * mintiendo —el abonado no queda marcado como cortado si no se lo cortó— pero
+     * sí deja plata en la calle: ese abonado sigue navegando sin pagar. Y al
+     * revés, una reconexión fallida deja sin internet a alguien que ya pagó.
+     *
+     * Hasta ahora eso quedaba en el resultado de la tarea, en Ajustes → Tareas
+     * programadas. Había que ir a mirarlo, y nadie va a mirar todos los días una
+     * pantalla que casi siempre está bien. Uno se entera cuando llama el cliente
+     * o cuando falta la plata.
+     *
+     * Acá sale un resumen —cuántos y quiénes— para que el panel pueda mostrarlo
+     * solo cuando hay algo. Se mandan tres nombres y no la lista entera: el
+     * panel necesita decir "pasó esto y mirá acá", no resolverlo.
+     */
+    problemas: Object.fromEntries(
+      Object.entries({
+        mora: estadoMora,
+        cortes: estadoCortes,
+        avisos_pago: estadoAvisosPago,
+      }).map(([clave, estado]) => [clave, _resumenDeFallas(estado?.ultimoResultado)]),
+    ),
+  }
+}
+
+/**
+ * Qué salió mal, en corto.
+ *
+ * `error` y `fallidos` son dos cosas distintas y se informan por separado: el
+ * primero es la tarea que no pudo ni empezar —sin conexión a la base, por
+ * ejemplo— y el segundo son los casos sueltos que fallaron dentro de una corrida
+ * que sí funcionó. Mezclarlos haría que "1 problema" signifique cosas muy
+ * distintas según el día.
+ */
+export function _resumenDeFallas(resultado) {
+  if (!resultado) return null
+  if (resultado.error) return { error: resultado.error, fallidos: 0, ejemplos: [] }
+
+  const fallidos = resultado.fallidos ?? []
+  return {
+    error: null,
+    fallidos: fallidos.length,
+    ejemplos: fallidos.slice(0, 3).map((f) => ({
+      cliente: f.cliente ?? f.nombre ?? null,
+      accion: f.accion ?? null,
+      motivo: f.error ?? f.motivo ?? null,
+    })),
   }
 }
 

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
+import { api } from '../lib/apiNetwork'
 import { usePermisos } from '../lib/AuthContext'
 import { puedeEntrar } from '../lib/rutasPermisos'
 import { clientesConVencido, fechaLocal } from '../lib/abonados'
@@ -220,6 +221,18 @@ export default function Dashboard() {
   const [d, setD] = useState(null)
   const [error, setError] = useState(null)
 
+  /**
+   * Lo que salió mal en la última corrida de las tareas.
+   *
+   * Va por el middleware y no por la base porque ese resultado vive en memoria
+   * del proceso que corre las tareas: es lo último que hizo, no un histórico.
+   *
+   * Si el middleware no responde, queda en null y la tarjeta no se dibuja. Es
+   * correcto: no saber si hubo fallas no es lo mismo que saber que las hubo, y
+   * un cartel rojo porque se cayó la API sería una alarma sobre la alarma.
+   */
+  const [problemas, setProblemas] = useState(null)
+
   useEffect(() => {
     let vivo = true
     const hoy = fechaLocal()
@@ -292,6 +305,11 @@ export default function Dashboard() {
       })
     })
 
+    api.tareas
+      .estado()
+      .then((r) => vivo && setProblemas(r?.problemas ?? null))
+      .catch(() => {})
+
     return () => {
       vivo = false
     }
@@ -341,6 +359,8 @@ export default function Dashboard() {
       </div>
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
+
+      <TareasConProblemas problemas={problemas} puede={abre} />
 
       {/* ── KPIs ───────────────────────────────────────────────────────────
           Seis números, y cada uno abre la pantalla donde se trabaja. Los dos
@@ -859,3 +879,108 @@ const PanelCargando = () => (
     </div>
   </div>
 )
+
+/* ── Lo que la última corrida no pudo hacer ────────────────────────────────── */
+
+const TAREAS = {
+  mora: {
+    titulo: 'Corte por mora',
+    queSignifica: 'Esos abonados siguen navegando sin haber pagado.',
+    donde: '/red/routers',
+    verbo: 'Revisar los routers',
+  },
+  cortes: {
+    titulo: 'Cortes y promesas',
+    queSignifica: 'Quedaron cortes o reconexiones sin aplicar en el router.',
+    donde: '/red/routers',
+    verbo: 'Revisar los routers',
+  },
+  avisos_pago: {
+    titulo: 'Avisos de pago',
+    queSignifica: 'Esos abonados no recibieron su aviso.',
+    donde: '/ajustes/crontab',
+    verbo: 'Ver la corrida',
+  },
+}
+
+/**
+ * Solo aparece cuando hay algo que arreglar.
+ *
+ * ── Por qué acá y no en Tareas programadas ──
+ *
+ * Ahí ya estaba, y por eso no servía: nadie abre todos los días una pantalla
+ * que casi siempre está bien. Uno se entera de que un corte falló cuando llama
+ * el cliente o cuando falta la plata a fin de mes.
+ *
+ * El panel es lo que se abre igual. Una tarjeta que solo existe cuando hay
+ * problema no se vuelve parte del paisaje — el día que aparece, aparece.
+ *
+ * ── Por qué dice qué significa y no solo cuántos ──
+ *
+ * "3 fallidos en corte por mora" no mueve a nadie. "Esos abonados siguen
+ * navegando sin haber pagado" sí, porque nombra la consecuencia — que es lo que
+ * decide si vale la pena dejar lo que uno estaba haciendo.
+ */
+function TareasConProblemas({ problemas, puede }) {
+  if (!problemas) return null
+
+  const conFalla = Object.entries(problemas).filter(
+    ([, p]) => p && (p.error || p.fallidos > 0),
+  )
+  if (!conFalla.length) return null
+
+  return (
+    <div className="space-y-3">
+      {conFalla.map(([clave, p]) => {
+        const t = TAREAS[clave] ?? { titulo: clave, queSignifica: '', donde: '/ajustes/crontab', verbo: 'Ver' }
+        return (
+          <div key={clave} className="t-card border-l-4 border-l-amber-500 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="t-kpi-icon shrink-0 bg-[#FFFBEB] text-amber-400">
+                  <AlertTriangle size={18} />
+                </span>
+                <div className="min-w-0">
+                  <p className="t-titulo text-sm font-bold text-slate-100">
+                    {p.error
+                      ? `${t.titulo}: la tarea no pudo correr`
+                      : `${t.titulo}: ${p.fallidos} ${p.fallidos === 1 ? 'caso quedó' : 'casos quedaron'} sin aplicar`}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {p.error ? p.error : t.queSignifica}
+                  </p>
+
+                  {p.ejemplos?.length > 0 && (
+                    <ul className="mt-2 space-y-0.5">
+                      {p.ejemplos.map((e, i) => (
+                        <li key={i} className="t-dato truncate text-[11px] text-slate-500">
+                          <b className="text-slate-400">{e.cliente ?? '—'}</b>
+                          {e.motivo ? ` · ${e.motivo}` : ''}
+                        </li>
+                      ))}
+                      {p.fallidos > p.ejemplos.length && (
+                        <li className="text-[11px] text-slate-600">
+                          y {p.fallidos - p.ejemplos.length} más
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              </div>
+
+              {puede(t.donde) && (
+                <Link
+                  to={t.donde}
+                  className="t-btn t-btn-marca shrink-0"
+                >
+                  {t.verbo}
+                  <ChevronRight size={14} />
+                </Link>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}

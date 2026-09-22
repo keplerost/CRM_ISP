@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { TAREAS, _COLUMNAS, _TAREAS, _llaveActiva } from '../src/services/tareas.js'
+import { TAREAS, _COLUMNAS, _TAREAS, _llaveActiva, _resumenDeFallas } from '../src/services/tareas.js'
 
 /**
  * Los automatismos.
@@ -259,4 +259,65 @@ test('el tope del corte por mora acepta cero, y los intervalos no', async () => 
   assert.equal(minimoDe('mora_barrida_minutos'), 1)
   // Y este tampoco, porque la base lo declara BETWEEN 1 AND 100000.
   assert.equal(minimoDe('cortes_limite'), 1)
+})
+
+/**
+ * El resumen de fallas que sube al panel.
+ *
+ * ── Qué se protege ──
+ *
+ * Que "la tarea no pudo correr" y "corrió pero fallaron tres casos" no se
+ * mezclen. Son consecuencias distintas: lo primero significa que NADIE fue
+ * cortado hoy; lo segundo, que tres siguen navegando sin pagar. Si el panel
+ * mostrara "1 problema" para los dos, el número dejaría de decir nada.
+ *
+ * Y que sin resultado devuelva null y no un cero: una tarea que todavía no
+ * corrió no es una tarea sin fallas.
+ */
+test('el resumen distingue no haber corrido, haber fallado entero, y fallar en casos sueltos', () => {
+  // Todavía no corrió: no hay nada que decir.
+  assert.equal(_resumenDeFallas(null), null)
+  assert.equal(_resumenDeFallas(undefined), null)
+
+  // Corrió bien.
+  assert.deepEqual(_resumenDeFallas({ cortados: [1, 2], fallidos: [] }), {
+    error: null,
+    fallidos: 0,
+    ejemplos: [],
+  })
+
+  // No pudo ni empezar.
+  const roto = _resumenDeFallas({ error: 'sin conexión a la base' })
+  assert.equal(roto.error, 'sin conexión a la base')
+  assert.equal(roto.fallidos, 0)
+
+  // Corrió, pero tres quedaron afuera.
+  const parcial = _resumenDeFallas({
+    cortados: [1],
+    fallidos: [
+      { accion: 'cortar', cliente: 'Ana', error: 'router no responde' },
+      { accion: 'cortar', cliente: 'Beto', error: 'timeout' },
+      { accion: 'reconectar', cliente: 'Carla', error: 'timeout' },
+      { accion: 'cortar', cliente: 'Dario', error: 'timeout' },
+    ],
+  })
+  assert.equal(parcial.error, null)
+  assert.equal(parcial.fallidos, 4, 'cuenta TODOS, no solo los que muestra')
+  assert.equal(parcial.ejemplos.length, 3, 'manda tres de ejemplo, no la lista entera')
+  assert.deepEqual(parcial.ejemplos[0], {
+    cliente: 'Ana',
+    accion: 'cortar',
+    motivo: 'router no responde',
+  })
+})
+
+test('el motivo se lee venga como venga', () => {
+  // `corteMora` usa `error`; los avisos de pago usan `motivo`. El panel no
+  // tiene por qué saber cuál lo mandó.
+  const r = _resumenDeFallas({
+    fallidos: [{ nombre: 'Elsa', motivo: 'sin correo ni celular' }],
+  })
+
+  assert.equal(r.ejemplos[0].cliente, 'Elsa')
+  assert.equal(r.ejemplos[0].motivo, 'sin correo ni celular')
 })
