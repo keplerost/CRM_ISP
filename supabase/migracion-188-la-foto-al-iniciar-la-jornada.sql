@@ -48,10 +48,20 @@ COMMENT ON COLUMN jornadas.foto_ingreso_at IS
     'Cuándo se subió la foto. Es distinto de inicio_at: sin señal la jornada se abre y la foto llega después, y esa diferencia es un dato, no un error.';
 
 /**
- * `v_jornadas` no se toca.
+ * OJO — acá había un error, corregido por la migración 189.
  *
- * Está definida con `j.*`, así que las dos columnas nuevas ya salen por ahí.
- * Recrearla para "agregarlas" sería reescribir una vista que no cambió.
+ * Esta migración decía que `v_jornadas` no hacía falta tocarla porque está
+ * definida con `SELECT j.*` y "las columnas nuevas ya salen por ahí". Es
+ * falso: Postgres expande el `*` UNA VEZ, al crear la vista, y guarda la lista
+ * resuelta. Agregar una columna a la tabla después no la agrega a la vista.
+ *
+ * El síntoma fue silencioso: la pantalla de ingresos leía `foto_ingreso` de la
+ * vista, recibía `undefined` para todos, y mostraba "sin foto" — que es
+ * justo lo que uno espera ver el primer día.
+ *
+ * Correr la 189 después de esta. Se deja escrito acá en vez de borrarlo
+ * porque quien lea esta migración buscando cómo se agregó la foto tiene que
+ * encontrar la advertencia, no la afirmación equivocada.
  */
 
 
