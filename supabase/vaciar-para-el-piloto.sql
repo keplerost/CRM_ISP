@@ -39,6 +39,11 @@
 -- Dicho de otro modo: si esto falla, la base queda intacta y el error nombra
 -- exactamente lo que falta agregar.
 --
+-- Pasó dos veces al escribirlo, y las dos veces el error tenía razón:
+-- `sri_secuenciales_libres` apuntaba a `electronic_documents`, y
+-- `planes_velocidad` a `olts`. La primera se agregó a la lista; la segunda no
+-- podía agregarse sin perder los planes, y por eso las OLTs salen con DELETE.
+--
 -- ── Lo que el SQL NO alcanza ──
 --
 -- Los ARCHIVOS. Las fotos de instalación, los adjuntos de tickets, los
@@ -216,7 +221,8 @@ TRUNCATE
   puertos_pon,
   vlans_olt,
   line_profiles,
-  olts,
+  -- `olts` NO va acá. Sale más abajo con DELETE, y la razón está explicada
+  -- después del RESTART IDENTITY.
   olt_historial,
   olt_backups,
   olt_escaneos,
@@ -234,6 +240,28 @@ TRUNCATE
   consumo_diario
 
 RESTART IDENTITY;
+
+
+-- ── Las OLTs, aparte ─────────────────────────────────────────────────────────
+--
+-- `planes_velocidad.tablas_verificadas_en` apunta a `olts` con ON DELETE SET
+-- NULL: guarda en qué equipo se verificaron las tablas de tráfico del plan.
+--
+-- TRUNCATE no puede vaciar una tabla referenciada por otra que no esté en la
+-- misma lista, y no sirve agregar `planes_velocidad` —perderíamos los planes,
+-- que son configuración—. TRUNCATE tampoco respeta el ON DELETE SET NULL:
+-- lo ignora y falla igual.
+--
+-- DELETE sí lo respeta. Y a esta altura las OLTs ya no tienen ningún hijo: todo
+-- lo que colgaba de ellas —ONUs, puertos, VLANs, historial— se vació arriba. Así
+-- que son dos líneas baratas, no un borrado en cascada.
+DELETE FROM olts;
+
+-- El SET NULL limpia la referencia al equipo, pero no la fecha. Una marca de
+-- "verificado el 3 de marzo" sin decir en qué equipo no significa nada.
+UPDATE planes_velocidad
+   SET tablas_verificadas_at = NULL
+ WHERE tablas_verificadas_at IS NOT NULL;
 
 COMMIT;
 
