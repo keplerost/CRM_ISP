@@ -23,6 +23,12 @@ ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 # shellcheck source=/dev/null
 source /etc/openvpn/smartolt.env
 
+# Instalaciones anteriores a la red configurable no tienen estos dos campos en
+# su env. Se completan con lo que era fijo entonces, así el script sigue
+# funcionando en un servidor viejo sin obligar a reinstalar el concentrador.
+PREFIJO=${PREFIJO:-24}
+IP_VPS=${IP_VPS:-$(echo "$RED_VPN" | sed 's/\.0$/.1/')}
+
 NOMBRE=${1:-}
 IP_FIJA=${2:-}
 
@@ -85,10 +91,10 @@ add name=vpn-gestion connect-to=$PUBLICO port=$PUERTO protocol=tcp mode=ip \\
     add-default-route=no disabled=no comment="Gestion SmartOLT"
 
 # Permitir la API solo desde la VPN. Cambiá 8728 si usás otro puerto.
-/ip service set api address=${RED_VPN}/24
+/ip service set api address=${RED_VPN}/${PREFIJO}
 
 /ip firewall filter
-add chain=input src-address=${RED_VPN}/24 protocol=tcp dst-port=8728 \\
+add chain=input src-address=${RED_VPN}/${PREFIJO} protocol=tcp dst-port=8728 \\
     action=accept comment="API desde VPN de gestion" place-before=0
 
 # ============================================================
@@ -97,7 +103,7 @@ add chain=input src-address=${RED_VPN}/24 protocol=tcp dst-port=8728 \\
 #
 #  Verificar:
 #     /interface ovpn-client print status
-#     /ping $(echo "$RED_VPN" | sed 's/\.0$/.1/')
+#     /ping ${IP_VPS}
 #
 #  En la aplicacion, cargar este router con:
 #     IP:     $IP_FIJA

@@ -91,7 +91,7 @@ systemctl restart smartolt-middleware
 ```
 
 Te pregunta la IP o dominio público y el puerto. Deja el servidor escuchando en
-**TCP** —RouterOS trabaja mejor así— con la red `10.8.0.0/24` y IPs fijas por
+**TCP** —RouterOS trabaja mejor así— con la red que elijas y IPs fijas por
 cliente.
 
 ---
@@ -186,3 +186,34 @@ por la interfaz de la VPN.
 
 Sin argumentos, el script lista los clientes dados de alta y las redes ya
 publicadas.
+
+---
+
+## Cambiar la red del túnel
+
+`10.8.0.0/24` es el valor por defecto y funciona en la mayoría de las
+instalaciones. Pero es un rango privado como cualquier otro: si el ISP donde
+instalás ya lo usa, hay dos caminos hacia la misma red y los paquetes se van por
+el equivocado. El síntoma es que *a veces anda*, que es el peor de todos.
+
+**No hay que editar ningún archivo.** `openvpn-server.sh` lo pregunta al
+instalar:
+
+```
+  Red privada para el túnel de gestión. Cada MikroTik recibe una IP de acá.
+  Tiene que ser una red que NO uses en ninguna parte de tu infraestructura.
+Red VPN [10.8.0.0/24]: 10.66.0.0/24
+```
+
+Y antes de aceptarla comprueba tres cosas:
+
+- que sea **privada** (10.x, 172.16-31.x o 192.168.x)
+- que sea la dirección **de red** y no la de un equipo
+- que **no se pise** con nada que ese servidor ya tenga ruteado
+
+Lo elegido queda en `/etc/openvpn/smartolt.env`, y los otros dos scripts lo
+leen de ahí: no hay un segundo lugar donde acordarse de cambiarlo.
+
+> En un servidor instalado antes de que esto fuera configurable, el env no tiene
+> el prefijo. Los scripts asumen `/24`, que es lo que era entonces, así que
+> siguen funcionando sin reinstalar nada.
