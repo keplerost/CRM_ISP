@@ -121,7 +121,7 @@ Desde **tu máquina**, con el proyecto clonado, armá el pegado de una sola vez:
   echo "EOF"
   echo
   echo "cat > /opt/smartolt/web/.env <<'EOF'"
-  sed "s|^VITE_API_URL=.*|VITE_API_URL=https://TU-DOMINIO/api|" web/.env
+  sed "s|^VITE_API_URL=.*|VITE_API_URL=https://TU-DOMINIO|" web/.env
   echo "EOF"
 } > /tmp/para-el-servidor.txt
 ```
@@ -135,6 +135,11 @@ Después, en el servidor:
 chown smartolt:smartolt /opt/smartolt/middleware/.env /opt/smartolt/web/.env
 chmod 600 /opt/smartolt/middleware/.env
 ```
+
+> **`VITE_API_URL` es solo el dominio, sin `/api` al final.** El frontend le
+> agrega `/api/...` a cada llamada. Si le ponés `/api`, las llamadas salen a
+> `/api/api/...`, dan 404, y el sistema abre pero la barra de arriba dice
+> *middleware no responde* y no se puede cambiar ninguna contraseña.
 
 > El servicio corre como `smartolt`, no como root. Si creás los `.env` como root
 > y les ponés `chmod 600` sin cambiar el dueño, el middleware no puede leerlos y
@@ -223,7 +228,7 @@ En los dos casos:
 
 ```bash
 sed -i "s|^CORS_ORIGIN=.*|CORS_ORIGIN=https://crm.tudominio.com|" /opt/smartolt/middleware/.env
-sed -i "s|^VITE_API_URL=.*|VITE_API_URL=https://crm.tudominio.com/api|" /opt/smartolt/web/.env
+sed -i "s|^VITE_API_URL=.*|VITE_API_URL=https://crm.tudominio.com|" /opt/smartolt/web/.env
 /opt/smartolt/deploy/actualizar.sh
 ```
 
@@ -443,6 +448,18 @@ consola del navegador (F12) como *blocked by CORS policy*. Corregí los dos
 
 **El técnico no puede sacar la foto ni compartir ubicación.**
 Estás entrando por HTTP. El navegador solo da cámara y GPS sobre HTTPS.
+
+**La barra de arriba dice «middleware no responde» y no se puede cambiar una
+contraseña, pero `curl` al `/api/health` del servidor funciona.**
+`VITE_API_URL` quedó con `/api` al final. El frontend ya agrega `/api/...` a
+cada llamada, así que salen a `/api/api/...` y dan 404. Se ve en la consola del
+navegador (F12 → Red) como un 404 con la ruta repetida. Tiene que ser solo el
+dominio:
+```bash
+sed -i "s|^VITE_API_URL=.*|VITE_API_URL=https://crm.tudominio.com|" /opt/smartolt/web/.env
+/opt/smartolt/deploy/actualizar.sh
+```
+`CORS_ORIGIN`, en cambio, sí es solo el dominio y nunca lleva `/api`.
 
 ---
 

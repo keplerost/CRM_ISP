@@ -291,7 +291,7 @@ cat <<EOF
 
   2. nano $RAIZ/web/.env
        VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-       VITE_API_URL=https://TU-DOMINIO/api      <-- la URL pública, no localhost
+       VITE_API_URL=https://TU-DOMINIO          <-- solo el dominio, SIN /api ni localhost
        VITE_DEMO_MODE=false
 
   3. Recompilar y reiniciar:
