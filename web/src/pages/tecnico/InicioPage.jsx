@@ -31,6 +31,7 @@ import BotonTema from '../../components/ventas/BotonTema'
 import { enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
 import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
 import { supabase } from '../../lib/supabaseClient'
+import { largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 
 /**
@@ -615,6 +616,8 @@ function Ruta({ ruta, atrasadas, cargando }) {
         <p className="campo-tenue py-8 text-center text-[13px]">Sin paradas para hoy.</p>
       ) : (
         <div className="space-y-2">
+          <LargoDeRuta lista={lista} />
+
           {/* Las paradas numeradas y unidas en el orden en que se recorren. No
               es la ruta por calles —para eso está el botón que abre el
               navegador del teléfono— sino el orden de visita. */}
@@ -977,5 +980,45 @@ function AvisoJornada({ j }) {
         {texto.accion}
       </span>
     </Link>
+  )
+}
+
+/**
+ * Cuánto da el recorrido del día, y con qué honestidad.
+ *
+ * ── Por qué dice "en línea recta" y no lo esconde ──
+ *
+ * Porque el número va a estar siempre por debajo del real: no conoce las
+ * calles, los sentidos únicos ni el río. Un técnico que lee "8 km" y maneja 14
+ * deja de creerle a la pantalla — y con razón. Diciendo de dónde sale, el
+ * número sigue sirviendo para lo único que sirve: comparar un día contra otro.
+ *
+ * ── Y por qué avisa cuando faltan coordenadas ──
+ *
+ * Sumar solo los tramos medibles y presentarlo como el total del día es la
+ * forma silenciosa de mentir. Si de seis paradas solo tres se pudieron medir,
+ * eso se dice.
+ */
+function LargoDeRuta({ lista }) {
+  const { metros, tramosMedidos } = largoDeRuta(lista)
+  if (!tramosMedidos) return null
+
+  const sinUbicar = lista.filter((o) => o.latitud == null || o.longitud == null).length
+
+  return (
+    <p className="campo-tenue mb-2 text-[11px] leading-snug">
+      <b className="campo-suave">
+        {metros >= 1000 ? `${(metros / 1000).toFixed(1)} km` : `${metros} m`}
+      </b>{' '}
+      en línea recta entre las paradas, en este orden.
+      {sinUbicar > 0 && (
+        <>
+          {' '}
+          {sinUbicar === 1
+            ? 'Una parada sin ubicación quedó afuera de la cuenta.'
+            : `${sinUbicar} paradas sin ubicación quedaron afuera de la cuenta.`}
+        </>
+      )}
+    </p>
   )
 }

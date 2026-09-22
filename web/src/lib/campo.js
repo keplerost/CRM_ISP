@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { ordenarPorCercania } from './ruta.js'
 import { semaforoDe } from './instalaciones'
 import { conCache } from './cacheLocal'
 
@@ -200,6 +201,31 @@ async function leerTablero(perfil) {
   ])
 
   const delDia = (ordenes ?? []).filter((o) => o.fecha === hoy)
+
+  /**
+   * Desde dónde arranca el recorrido.
+   *
+   * Es donde el técnico marcó su ingreso, que ya se guarda en la jornada. No
+   * se le vuelve a pedir el GPS: pedirlo otra vez para calcular un orden sería
+   * gastarle batería y hacerlo esperar por algo que el sistema ya sabe.
+   *
+   * Sin jornada abierta o sin ubicación al marcar queda en null, y el orden se
+   * arma igual — solo pierde el ancla del primer tramo.
+   */
+  let partida = null
+  if (perfil?.tecnico_id) {
+    const { data: j } = await supabase
+      .from('jornadas')
+      .select('lat_ingreso, lng_ingreso')
+      .eq('tecnico_id', perfil.tecnico_id)
+      .eq('fecha', hoy)
+      .maybeSingle()
+    if (j?.lat_ingreso != null && j?.lng_ingreso != null) {
+      partida = { lat: Number(j.lat_ingreso), lng: Number(j.lng_ingreso) }
+    }
+  }
+
+  const ruta = rutaDe(delDia, partida)
   const atrasadas = (ordenes ?? []).filter((o) => o.fecha && o.fecha < hoy)
   // Los tickets abiertos son los que cuentan como trabajo pendiente; los
   // cerrados vienen igual porque alimentan "recientes" y el resumen del día.
@@ -241,10 +267,13 @@ async function leerTablero(perfil) {
     retirosVencidos: (retiros ?? []).filter(
       (r) => r.agendado_para && new Date(r.agendado_para) < new Date(),
     ).length,
-    ruta: rutaDe(delDia),
+    ruta,
     // La próxima es la primera de la ruta que todavía no se hizo. Sale aparte
     // porque es lo único que el técnico necesita mirar sin pensar.
-    proxima: rutaDe(delDia).find((o) => o.estado !== 'hecha') ?? null,
+    // La próxima sale de la MISMA ruta y no de otro cálculo: si se ordenaran
+    // por separado, la pantalla podría anunciar una próxima parada que no es la
+    // que encabeza la lista de abajo.
+    proxima: ruta.find((o) => o.estado !== 'hecha') ?? null,
     atrasadas,
   }
 }
@@ -429,13 +458,20 @@ function jornadaDe(delDia, atrasadas, tickets) {
  * Por hora, y las sin hora al final: una orden sin horario acordado es la que
  * se hace cuando se puede, no la primera.
  */
-function rutaDe(delDia) {
-  return [...delDia].sort((a, b) => {
-    if (!a.hora && !b.hora) return 0
-    if (!a.hora) return 1
-    if (!b.hora) return -1
-    return a.hora.localeCompare(b.hora)
-  })
+function rutaDe(delDia, desde = null) {
+  /**
+   * Antes esto ordenaba solo por hora y mandaba las sueltas al final.
+   *
+   * El problema no era el criterio sino lo que dejaba afuera: una orden sin
+   * hora no tiene compromiso horario, así que ponerla última es tan arbitrario
+   * como ponerla primera — y la que estaba de paso terminaba obligando a
+   * cruzar la ciudad de vuelta.
+   *
+   * `ordenarPorCercania` conserva las horas en su orden y acomoda las sueltas
+   * donde menos alarguen el recorrido. Vive en `lib/ruta.js`, sin depender de
+   * nada del navegador, para poder probarla con el runner de node.
+   */
+  return ordenarPorCercania(delDia, { desde })
 }
 
 /** El color de una orden según cómo quedó la señal. Reutiliza el semáforo. */

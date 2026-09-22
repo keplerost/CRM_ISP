@@ -121,7 +121,10 @@ export const CHECKLIST = {
 // La conversión del número se mudó a `telefono.js`: estaba escrita cuatro veces
 // y solo esta la hacía bien. Se reexporta con el nombre viejo para no tocar las
 // pantallas de soporte, que ya la importan así.
-export { aWhatsApp as aWhatsapp, enlaceWhatsApp as enlaceWhatsapp } from './telefono'
+// La extensión va explícita para que este archivo se pueda importar desde el
+// runner de node, que a diferencia de Vite no resuelve rutas sin extensión.
+// Es lo que permite probar la regla de la ruta sin montar un navegador.
+export { aWhatsApp as aWhatsapp, enlaceWhatsApp as enlaceWhatsapp } from './telefono.js'
 
 /**
  * A dónde tiene que ir el técnico.
