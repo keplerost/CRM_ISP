@@ -192,6 +192,96 @@ const MIGRACIONES = [
       ['v_plantillas_whatsapp', ['purpose_crm', 'se_puede_enviar_por_crm']],
     ],
   },
+  {
+    numero: 181,
+    nombre: 'El descuento que se acuerda en plata, no en porcentaje',
+    partes: [['clientes', ['descuento_fijo', 'descuento_fijo_motivo']]],
+  },
+  {
+    numero: 182,
+    nombre: 'El corte y el límite también en IPv6',
+    partes: [
+      ['clientes', ['ipv6_prefijo']],
+      ['routers_mikrotik', ['ipv6_activo', 'ipv6_lista_morosos', 'ipv6_preparado_at']],
+    ],
+  },
+  {
+    numero: 183,
+    nombre: 'El contrato nace con el alta y hereda el número de la orden',
+    partes: [],
+    funciones: ['finalizar_alta_instalacion'],
+  },
+  {
+    numero: 184,
+    nombre: 'La aceptación del anexo 2 no se podía responder',
+    partes: [
+      ['clientes', ['acepta_datos_personales']],
+      ['instalaciones', ['acepta_datos_personales']],
+    ],
+    // `alta_copia_aceptacion_anexo2` NO se lista acá aunque la migración la
+    // cree: es `RETURNS TRIGGER`, y PostgREST solo publica como RPC las que
+    // devuelven datos. Pedirla daría un "falta la función" permanente sobre
+    // una base que está bien — y un verificador que miente en rojo deja de
+    // leerse. Las dos columnas ya prueban que la migración corrió.
+  },
+  {
+    numero: 185,
+    nombre: 'La ONU atada a su modelo del catálogo',
+    /**
+     * No se puede verificar desde acá, y decirlo es mejor que inventar.
+     *
+     * Esta migración no agrega ninguna columna ni vista: crea una función de
+     * trigger y su trigger. PostgREST no publica ninguna de las dos, así que no
+     * hay nada que esta herramienta pueda mirar por HTTP.
+     *
+     * Se deja listada igual para que el número no falte en la lista y nadie
+     * crea que se olvidó. Se comprueba a mano: autorizar una ONU de un modelo
+     * del catálogo y ver que le queda el tipo resuelto.
+     */
+    partes: [],
+    sinVerificar: 'crea un trigger; PostgREST no lo expone. Se comprueba autorizando una ONU.',
+  },
+  {
+    numero: 186,
+    nombre: 'La potencia de los dos lados del enlace',
+    partes: [['onus', ['olt_rx_power_dbm', 'temperatura_c']]],
+  },
+  {
+    numero: 187,
+    nombre: 'El cuarto aviso: al que ya está cortado',
+    partes: [
+      ['clientes', ['cortado_en', 'aviso_dias_4']],
+      ['config_avisos_pago', ['dias_aviso_4', 'repetir_cada_4']],
+      ['v_avisos_pago_pendientes', ['cortado_en', 'dias_cortado']],
+    ],
+  },
+  {
+    numero: 188,
+    nombre: 'La foto al iniciar la jornada',
+    partes: [['jornadas', ['foto_ingreso', 'foto_ingreso_at']]],
+  },
+  {
+    numero: 189,
+    nombre: 'La vista de jornadas no veía la foto',
+    partes: [['v_jornadas', ['foto_ingreso', 'foto_ingreso_at']]],
+  },
+  {
+    numero: 190,
+    nombre: 'El ingreso, donde está el trabajo',
+    partes: [
+      ['jornadas', ['lat_ingreso', 'lng_ingreso', 'distancia_ingreso_m']],
+      ['v_jornadas', ['distancia_ingreso_m', 'precision_ingreso_m']],
+    ],
+  },
+  {
+    numero: 191,
+    nombre: 'El mantenimiento de los vehículos',
+    partes: [
+      ['mantenimiento_tipos', ['clave', 'cada_km', 'cada_meses']],
+      ['mantenimientos', ['vehiculo_id', 'tipo_id', 'odometro']],
+      ['v_mantenimiento', ['km_restantes', 'dias_restantes', 'sin_registro']],
+    ],
+  },
 ]
 
 console.log(`\nBase: ${url}\n`)
@@ -215,6 +305,18 @@ for (const m of MIGRACIONES) {
     faltantes++
     console.log(`  ${rojo('FALTA')}  ${m.numero} — ${m.nombre}`)
     for (const p of problemas) console.log(gris(`         · ${p}`))
+  } else if (m.sinVerificar) {
+    /**
+     * Ni OK ni FALTA: no se sabe.
+     *
+     * Hay migraciones que solo crean triggers, y PostgREST no expone nada de
+     * eso. Marcarlas OK sería afirmar algo que esta herramienta no comprobó
+     * —y de un verificador lo único que se espera es que no mienta—; marcarlas
+     * FALTA pondría en rojo una base que está bien, y un rojo permanente se
+     * deja de leer. Se dice que hay que mirarlo a mano, y cómo.
+     */
+    console.log(`  ${gris('?')}      ${m.numero} — ${m.nombre}`)
+    console.log(gris(`         · ${m.sinVerificar}`))
   } else {
     console.log(`  ${verde('OK')}     ${m.numero} — ${m.nombre}`)
   }
