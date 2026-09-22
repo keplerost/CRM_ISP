@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Camera, Check, Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAlert } from 'lucide-react'
+import { Camera, Check, Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAlert, Wrench } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { hoyISO } from '../../lib/campo'
 import { subirFotoIngreso, ubicacionDelIngreso } from '../../lib/jornadaFoto'
 import { RADIO_LLEGADA_M } from '../../lib/soporte'
+import { cuantoFalta, urgencia } from '../../lib/mantenimiento'
 import { Button, Field, Input, Select } from '../../components/ui'
 
 /**
@@ -39,6 +40,16 @@ export default function JornadaPage() {
   const [carga, setCarga] = useState(null)
 
   /**
+   * Lo que le falta al vehículo de hoy.
+   *
+   * Se pide acá y no en el tablero de inicio porque el aviso solo tiene sentido
+   * al lado del odómetro: el técnico está mirando el tablero del vehículo, que
+   * es el único momento del día en que "faltan 300 km para el aceite" significa
+   * algo concreto.
+   */
+  const [pendiente, setPendiente] = useState([])
+
+  /**
    * La foto de ingreso.
    *
    * `foto` es lo que se sacó y todavía no subió; `subiendo` corta el doble
@@ -71,6 +82,17 @@ export default function JornadaPage() {
         km_inicio: j.data.km_inicio ?? '',
         km_fin: j.data.km_fin ?? '',
       })
+      // Lo que el vehículo tiene por hacer, vencido o por vencer.
+      if (j.data.vehiculo_id) {
+        const { data: mant } = await supabase
+          .from('v_mantenimiento')
+          .select('*')
+          .eq('vehiculo_id', j.data.vehiculo_id)
+        setPendiente(
+          (mant ?? []).filter((m) => ['vencido', 'pronto'].includes(urgencia(m))),
+        )
+      }
+
       // Cuánto falta para la próxima carga de ESE vehículo.
       if (j.data.vehiculo_id) {
         const { data: est } = await supabase
@@ -257,6 +279,8 @@ export default function JornadaPage() {
           </div>
         </div>
       )}
+
+      <AvisoMantenimiento items={pendiente} />
 
       <section className="t-card p-4">
         <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -624,5 +648,46 @@ function DistanciaIngreso({ j }) {
           ? `Marcaste a ${d} m del primer trabajo del día.`
           : `Marcaste a ${d} m del primer trabajo. Dentro del rango.`}
     </p>
+  )
+}
+
+/**
+ * Lo que el vehículo necesita, dicho al técnico.
+ *
+ * ── Por qué acá y no en un listado aparte ──
+ *
+ * Porque una pantalla de "mantenimientos pendientes" es una que el técnico no
+ * abre nunca: no es su trabajo, es el del que administra. Lo que sí hace todos
+ * los días es escribir el kilometraje del tablero — y ahí, con el número del
+ * odómetro delante, "faltan 300 km para el aceite" es accionable.
+ *
+ * ── Por qué no bloquea ──
+ *
+ * Porque el técnico no decide cuándo se lleva la camioneta al taller. Avisarle
+ * sirve para que lo diga; impedirle trabajar por algo que no depende de él solo
+ * lo dejaría parado.
+ */
+function AvisoMantenimiento({ items }) {
+  if (!items?.length) return null
+
+  return (
+    <div className="campo-borde flex items-start gap-2.5 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+      <Wrench size={18} className="mt-0.5 shrink-0 text-amber-400" />
+      <div className="min-w-0">
+        <p className="text-[14px] font-semibold text-slate-100">
+          {items.length === 1 ? 'El vehículo necesita un servicio' : `El vehículo necesita ${items.length} servicios`}
+        </p>
+        <ul className="mt-1 space-y-0.5">
+          {items.map((m) => (
+            <li key={m.tipo_id} className="text-[11px] text-slate-500">
+              <b className="text-slate-400">{m.tipo}</b> · {cuantoFalta(m)}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1.5 text-[11px] leading-snug text-slate-500">
+          Avisale a la oficina para que lo agenden.
+        </p>
+      </div>
+    </div>
   )
 }

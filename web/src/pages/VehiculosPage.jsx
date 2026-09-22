@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Car, Fuel, Pencil, Plus, Power } from 'lucide-react'
+import { Car, Fuel, Pencil, Plus, Power, Wrench } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import Mantenimiento from '../components/tecnico/Mantenimiento'
 import {
   Aviso,
   Badge,
@@ -189,6 +190,17 @@ export default function VehiculosPage() {
             )}
           />
         )}
+      </Card>
+
+      {/* El mantenimiento va ANTES de las cargas: una carga de combustible es
+          algo que ya pasó, y esto es algo que hay que hacer. Lo pendiente
+          primero. */}
+      <Card
+        title="Mantenimiento"
+        subtitle="Qué le falta a cada vehículo, contando desde el odómetro de las jornadas"
+        icon={Wrench}
+      >
+        <Mantenimiento />
       </Card>
 
       <Card title="Últimas cargas" subtitle="Cada una comparada con la anterior del mismo vehículo">
