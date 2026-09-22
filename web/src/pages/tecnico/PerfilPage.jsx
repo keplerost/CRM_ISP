@@ -191,16 +191,23 @@ function ElegirMapa() {
                 : 'bg-slate-800 text-slate-300 active:bg-slate-700'
             }`}
           >
-            {o.label}
-            {app === o.clave && <span className="text-[11px]">elegido</span>}
+            <span className="min-w-0 text-left">
+              {o.label}
+              {o.nota && (
+                <span className="mt-0.5 block text-[11px] font-normal leading-snug text-slate-500">
+                  {o.nota}
+                </span>
+              )}
+            </span>
+            {app === o.clave && <span className="shrink-0 text-[11px]">elegido</span>}
           </button>
         ))}
       </div>
 
-      {app === 'sistema' && (
+      {esIOS && (
         <p className="mt-2 text-[11px] leading-snug text-slate-500">
-          El teléfono va a mostrar su propia lista con las aplicaciones de mapas que tengas
-          instaladas.
+          En iPhone solo se puede abrir con estas dos: el sistema no deja que una página web
+          ofrezca la lista completa de aplicaciones.
         </p>
       )}
     </section>

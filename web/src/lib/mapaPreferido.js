@@ -28,16 +28,40 @@ const CLAVE = 'mapa-preferido'
 /**
  * Las opciones.
  *
- * `sistema` no abre una aplicación concreta: usa el esquema `geo:`, que en
- * Android hace que el teléfono muestre su propio selector con las que tenga
- * instaladas. Es la opción correcta para quien usa varias — y la que NO
- * funciona en iPhone, que ignora `geo:`. Por eso no es la opción por defecto y
- * la pantalla lo aclara donde se elige.
+ * ── `sistema` es la que sirve para CUALQUIER aplicación ──
+ *
+ * No abre una app concreta: usa el esquema `geo:`, y Android le pregunta al
+ * teléfono cuáles tiene instaladas. Ahí entran maps.me, OsmAnd, Organic Maps,
+ * Petal Maps — todas, sin que el sistema tenga que conocerlas.
+ *
+ * Esa es la razón por la que NO se agregan una por una. Cada aplicación tiene
+ * su propio esquema de enlace, algunos sin documentar y varios que cambian
+ * entre versiones; mantener esa lista es una carrera que se pierde, y el día
+ * que un técnico instale la que no está, el sistema no tiene respuesta. `geo:`
+ * las cubre todas, incluidas las que todavía no existen.
+ *
+ * Lo único que no cubre es iPhone, que lo ignora. Por eso Google queda de
+ * fábrica y esta opción no se ofrece ahí.
+ *
+ * ── Y no pregunta para siempre ──
+ *
+ * En el selector de Android hay un botón "Siempre". Quien lo toca elige una
+ * sola vez, a nivel del teléfono, y no vuelve a ver la pregunta. Es lo mismo
+ * que elegir acá, pero alcanzando a las aplicaciones que esta lista no nombra.
  */
 export const APPS_MAPA = [
-  { clave: 'google', label: 'Google Maps' },
+  {
+    clave: 'google',
+    label: 'Google Maps',
+    nota: 'Abre igual aunque no la tengas instalada.',
+  },
   { clave: 'waze', label: 'Waze' },
-  { clave: 'sistema', label: 'Preguntar cada vez', soloAndroid: true },
+  {
+    clave: 'sistema',
+    label: 'La que yo elija en el teléfono',
+    nota: 'Te muestra todas las que tengas: maps.me, OsmAnd, la que uses. Si tocás «Siempre», deja de preguntar.',
+    soloAndroid: true,
+  },
 ]
 
 const VALIDAS = APPS_MAPA.map((a) => a.clave)
