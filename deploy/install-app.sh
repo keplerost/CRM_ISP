@@ -56,7 +56,20 @@ azul "0/6  Revisando el servidor"
 # y seguir a ciegas es justamente lo que se quiere evitar.
 command -v ss >/dev/null || { apt-get update -qq && apt-get install -y -qq iproute2 >/dev/null; }
 
-quien_escucha() { ss -tlnpH "sport = :$1" 2>/dev/null | grep -oP 'users:\(\("\K[^"]+' | sort -u | tr '\n' ' '; }
+# El `|| true` del final NO es adorno.
+#
+# Con `set -euo pipefail`, un `grep` que no encuentra nada devuelve 1, eso hace
+# fallar la tubería entera, y la asignación que la usa corta el script SIN
+# IMPRIMIR NADA. El síntoma es el peor posible: el instalador dice "Revisando el
+# servidor" y vuelve al prompt como si hubiera terminado bien.
+#
+# Y el caso en que no encuentra nada es justamente el bueno: un servidor limpio,
+# con el puerto libre. O sea que esta comprobación —escrita para que el
+# instalador fuera seguro en un servidor ocupado— rompía exactamente la
+# instalación que venía a proteger. Pasó en el primer servidor donde se corrió.
+quien_escucha() {
+    ss -tlnpH "sport = :$1" 2>/dev/null | grep -oP 'users:\(\("\K[^"]+' | sort -u | tr '\n' ' ' || true
+}
 
 NGINX_YA=no
 command -v nginx >/dev/null && NGINX_YA=si
@@ -86,7 +99,9 @@ done
 ok "puertos 80 y 443 disponibles"
 
 # El OpenVPN no lo toca este instalador, pero sí lo tocaría el firewall.
-PUERTOS_EN_USO="$(ss -tulnH 2>/dev/null | awk '{print $5}' | sed 's/.*://' | grep -E '^[0-9]+$' | sort -un | tr '\n' ' ')"
+# Mismo cuidado que arriba: si no hay nada que listar, que la variable quede
+# vacía en vez de matar el script.
+PUERTOS_EN_USO="$(ss -tulnH 2>/dev/null | awk '{print $5}' | sed 's/.*://' | grep -E '^[0-9]+$' | sort -un | tr '\n' ' ' || true)"
 if ss -tulnH 2>/dev/null | grep -q ':1194'; then
     aviso "Hay un OpenVPN escuchando en 1194. No se va a tocar."
 fi
