@@ -235,3 +235,53 @@ Node se da por defecto: el techo del heap sale de la RAM física y el swap NO lo
 mueve. Sin la variable que este script fija, en una máquina chica el build muere
 con `JavaScript heap out of memory` y cincuenta líneas de volcado de V8 que no
 dicen cuál es el problema.
+
+---
+
+## HTTPS
+
+### Si el dominio apunta directo al servidor
+
+```bash
+apt install -y certbot python3-certbot-nginx
+certbot --nginx -d crm.tudominio.com --redirect
+```
+
+### Si el dominio está en Cloudflare con la nube naranja
+
+Certbot no es el camino: Let's Encrypt valida conectándose al dominio, que
+resuelve a Cloudflare y no al servidor. Se usa un **certificado de origen**,
+que además dura 15 años en vez de 90 días.
+
+Se reconoce el caso enseguida: el dominio resuelve a IPs de Cloudflare
+(104.x, 172.67.x) y el sitio da **error 521** apenas se intenta HTTPS —
+Cloudflare está buscando un 443 en el origen que no existe.
+
+1. Panel de Cloudflare → **SSL/TLS** → **Origin Server** → **Create Certificate**
+2. Guardar los dos bloques en el servidor:
+   ```bash
+   mkdir -p /etc/ssl/cloudflare && chmod 700 /etc/ssl/cloudflare
+   nano /etc/ssl/cloudflare/origen.pem     # el certificado
+   nano /etc/ssl/cloudflare/origen.key     # la clave privada
+   chmod 600 /etc/ssl/cloudflare/origen.key
+   ```
+3. Instalar la configuración:
+   ```bash
+   cp deploy/nginx-cloudflare.conf /etc/nginx/sites-available/smartolt
+   sed -i 's/TU-DOMINIO/crm.tudominio.com/g' /etc/nginx/sites-available/smartolt
+   nginx -t && systemctl reload nginx
+   ```
+4. En Cloudflare, poner el modo SSL en **Full (strict)**.
+
+> **Copiá el archivo, no pegues su contenido en la consola web.** Las consolas
+> de los proveedores mezclan las líneas de los pegados largos, y el resultado
+> puede quedar sintácticamente válido pero incompleto — que es peor que un
+> error, porque `nginx -t` lo aprueba y el problema aparece después.
+
+Y después, apuntar el sistema al dominio:
+
+```bash
+sed -i "s|^CORS_ORIGIN=.*|CORS_ORIGIN=https://crm.tudominio.com|" /opt/smartolt/middleware/.env
+sed -i "s|^VITE_API_URL=.*|VITE_API_URL=https://crm.tudominio.com/api|" /opt/smartolt/web/.env
+/opt/smartolt/deploy/actualizar.sh
+```
