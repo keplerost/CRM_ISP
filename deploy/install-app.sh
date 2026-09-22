@@ -71,8 +71,20 @@ quien_escucha() {
     ss -tlnpH "sport = :$1" 2>/dev/null | grep -oP 'users:\(\("\K[^"]+' | sort -u | tr '\n' ' ' || true
 }
 
+# ¿Nginx estaba ANTES de que existiera este sistema en el servidor?
+#
+# No alcanza con `command -v nginx`: si una corrida anterior de este mismo
+# instalador falló después de instalarlo —se quedó sin memoria compilando, por
+# ejemplo— la siguiente lo encuentra ahí y lo trata como ajeno. Entonces no le
+# saca el sitio por defecto de Debian, quedan dos `server_name _` peleando, y
+# gana el de Debian: la IP muestra la página de bienvenida en vez del sistema.
+#
+# Pasó en la primera instalación real. La marca distingue los dos casos.
+MARCA_NGINX=/etc/nginx/.instalado-por-smartolt
 NGINX_YA=no
-command -v nginx >/dev/null && NGINX_YA=si
+if command -v nginx >/dev/null && [[ ! -f "$MARCA_NGINX" ]]; then
+    NGINX_YA=si
+fi
 
 for puerto in 80 443; do
     duenio="$(quien_escucha "$puerto")"
@@ -116,6 +128,11 @@ PAQUETES="curl ca-certificates gnupg nginx"
 [[ "$FIREWALL" == si ]] && PAQUETES="$PAQUETES ufw"
 # shellcheck disable=SC2086
 apt-get install -y -qq $PAQUETES >/dev/null
+# Queda constancia de que nginx lo puso este instalador, para que una corrida
+# futura sepa que el sitio por defecto es suyo y puede sacarlo.
+if [[ "$NGINX_YA" == no ]]; then
+    mkdir -p /etc/nginx && touch "$MARCA_NGINX"
+fi
 ok "nginx y utilidades"
 
 azul "2/6  Node.js 22"
@@ -213,7 +230,11 @@ ln -sf /etc/nginx/sites-available/smartolt /etc/nginx/sites-enabled/smartolt
 if [[ "$NGINX_YA" == no ]]; then
     rm -f /etc/nginx/sites-enabled/default
 elif [[ -e /etc/nginx/sites-enabled/default ]]; then
-    aviso "nginx ya estaba y tiene un sitio 'default'. No se tocó: revisalo a mano."
+    aviso "nginx ya estaba con un sitio 'default' y NO se tocó."
+    echo "         Los dos declaran server_name _, así que nginx ignora uno de los"
+    echo "         dos y probablemente gane el que ya estaba. Si esta máquina es"
+    echo "         solo para el sistema, sacalo:"
+    echo "             rm /etc/nginx/sites-enabled/default && systemctl reload nginx"
 fi
 
 nginx -t && systemctl reload nginx
