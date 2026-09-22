@@ -30,6 +30,7 @@ set -euo pipefail
 
 RAIZ=/opt/smartolt
 USUARIO=smartolt
+PUERTO_API=4000
 
 azul() { printf '\n\033[1;36m%s\033[0m\n' "$*"; }
 ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
@@ -131,6 +132,15 @@ else
 fi
 
 # El estado real, que es lo único que dice si esto quedó utilizable.
+#
+# Se consulta al middleware DIRECTO y no a través de nginx. Con HTTPS
+# configurado, `http://localhost` devuelve el 301 hacia el dominio, y seguirlo
+# no sirve: el certificado es del dominio y no de localhost. El resultado era
+# que este paso imprimía el HTML de una redirección en vez del estado.
+#
+# Preguntarle al servicio directamente además es más honesto: lo que interesa
+# acá es si el middleware arrancó y tiene su configuración, no si nginx sabe
+# redirigir.
 azul "Estado"
-curl -s --max-time 10 http://localhost/api/health || aviso "El health no respondió."
+curl -s --max-time 10 "http://127.0.0.1:${PUERTO_API}/api/health" || aviso "El health no respondió."
 echo
