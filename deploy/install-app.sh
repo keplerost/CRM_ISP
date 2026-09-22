@@ -132,6 +132,55 @@ fi
 ok "usuario $USUARIO"
 
 azul "4/6  Dependencias y compilación"
+# ── Memoria para compilar el frontend ────────────────────────────────────────
+#
+# Es lo que más memoria pide de todo el despliegue: el bundle principal son 2,6
+# MB y Vite necesita varias veces eso para armarlo.
+#
+# En un droplet de 1 GB muere con "JavaScript heap out of memory" a los 475 MB.
+# El mensaje asusta —cincuenta líneas de volcado de V8— pero la causa es simple:
+# Node fija su techo de heap en aproximadamente la mitad de la RAM FÍSICA.
+#
+# Por eso hacen falta LAS DOS COSAS:
+#
+#   · swap                   memoria de respaldo para el sistema
+#   · --max-old-space-size   sube el techo de V8, que el swap solo NO mueve
+#
+# Con swap y sin el flag, V8 sigue cortando en 475 MB sin tocar el swap. Con el
+# flag y sin swap, el sistema se queda sin memoria de verdad y mata el proceso.
+# Media solución no sirve de nada acá.
+
+RAM_MB=$(free -m | awk '/^Mem:/{print $2}')
+SWAP_MB=$(free -m | awk '/^Swap:/{print $2}')
+ok "memoria: ${RAM_MB} MB de RAM, ${SWAP_MB} MB de swap"
+
+if (( RAM_MB + SWAP_MB < 2600 )); then
+    if [[ -f /swapfile ]]; then
+        aviso "Ya hay /swapfile y la memoria sigue siendo justa."
+    else
+        aviso "Poca memoria para compilar: se crea un swap de 2 GB."
+        # `fallocate` falla en algunos sistemas de archivos; `dd` siempre anda.
+        fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+        chmod 600 /swapfile
+        mkswap /swapfile >/dev/null
+        swapon /swapfile
+        # Permanente: el swap no es solo para compilar. Con 1 GB de RAM, el
+        # middleware y nginx también agradecen el colchón — y si se perdiera al
+        # reiniciar habría que acordarse de rehacerlo antes de cada
+        # actualización, que es justo lo que nadie hace.
+        grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+        SWAP_MB=$(free -m | awk '/^Swap:/{print $2}')
+        ok "swap activo (${SWAP_MB} MB), y queda puesto al reiniciar"
+    fi
+fi
+
+# El techo de V8: dos tercios de lo disponible, con un piso de 1536 MB que es lo
+# que este bundle necesita para cerrar.
+TECHO=$(( (RAM_MB + SWAP_MB) * 2 / 3 ))
+(( TECHO < 1536 )) && TECHO=1536
+export NODE_OPTIONS="--max-old-space-size=$TECHO"
+ok "techo de memoria de Node: ${TECHO} MB"
+
 # Los .env se crean vacíos si no existen: el instalador no inventa credenciales.
 [[ -f "$RAIZ/middleware/.env" ]] || cp "$RAIZ/middleware/.env.example" "$RAIZ/middleware/.env"
 [[ -f "$RAIZ/web/.env" ]] || cp "$RAIZ/web/.env.example" "$RAIZ/web/.env"
