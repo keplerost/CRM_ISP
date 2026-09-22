@@ -7,6 +7,7 @@ import {
   BarChart3,
   Bell,
   Boxes,
+  Camera,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -28,7 +29,8 @@ import { nombreRol } from '../../lib/permisos'
 import { useTemaCampo } from '../../lib/temaCampo'
 import BotonTema from '../../components/ventas/BotonTema'
 import { enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
-import { HORA, faltaPara, tableroDelDia } from '../../lib/campo'
+import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
+import { supabase } from '../../lib/supabaseClient'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 
 /**
@@ -58,6 +60,20 @@ export default function InicioPage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
 
+  /**
+   * La jornada de hoy, aparte del tablero.
+   *
+   * No sale de `tableroDelDia` porque ese pasa por el caché de campo, pensado
+   * para datos que se pueden mostrar viejos un rato. Éste no: decirle "ya
+   * iniciaste" a alguien que todavía no inició —o al revés— es el único dato
+   * de esta pantalla que hace que alguien NO haga algo que tenía que hacer.
+   *
+   * Si la consulta falla no se muestra la tarjeta y listo: sin señal el
+   * técnico ya sabe que va a tener que marcar después, y un error rojo arriba
+   * de todo no le agrega nada.
+   */
+  const [jornadaHoy, setJornadaHoy] = useState(null)
+
   const recargar = useCallback(async () => {
     try {
       setD(await tableroDelDia(perfil))
@@ -66,6 +82,16 @@ export default function InicioPage() {
       setError(err)
     } finally {
       setCargando(false)
+    }
+
+    if (perfil?.tecnico_id) {
+      const { data } = await supabase
+        .from('v_jornadas')
+        .select('id, inicio_at, foto_ingreso')
+        .eq('tecnico_id', perfil.tecnico_id)
+        .eq('fecha', hoyISO())
+        .maybeSingle()
+      setJornadaHoy(data ?? null)
     }
   }, [perfil])
 
@@ -155,6 +181,13 @@ export default function InicioPage() {
           <IncidenciaCritica n={critica} cargando={cargando} />
         </div>
       </section>
+
+      {/* La jornada va ANTES que todo lo demás cuando falta algo.
+          Hasta ahora sólo se llegaba por Perfil → "Mi jornada y combustible",
+          que son tres toques y adentro de donde uno va a cambiar el tema — no
+          a empezar el día. Una acción diaria escondida en Ajustes es una
+          acción que no se hace. */}
+      <AvisoJornada j={jornadaHoy} />
 
       {/* ── Fila 2 · Novedades · Jornada · Próxima ── */}
       <section className="grid gap-3 lg:grid-cols-3">
@@ -891,4 +924,58 @@ function duracion(minutos) {
   const m = minutos % 60
   if (h < 48) return m ? `${h}h ${m}m` : `${h}h`
   return `${Math.floor(h / 24)}d ${h % 24}h`
+}
+
+/* ── Falta iniciar la jornada, o falta su foto ─────────────────────────────── */
+
+/**
+ * Solo aparece cuando hay algo que hacer.
+ *
+ * Con la jornada abierta y su foto subida no se dibuja nada: un cartel verde
+ * de "todo en orden" arriba de la pantalla se vuelve parte del fondo en dos
+ * días, y el día que diga otra cosa tampoco se va a leer.
+ */
+function AvisoJornada({ j }) {
+  if (j?.inicio_at && j?.foto_ingreso) return null
+
+  const sinIniciar = !j?.inicio_at
+  const texto = sinIniciar
+    ? {
+        titulo: 'Todavía no iniciaste tu jornada',
+        sub: 'Registrá el vehículo, el kilometraje y tu foto de ingreso.',
+        accion: 'Iniciar',
+      }
+    : {
+        titulo: 'Falta tu foto de ingreso',
+        sub: 'La jornada está abierta. Subí la foto cuando tengas señal.',
+        accion: 'Subir',
+      }
+
+  return (
+    <Link
+      to="/campo/jornada"
+      className={`campo-borde flex items-center gap-3 rounded-2xl border p-4 ${
+        sinIniciar ? 'bg-sky-500/[0.08]' : 'bg-amber-500/[0.08]'
+      }`}
+    >
+      <span
+        className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
+          sinIniciar ? 'bg-sky-500/15 text-sky-500' : 'bg-amber-500/15 text-amber-500'
+        }`}
+      >
+        {sinIniciar ? <PlayCircle size={22} /> : <Camera size={22} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="campo-txt block text-[14px] font-semibold">{texto.titulo}</span>
+        <span className="campo-suave mt-0.5 block text-[12px] leading-snug">{texto.sub}</span>
+      </span>
+      <span
+        className={`shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-white ${
+          sinIniciar ? 'bg-sky-600' : 'bg-amber-600'
+        }`}
+      >
+        {texto.accion}
+      </span>
+    </Link>
+  )
 }
