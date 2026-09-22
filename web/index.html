@@ -25,11 +25,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Campo" />
-    <!-- `black-translucent` deja que el fondo oscuro de la app suba hasta el
-         reloj. Con el valor por defecto queda una barra blanca arriba que en una
-         app oscura se ve como un error. -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#020617" />
+    <!-- `default` da barra de estado clara con texto oscuro, que es lo que
+         corresponde ahora que la app es clara. Ojo con volver a
+         `black-translucent`: ese valor deja que el fondo suba hasta el reloj y
+         pinta la hora en BLANCO, lo que sobre un fondo claro la borra. Tenía
+         sentido cuando la app era oscura. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#E4E9F0" />
   </head>
   <body>
     <div id="root"></div>
