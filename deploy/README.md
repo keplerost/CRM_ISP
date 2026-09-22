@@ -217,3 +217,21 @@ leen de ahí: no hay un segundo lugar donde acordarse de cambiarlo.
 > En un servidor instalado antes de que esto fuera configurable, el env no tiene
 > el prefijo. Los scripts asumen `/24`, que es lo que era entonces, así que
 > siguen funcionando sin reinstalar nada.
+
+---
+
+## Actualizar
+
+```bash
+/opt/smartolt/deploy/actualizar.sh
+```
+
+Trae los cambios, reinstala dependencias **solo si cambiaron**, compila y
+reinicia el middleware. Termina mostrando el `/api/health`, que es lo único que
+dice si quedó utilizable.
+
+**No uses `npm run build` suelto.** El frontend necesita más memoria de la que
+Node se da por defecto: el techo del heap sale de la RAM física y el swap NO lo
+mueve. Sin la variable que este script fija, en una máquina chica el build muere
+con `JavaScript heap out of memory` y cincuenta líneas de volcado de V8 que no
+dicen cuál es el problema.

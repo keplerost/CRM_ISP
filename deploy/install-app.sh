@@ -278,8 +278,11 @@ cat <<EOF
        VITE_DEMO_MODE=false
 
   3. Recompilar y reiniciar:
-       npm --prefix $RAIZ/web run build
-       systemctl restart smartolt-middleware
+       $RAIZ/deploy/actualizar.sh
+
+     (Y de ahí en adelante, ese mismo script para cada actualización. NO uses
+      \`npm run build\` suelto: sin el techo de memoria que fija el script, en
+      una máquina chica muere con "heap out of memory".)
 
   4. HTTPS (recomendado):
        apt install -y certbot python3-certbot-nginx
