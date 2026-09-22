@@ -153,3 +153,36 @@ systemctl restart smartolt-middleware
 Estos scripts están escritos para Debian 12 pero **no fueron probados contra un
 VPS real**. Revisalos antes de correrlos en producción; cada uno hace lo que dice
 su encabezado y son cortos a propósito para que se puedan leer enteros.
+
+
+---
+
+## Las redes detrás de cada MikroTik
+
+`agregar-cliente-vpn.sh` le da al router su IP fija del túnel, y con eso el VPS
+ya le habla. **Eso no alcanza para la OLT**: la OLT está en la LAN de ese
+router, y el VPS no sabe que esa red existe.
+
+```
+  VPS ──túnel──► MikroTik 10.8.0.11
+                   └── LAN 10.11.105.0/24 ──► OLT 10.11.105.2
+                        ▲
+                        └─ para llegar acá hace falta este paso
+```
+
+Se publica así:
+
+```bash
+./agregar-red-cliente.sh laMana2 10.11.105.0/24
+```
+
+El script escribe las dos directivas que hacen falta —`route` en la
+configuración del servidor y `iroute` en el archivo del cliente— y reinicia
+OpenVPN. Con una sola de las dos no funciona, y el síntoma es idéntico al de no
+haber hecho nada: no hay respuesta.
+
+Del lado del MikroTik, si tenés filtro en `forward`, dejá pasar lo que llega
+por la interfaz de la VPN.
+
+Sin argumentos, el script lista los clientes dados de alta y las redes ya
+publicadas.
