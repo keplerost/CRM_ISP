@@ -207,6 +207,23 @@ npm --prefix "$RAIZ/web" install --no-audit --no-fund
 npm --prefix "$RAIZ/web" run build
 chown -R "$USUARIO:$USUARIO" "$RAIZ"
 chmod 600 "$RAIZ/middleware/.env"
+
+# ── Git y el `chown` ─────────────────────────────────────────────────────────
+#
+# El instalador hace `chown -R smartolt:smartolt` sobre todo el proyecto, y las
+# actualizaciones se corren como root. Git ve un repositorio de otro dueño y se
+# niega:
+#
+#     fatal: detected dubious ownership in repository at '/opt/smartolt'
+#
+# La protección es correcta —evita que un repositorio ajeno ejecute hooks como
+# root— pero acá los dos dueños somos nosotros. Se declara la excepción una vez.
+# Es idempotente: `--add` sobre un valor que ya está no lo duplica si se usa
+# `git config --get` antes.
+if ! git config --global --get-all safe.directory 2>/dev/null | grep -qx "$RAIZ"; then
+    git config --global --add safe.directory "$RAIZ"
+fi
+
 ok "dependencias instaladas y frontend compilado"
 
 azul "5/6  Servicio systemd"
