@@ -29,6 +29,7 @@ import { nombreRol } from '../../lib/permisos'
 import { useTemaCampo } from '../../lib/temaCampo'
 import BotonTema from '../../components/ventas/BotonTema'
 import { enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
+import { mapaPreferido } from '../../lib/mapaPreferido'
 import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
 import { supabase } from '../../lib/supabaseClient'
 import { largoDeRuta } from '../../lib/ruta.js'
@@ -546,7 +547,7 @@ function Proxima({ o, cargando }) {
         <Boton href={o.telefono ? `tel:${o.telefono}` : null} icono={Phone}>
           Llamar
         </Boton>
-        <Boton href={enlaceMapa(o)} icono={MapPin} externo>
+        <Boton href={enlaceMapa(o, mapaPreferido())} icono={MapPin} externo>
           Ubicación
         </Boton>
         <Link

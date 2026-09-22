@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock, MapPin, Navigation } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { enlaceMapa } from '../../lib/soporte'
+import { mapaPreferido } from '../../lib/mapaPreferido'
 import { ESTADOS } from '../../lib/instalaciones'
 import { HORA, faltaPara, hoyISO } from '../../lib/campo'
 import { conCache } from '../../lib/cacheLocal'
@@ -175,11 +176,11 @@ function Tarjeta({ o }) {
 
       <div className="mt-2.5 flex gap-2">
         <a
-          href={enlaceMapa(o) ?? undefined}
+          href={enlaceMapa(o, mapaPreferido()) ?? undefined}
           target="_blank"
           rel="noreferrer"
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-700 py-2 text-[12px] text-slate-300 active:bg-slate-800 ${
-            enlaceMapa(o) ? '' : 'pointer-events-none opacity-30'
+            enlaceMapa(o, mapaPreferido()) ? '' : 'pointer-events-none opacity-30'
           }`}
         >
           <Navigation size={13} /> Llegar

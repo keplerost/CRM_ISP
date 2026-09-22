@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, MapPin, Navigation, Ticket } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { ESTADOS, PRIORIDADES, enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
+import { mapaPreferido } from '../../lib/mapaPreferido'
 import { conCache } from '../../lib/cacheLocal'
 import { usePermisos } from '../../lib/AuthContext'
 
@@ -257,11 +258,11 @@ function Tarjeta({ t }) {
 
       <div className="mt-2.5 flex gap-2">
         <a
-          href={enlaceMapa(t) ?? undefined}
+          href={enlaceMapa(t, mapaPreferido()) ?? undefined}
           target="_blank"
           rel="noreferrer"
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-700 py-2 text-[12px] text-slate-300 active:bg-slate-800 ${
-            enlaceMapa(t) ? '' : 'pointer-events-none opacity-30'
+            enlaceMapa(t, mapaPreferido()) ? '' : 'pointer-events-none opacity-30'
           }`}
         >
           <Navigation size={13} /> Llegar

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Gauge, LogOut, Monitor, Phone, Route, Shield, User, Wrench } from 'lucide-react'
+import { Gauge, LogOut, Map, Monitor, Phone, Route, Shield, User, Wrench } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth, usePermisos } from '../../lib/AuthContext'
 import { nombreRol } from '../../lib/permisos'
+import { APPS_MAPA, useMapaPreferido } from '../../lib/mapaPreferido'
 import { OPTICA, RADIO } from '../../lib/instalaciones'
 import EstadoSinConexion from '../../components/tecnico/EstadoSinConexion'
 
@@ -86,6 +87,8 @@ export default function PerfilPage() {
         </p>
       </section>
 
+      <ElegirMapa />
+
       <section className="t-card p-2">
         <Link
           to="/campo/jornada"
@@ -142,3 +145,64 @@ const Umbral = ({ titulo, texto }) => (
     <p className="text-[11px] text-slate-500">{texto}</p>
   </div>
 )
+
+/**
+ * Con qué aplicación abre las direcciones.
+ *
+ * Va en Perfil y no al lado de cada botón "Llegar" porque se elige una vez y
+ * después se olvida: agregarle un menú a la acción más repetida del día son
+ * cuarenta toques por semana para elegir siempre lo mismo.
+ */
+function ElegirMapa() {
+  const { app, setApp } = useMapaPreferido()
+
+  /**
+   * `geo:` lo ignora iOS.
+   *
+   * En iPhone, "Preguntar cada vez" no abre nada — y un botón que no hace nada
+   * es peor que no tener la opción. Se detecta por el navegador, que para esto
+   * alcanza: lo que se decide no es una función crítica, es si mostrar una
+   * tercera opción.
+   */
+  const esIOS =
+    typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
+
+  const opciones = APPS_MAPA.filter((a) => !(a.soloAndroid && esIOS))
+
+  return (
+    <section className="t-card p-4">
+      <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <Map size={12} /> Abrir direcciones con
+      </p>
+      <p className="mb-3 text-[11px] leading-snug text-slate-500">
+        Vale para este teléfono. El botón "Llegar" de todas las pantallas lo respeta.
+      </p>
+
+      <div className="grid gap-2">
+        {opciones.map((o) => (
+          <button
+            key={o.clave}
+            type="button"
+            onClick={() => setApp(o.clave)}
+            aria-pressed={app === o.clave}
+            className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-[14px] transition ${
+              app === o.clave
+                ? 'bg-[#F0F9FF] font-semibold text-sky-400'
+                : 'bg-slate-800 text-slate-300 active:bg-slate-700'
+            }`}
+          >
+            {o.label}
+            {app === o.clave && <span className="text-[11px]">elegido</span>}
+          </button>
+        ))}
+      </div>
+
+      {app === 'sistema' && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-500">
+          El teléfono va a mostrar su propia lista con las aplicaciones de mapas que tengas
+          instaladas.
+        </p>
+      )}
+    </section>
+  )
+}

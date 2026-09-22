@@ -137,6 +137,18 @@ export function enlaceMapa(ticket, app = 'google') {
   const { latitud, longitud, direccion, sector, canton } = ticket ?? {}
 
   if (latitud && longitud) {
+    /**
+     * `geo:` deja que el teléfono elija.
+     *
+     * En Android abre el selector del sistema con las aplicaciones de mapas
+     * instaladas, que es lo que pidió quien usa dos. iOS lo ignora — por eso
+     * esta opción no es la de fábrica y la pantalla donde se elige lo aclara.
+     *
+     * El `?q=` repetido no es un error: sin él, varias aplicaciones abren el
+     * mapa centrado en el punto pero sin marcador ni destino cargado.
+     */
+    if (app === 'sistema') return `geo:${latitud},${longitud}?q=${latitud},${longitud}`
+
     return app === 'waze'
       ? `https://waze.com/ul?ll=${latitud},${longitud}&navigate=yes`
       : `https://www.google.com/maps/dir/?api=1&destination=${latitud},${longitud}`
@@ -145,6 +157,8 @@ export function enlaceMapa(ticket, app = 'google') {
   const texto = [direccion, sector, canton].filter(Boolean).join(', ')
   if (!texto) return null
 
+  // Sin coordenadas solo queda buscar por texto, y `geo:` no sabe hacerlo:
+  // ahí cae a Google, que es el que resuelve una dirección escrita.
   return app === 'waze'
     ? `https://waze.com/ul?q=${encodeURIComponent(texto)}`
     : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(texto)}`

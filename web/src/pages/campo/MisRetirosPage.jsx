@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { enlaceMapa } from '../../lib/soporte'
+import { mapaPreferido } from '../../lib/mapaPreferido'
 import {
   ArrowLeft,
   CalendarClock,
@@ -249,11 +251,13 @@ function Contacto({ o, onError }) {
   )
 }
 
-/** Abre el mapa en la dirección o en las coordenadas, si las hay. */
-const enlaceMapa = (o) =>
-  o.latitud && o.longitud
-    ? `https://www.google.com/maps/search/?api=1&query=${o.latitud},${o.longitud}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.direccion ?? '')}`
+/**
+ * Esta pantalla tenía su propia copia de `enlaceMapa`, con Google fijo adentro.
+ *
+ * Se borró y ahora usa la compartida. Mientras existían las dos, elegir Waze en
+ * Perfil iba a cambiar todos los botones del sistema menos éste — y el técnico
+ * no tiene forma de saber por qué uno se comporta distinto.
+ */
 
 function Orden({ o, onAgendar, onVisitar, onCerrar, onError }) {
   const cita = fechaHora(o.agendado_para)
@@ -293,7 +297,7 @@ function Orden({ o, onAgendar, onVisitar, onCerrar, onError }) {
         <div className="grid gap-1 text-xs text-slate-400">
           {o.direccion && (
             <a
-              href={enlaceMapa(o)}
+              href={enlaceMapa(o, mapaPreferido())}
               target="_blank"
               rel="noreferrer"
               className="flex items-start gap-1.5 hover:text-slate-200"
