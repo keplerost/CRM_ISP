@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAlert } from 'lucide-react'
+import { Camera, Check, Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAlert } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { hoyISO } from '../../lib/campo'
+import { subirFotoIngreso } from '../../lib/jornadaFoto'
 import { Button, Field, Input, Select } from '../../components/ui'
 
 /**
@@ -35,6 +36,17 @@ export default function JornadaPage() {
 
   const [form, setForm] = useState({ vehiculo_id: '', km_inicio: '', km_fin: '' })
   const [carga, setCarga] = useState(null)
+
+  /**
+   * La foto de ingreso.
+   *
+   * `foto` es lo que se sacó y todavía no subió; `subiendo` corta el doble
+   * toque; `avisoFoto` es lo que se le dice al técnico cuando la subida
+   * falla — que NO es un error de la jornada, porque la jornada ya se abrió.
+   */
+  const [foto, setFoto] = useState(null)
+  const [subiendo, setSubiendo] = useState(false)
+  const [avisoFoto, setAvisoFoto] = useState(null)
 
   const recargar = useCallback(async () => {
     if (!perfil?.tecnico_id) {
@@ -96,11 +108,49 @@ export default function JornadaPage() {
         { onConflict: 'tecnico_id,fecha' },
       )
       if (err) throw err
+
+      /**
+       * La foto va DESPUÉS de que la jornada existe, y su fallo no la voltea.
+       *
+       * Necesita el id de la fila para saber en qué carpeta guardarse, así que
+       * no puede ir antes. Y si no sube —sin señal, que es la mitad de los
+       * días— la jornada igual quedó abierta: el técnico tiene que poder
+       * empezar a trabajar, y la foto se reintenta desde acá mismo cuando
+       * agarre cobertura.
+       */
+      const { data: nueva } = await supabase
+        .from('jornadas')
+        .select('id')
+        .eq('tecnico_id', perfil.tecnico_id)
+        .eq('fecha', hoyISO())
+        .maybeSingle()
+
+      if (foto && nueva?.id) {
+        const r = await subirFotoIngreso(nueva.id, foto)
+        if (r.ok) setFoto(null)
+        else setAvisoFoto('La jornada quedó abierta, pero la foto no subió. Probá de nuevo cuando tengas señal.')
+      }
+
       await recargar()
     } catch (err) {
       setError(err)
     } finally {
       setGuardando(false)
+    }
+  }
+
+  /** Reintentar la foto, o sacarla de nuevo si salió movida. */
+  async function guardarFoto() {
+    if (!foto || !jornada?.id) return
+    setSubiendo(true)
+    setAvisoFoto(null)
+    const r = await subirFotoIngreso(jornada.id, foto)
+    setSubiendo(false)
+    if (r.ok) {
+      setFoto(null)
+      await recargar()
+    } else {
+      setAvisoFoto('No se pudo subir. Si no tenés señal, vas a poder más tarde.')
     }
   }
 
@@ -220,6 +270,8 @@ export default function JornadaPage() {
                 placeholder="Ej: 84520"
               />
             </Field>
+            <FotoIngreso foto={foto} onFoto={setFoto} />
+
             <Button
               variante="primario"
               icon={PlayCircle}
@@ -248,6 +300,33 @@ export default function JornadaPage() {
                 minute: '2-digit',
               })}
             </p>
+
+            {/* La foto, ya con la jornada abierta: dice si está o no, y deja
+                reintentar. Aparece también con la jornada cerrada — quien
+                trabajó todo el día sin señal la sube al volver. */}
+            {jornada.foto_ingreso ? (
+              <p className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-emerald-400">
+                <Check size={13} /> Foto de ingreso subida
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <FotoIngreso foto={foto} onFoto={setFoto} />
+                {foto && (
+                  <Button
+                    icon={Camera}
+                    className="w-full"
+                    onClick={guardarFoto}
+                    cargando={subiendo}
+                  >
+                    Subir la foto
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {avisoFoto && (
+              <p className="text-center text-[11px] leading-snug text-amber-400">{avisoFoto}</p>
+            )}
 
             {jornada.km_fin == null ? (
               <>
@@ -432,5 +511,56 @@ function CargaCombustible({ jornada, tecnicoId, inicial, onCerrar, onError, onGu
         </div>
       </div>
     </section>
+  )
+}
+
+/**
+ * Sacar la foto de ingreso.
+ *
+ * `capture="user"` abre la cámara FRONTAL: la foto es de quien está marcando,
+ * y con la trasera la sacaría apuntando a otro lado. Es lo contrario de las
+ * fotos del expediente, que son de un documento y usan la de atrás.
+ *
+ * La vista previa se arma con `URL.createObjectURL` y se libera al cambiar: sin
+ * eso, un técnico que saca cinco fotos hasta que sale bien deja cinco imágenes
+ * retenidas en memoria.
+ */
+function FotoIngreso({ foto, onFoto }) {
+  const [previa, setPrevia] = useState(null)
+
+  useEffect(() => {
+    if (!foto) return setPrevia(null)
+    const url = URL.createObjectURL(foto)
+    setPrevia(url)
+    return () => URL.revokeObjectURL(url)
+  }, [foto])
+
+  return (
+    <div>
+      <span className="mb-1 block text-xs font-semibold text-slate-400">Foto de ingreso</span>
+
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-700 p-3 transition active:bg-slate-800">
+        {previa ? (
+          <img src={previa} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-slate-800">
+            <Camera size={20} className="text-slate-500" />
+          </span>
+        )}
+        <span className="min-w-0 text-[13px] leading-snug text-slate-300">
+          {previa ? 'Tocá para sacarla de nuevo' : 'Tocá para sacar la foto'}
+          <span className="mt-0.5 block text-[11px] text-slate-500">
+            Queda con la hora de inicio. Si no tenés señal ahora, la subís después.
+          </span>
+        </span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="user"
+          className="hidden"
+          onChange={(e) => onFoto(e.target.files?.[0] ?? null)}
+        />
+      </label>
+    </div>
   )
 }

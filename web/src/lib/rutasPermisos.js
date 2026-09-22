@@ -167,6 +167,9 @@ const RUTAS = [
   // lleva `security_invoker`, así que le devuelve solo sus propias filas. Esto
   // es para que el menú no ofrezca lo que no le corresponde.
   ['/soporte/desempeno', 'instalaciones.ver'],
+  // Los ingresos del día piden lo mismo que el desempeño: las dos son la
+  // pantalla de quien dirige el equipo, no la del técnico sobre lo suyo.
+  ['/soporte/jornadas', 'instalaciones.ver'],
   // Los vehículos los administra quien maneja el campo. El técnico los ve desde
   // su jornada, para elegir con cuál sale, pero no los da de alta.
   ['/soporte/vehiculos', 'instalaciones.ver'],

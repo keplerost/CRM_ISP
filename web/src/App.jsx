@@ -57,6 +57,7 @@ import SoportePage from './pages/SoportePage'
 import TicketPage from './pages/TicketPage'
 import TecnicosPage from './pages/TecnicosPage'
 import DesempenoEquipoPage from './pages/DesempenoEquipoPage'
+import JornadasPage from './pages/soporte/JornadasPage'
 import VehiculosPage from './pages/VehiculosPage'
 import RedesIpv4Page from './pages/red/RedesIpv4Page'
 import AuditoriaPage from './pages/red/AuditoriaPage'
@@ -303,6 +304,9 @@ export default function App() {
         <Route path="soporte" element={<SoportePage />} />
         <Route path="soporte/tecnicos" element={<TecnicosPage />} />
         <Route path="soporte/desempeno" element={<DesempenoEquipoPage />} />
+        {/* Antes de "soporte/:id": si no, el comodín se lo come y busca un
+            ticket con el id "jornadas". */}
+        <Route path="soporte/jornadas" element={<JornadasPage />} />
         <Route path="soporte/vehiculos" element={<VehiculosPage />} />
         <Route path="soporte/:id" element={<TicketPage />} />
         {/* Finanzas es solo un grupo del menú: entra por su primera página. */}
