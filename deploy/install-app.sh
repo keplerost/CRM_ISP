@@ -4,7 +4,23 @@
 # servicio de systemd y el frontend compilado como archivos estáticos.
 #
 # Correr como root, desde /opt/smartolt/deploy:
-#   ./install-app.sh
+#   ./install-app.sh                  instala sin tocar el firewall
+#   ./install-app.sh --firewall       además configura ufw (leer abajo)
+#
+# ── Por qué el firewall es opcional y antes no lo era ──
+#
+# La versión anterior terminaba con `ufw --force enable` permitiendo solo SSH y
+# HTTP/HTTPS. En un servidor vacío eso está bien. En uno que ya trabaja, levanta
+# un firewall que bloquea TODO lo demás — y "todo lo demás" puede ser el
+# OpenVPN por el que entran los routers sin IP pública.
+#
+# Ese caso no es hipotético: se probó contra un VPS con MikroWISP y OpenVPN en
+# el 1194, y esta línea habría cortado todos los túneles a la vez. Los routers
+# sin IP pública solo se alcanzan POR ese túnel, así que recuperarlos habría
+# sido ir físicamente a cada uno.
+#
+# Ahora el firewall no se toca salvo que se pida, y cuando se pide se permiten
+# primero todos los puertos que ya estaban escuchando.
 #
 set -euo pipefail
 
@@ -12,16 +28,79 @@ RAIZ=/opt/smartolt
 USUARIO=smartolt
 PUERTO_API=4000
 
+FIREWALL=no
+for arg in "$@"; do
+    case "$arg" in
+        --firewall) FIREWALL=si ;;
+        *) echo "Opción desconocida: $arg"; exit 1 ;;
+    esac
+done
+
 azul() { printf '\n\033[1;36m%s\033[0m\n' "$*"; }
 ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 aviso() { printf '  \033[33m!\033[0m %s\n' "$*"; }
+error() { printf '\n\033[1;31m%s\033[0m\n' "$*"; }
 
 [[ $EUID -eq 0 ]] || { echo "Correr como root"; exit 1; }
 [[ -d "$RAIZ/middleware" ]] || { echo "No encuentro $RAIZ/middleware. ¿Copiaste el proyecto a $RAIZ?"; exit 1; }
 
+# ── 0. Mirar antes de tocar ──────────────────────────────────────────────────
+#
+# Todo lo que pueda hacer daño se comprueba ACÁ, antes de instalar el primer
+# paquete. Un instalador que falla a la mitad deja un servidor peor que como lo
+# encontró, y en uno que está trabajando eso es una salida de servicio.
+
+azul "0/6  Revisando el servidor"
+
+# `ss` puede no estar en una imagen mínima; sin él no se puede comprobar nada,
+# y seguir a ciegas es justamente lo que se quiere evitar.
+command -v ss >/dev/null || { apt-get update -qq && apt-get install -y -qq iproute2 >/dev/null; }
+
+quien_escucha() { ss -tlnpH "sport = :$1" 2>/dev/null | grep -oP 'users:\(\("\K[^"]+' | sort -u | tr '\n' ' '; }
+
+NGINX_YA=no
+command -v nginx >/dev/null && NGINX_YA=si
+
+for puerto in 80 443; do
+    duenio="$(quien_escucha "$puerto")"
+    if [[ -n "$duenio" && "$duenio" != *nginx* ]]; then
+        error "El puerto $puerto ya lo está usando: $duenio"
+        cat <<EOF
+
+  Este instalador pone nginx en 80 y 443, y ahí ya hay otro servicio.
+  Instalarlo igual no lo reemplaza: nginx no podría arrancar, y este
+  servidor quedaría a medio configurar.
+
+  Opciones:
+    · Instalar el sistema en OTRO servidor (lo más simple y lo recomendado
+      para una primera puesta en marcha).
+    · Convivir: dejar el servicio que ya está en 80/443 y publicar este por
+      un subdominio, con el servidor web que ya existe haciendo de proxy
+      hacia el middleware en 127.0.0.1:$PUERTO_API. Eso es configuración a
+      mano y no la hace este script.
+
+EOF
+        exit 1
+    fi
+done
+ok "puertos 80 y 443 disponibles"
+
+# El OpenVPN no lo toca este instalador, pero sí lo tocaría el firewall.
+PUERTOS_EN_USO="$(ss -tulnH 2>/dev/null | awk '{print $5}' | sed 's/.*://' | grep -E '^[0-9]+$' | sort -un | tr '\n' ' ')"
+if ss -tulnH 2>/dev/null | grep -q ':1194'; then
+    aviso "Hay un OpenVPN escuchando en 1194. No se va a tocar."
+fi
+
+# ── 1. Paquetes ──────────────────────────────────────────────────────────────
+
 azul "1/6  Paquetes base"
 apt-get update -qq
-apt-get install -y -qq curl ca-certificates gnupg nginx ufw >/dev/null
+# `ufw` solo si se va a usar: instalarlo "por las dudas" deja en el servidor una
+# herramienta que el próximo que pase puede habilitar sin saber lo de arriba.
+PAQUETES="curl ca-certificates gnupg nginx"
+[[ "$FIREWALL" == si ]] && PAQUETES="$PAQUETES ufw"
+# shellcheck disable=SC2086
+apt-get install -y -qq $PAQUETES >/dev/null
 ok "nginx y utilidades"
 
 azul "2/6  Node.js 22"
@@ -55,18 +134,51 @@ systemctl daemon-reload
 systemctl enable --now smartolt-middleware >/dev/null
 ok "smartolt-middleware habilitado"
 
-azul "6/6  nginx y firewall"
+# ── 6. nginx ─────────────────────────────────────────────────────────────────
+
+azul "6/6  nginx"
 install -m 644 "$RAIZ/deploy/nginx-smartolt.conf" /etc/nginx/sites-available/smartolt
 ln -sf /etc/nginx/sites-available/smartolt /etc/nginx/sites-enabled/smartolt
-rm -f /etc/nginx/sites-enabled/default
+
+# El sitio por defecto se saca SOLO si nginx lo instalamos nosotros recién.
+#
+# Si nginx ya estaba, ese archivo puede ser el que sirve otra cosa en este
+# servidor, y borrarlo la apaga. Cuando ya estaba, se avisa y se deja: dos
+# `server_name _` conviven —gana el primero que nginx cargue— y eso es un
+# problema de configuración, no una salida de servicio.
+if [[ "$NGINX_YA" == no ]]; then
+    rm -f /etc/nginx/sites-enabled/default
+elif [[ -e /etc/nginx/sites-enabled/default ]]; then
+    aviso "nginx ya estaba y tiene un sitio 'default'. No se tocó: revisalo a mano."
+fi
+
 nginx -t && systemctl reload nginx
 ok "nginx configurado"
 
-ufw allow OpenSSH >/dev/null
-ufw allow 'Nginx Full' >/dev/null
-# El middleware NO se expone: solo se llega por nginx en /api.
-ufw --force enable >/dev/null
-ok "firewall activo (SSH y HTTP/HTTPS)"
+# ── 7. Firewall, solo si se pidió ────────────────────────────────────────────
+
+if [[ "$FIREWALL" == si ]]; then
+    azul "Firewall"
+    aviso "Se van a permitir los puertos que YA estaban escuchando, además de SSH y HTTP/HTTPS."
+    echo "         En uso ahora: $PUERTOS_EN_USO"
+    echo
+
+    ufw allow OpenSSH >/dev/null
+    ufw allow 'Nginx Full' >/dev/null
+
+    # Lo que ya estaba andando se permite antes de encender nada. Encender un
+    # "denegar por defecto" sin esto es cortar la rama sobre la que se está
+    # sentado: el propio SSH, el OpenVPN, el correo, lo que hubiera.
+    for p in $PUERTOS_EN_USO; do
+        ufw allow "$p" >/dev/null 2>&1 || true
+    done
+
+    ufw --force enable >/dev/null
+    ok "firewall activo, conservando lo que ya escuchaba"
+else
+    aviso "El firewall NO se tocó. Si este servidor es solo para el sistema, corré:"
+    echo "         ./install-app.sh --firewall"
+fi
 
 azul "Listo. Falta completar las credenciales:"
 cat <<EOF
@@ -88,7 +200,7 @@ cat <<EOF
        apt install -y certbot python3-certbot-nginx
        certbot --nginx -d TU-DOMINIO
 
-  5. El concentrador VPN:
+  5. El concentrador VPN, solo si tenés routers sin IP pública:
        ./openvpn-server.sh
 
 EOF
