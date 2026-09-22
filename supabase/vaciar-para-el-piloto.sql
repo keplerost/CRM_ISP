@@ -149,6 +149,10 @@ TRUNCATE
   documentos,
   document_items,
   electronic_documents,
+  -- Los secuenciales que se liberan al anular un documento. Apunta a
+  -- `electronic_documents`, así que TIENE que vaciarse junto con él: es el
+  -- pozo de números de documentos que ya no existen.
+  sri_secuenciales_libres,
   retencion_items,
   reconexiones_pendientes,
 
@@ -232,6 +236,73 @@ TRUNCATE
 RESTART IDENTITY;
 
 COMMIT;
+
+
+-- =============================================================================
+-- SI LA SECCIÓN 2 FALLA — qué falta
+-- =============================================================================
+-- El error dice UNA tabla por vez. Esta consulta las lista TODAS de una:
+-- devuelve cada tabla que quedaría fuera del TRUNCATE pero apunta a alguna que
+-- sí está adentro. Si devuelve filas, esas tablas hay que agregarlas a la lista
+-- (si son operación) o hay que sacar del TRUNCATE lo que apuntan (si no).
+--
+-- Pegá la lista de tablas de la sección 2 en el VALUES de abajo si la cambiaste.
+
+SELECT DISTINCT
+       hijo.relname  AS tabla_que_falta,
+       padre.relname AS apunta_a
+  FROM pg_constraint c
+  JOIN pg_class  hijo  ON hijo.oid  = c.conrelid
+  JOIN pg_class  padre ON padre.oid = c.confrelid
+  JOIN pg_namespace n  ON n.oid     = hijo.relnamespace
+ WHERE c.contype = 'f'
+   AND n.nspname = 'public'
+   AND padre.relname <> hijo.relname
+   AND padre.relname IN (
+       SELECT unnest(string_to_array(
+         'clientes,equipos_cliente,contratos,firmas_contrato,solicitudes_validacion,'
+         'reactivaciones,traslados,reemplazos_equipo,retiros_equipo,retiro_intentos,'
+         'facturas,pagos,pagos_reportados,promesas_pago,cobranza_asignaciones,'
+         'cobranza_gestiones,documentos,document_items,electronic_documents,'
+         'sri_secuenciales_libres,retencion_items,reconexiones_pendientes,tickets,'
+         'ticket_eventos,ticket_adjuntos,instalaciones,instalacion_fotos,'
+         'incidencias_masivas,incidencia_avisos,prospectos,prospecto_actividades,'
+         'expedientes,expediente_documentos,cotizaciones,verificaciones_cobertura,'
+         'mensajes_comerciales,metas_venta,comision_ventas,comision_periodos,'
+         'comision_cohortes,comunicaciones,avisos_pendientes,notificaciones,'
+         'alerta_eventos,alerta_envios,ventanas_whatsapp,portal_codigos,'
+         'portal_sesiones,portal_solicitudes,equipos,existencias,'
+         'movimientos_inventario,entregas_inventario,entrega_items,compras,'
+         'compra_items,jornadas,mantenimientos,cargas_combustible,onus,'
+         'onu_optica_historial,onts_esperando,onts_preautorizadas,'
+         'autorizacion_presets,puertos_pon,vlans_olt,line_profiles,olts,'
+         'olt_historial,olt_backups,olt_escaneos,routers_mikrotik,plan_routers,'
+         'firewall_bloqueos,ip_addresses,subredes,puntos_red,nodos_red,'
+         'nodo_eventos,comandos_ejecutados,sesiones_conexion,consumo_contadores,'
+         'consumo_diario', ',')))
+   AND hijo.relname NOT IN (
+       SELECT unnest(string_to_array(
+         'clientes,equipos_cliente,contratos,firmas_contrato,solicitudes_validacion,'
+         'reactivaciones,traslados,reemplazos_equipo,retiros_equipo,retiro_intentos,'
+         'facturas,pagos,pagos_reportados,promesas_pago,cobranza_asignaciones,'
+         'cobranza_gestiones,documentos,document_items,electronic_documents,'
+         'sri_secuenciales_libres,retencion_items,reconexiones_pendientes,tickets,'
+         'ticket_eventos,ticket_adjuntos,instalaciones,instalacion_fotos,'
+         'incidencias_masivas,incidencia_avisos,prospectos,prospecto_actividades,'
+         'expedientes,expediente_documentos,cotizaciones,verificaciones_cobertura,'
+         'mensajes_comerciales,metas_venta,comision_ventas,comision_periodos,'
+         'comision_cohortes,comunicaciones,avisos_pendientes,notificaciones,'
+         'alerta_eventos,alerta_envios,ventanas_whatsapp,portal_codigos,'
+         'portal_sesiones,portal_solicitudes,equipos,existencias,'
+         'movimientos_inventario,entregas_inventario,entrega_items,compras,'
+         'compra_items,jornadas,mantenimientos,cargas_combustible,onus,'
+         'onu_optica_historial,onts_esperando,onts_preautorizadas,'
+         'autorizacion_presets,puertos_pon,vlans_olt,line_profiles,olts,'
+         'olt_historial,olt_backups,olt_escaneos,routers_mikrotik,plan_routers,'
+         'firewall_bloqueos,ip_addresses,subredes,puntos_red,nodos_red,'
+         'nodo_eventos,comandos_ejecutados,sesiones_conexion,consumo_contadores,'
+         'consumo_diario', ',')))
+ ORDER BY 1;
 
 
 -- =============================================================================
