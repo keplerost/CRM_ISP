@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import FranjaAmbiente from './components/layout/FranjaAmbiente'
 import Layout from './components/layout/Layout'
@@ -5,96 +6,115 @@ import ProtectedRoute from './components/layout/ProtectedRoute'
 import ConPermiso from './components/layout/ConPermiso'
 import Login from './pages/Login'
 import PantallaInicial from './components/layout/PantallaInicial'
-import OLTPage from './pages/OLTPage'
-import OltDetallePage from './pages/OltDetallePage'
-import Tr069Page from './pages/Tr069Page'
-import TiposOnuPage from './pages/olt/TiposOnuPage'
-import DashboardGponPage from './pages/olt/DashboardGponPage'
-import ONUsPage from './pages/ONUsPage'
-import OnusPage from './pages/olt/OnusPage'
-import OnuDetallePage from './pages/olt/OnuDetallePage'
-import CajasNapPage from './pages/olt/CajasNapPage'
-import PerfilesPage from './pages/PerfilesPage'
-import MetricasPage from './pages/MetricasPage'
-import MikrotikPage from './pages/MikrotikPage'
-import BloqueosPage from './pages/BloqueosPage'
-import AjusteSeccionPage from './pages/AjusteSeccionPage'
-import AjustesPage from './pages/AjustesPage'
-import LicenciaPage from './pages/LicenciaPage'
-import MensajeriaPage from './pages/MensajeriaPage'
-import TareasPage from './pages/TareasPage'
-import GeneralPage from './pages/GeneralPage'
-import EmpresaPage from './pages/EmpresaPage'
-import PortalClientePage from './pages/PortalClientePage'
-import PersonalPage from './pages/PersonalPage'
-import ComisionesPage from './pages/ajustes/ComisionesPage'
-import SimuladorComisionesPage from './pages/ajustes/SimuladorComisionesPage'
-import AlertasPage from './pages/ajustes/AlertasPage'
-import PaginaCortePage from './pages/ajustes/PaginaCortePage'
-import PlantillasPage from './pages/ajustes/PlantillasPage'
-import PrestadorPage from './pages/ajustes/PrestadorPage'
-import FirmaPage from './pages/ajustes/FirmaPage'
-import IntegracionesPage from './pages/ajustes/IntegracionesPage'
-import IncidenciasPage from './pages/red/IncidenciasPage'
-import PlantillasWhatsappPage from './pages/ajustes/PlantillasWhatsappPage'
-import ServidorCorreoPage from './pages/ServidorCorreoPage'
-import ClientesPage from './pages/ClientesPage'
-import ImportarAbonadosPage from './pages/clientes/ImportarAbonadosPage'
-import FacturacionPage from './pages/FacturacionPage'
-import PagosPage from './pages/PagosPage'
-import ClienteDetallePage from './pages/ClienteDetallePage'
-import MapaClientesPage from './pages/MapaClientesPage'
-import InstalacionesPage from './pages/InstalacionesPage'
-import OrdenInstalacionPage from './pages/OrdenInstalacionPage'
-import AltaCampoPage from './pages/AltaCampoPage'
-import ContratosPage from './pages/ContratosPage'
-import TransaccionesPage from './pages/TransaccionesPage'
-import ConciliacionPage from './pages/ConciliacionPage'
-import ArcotelPage from './pages/ArcotelPage'
-import RecaudacionPage from './pages/recaudacion/InicioPage'
-import EstadisticasPage from './pages/EstadisticasPage'
-import SoportePage from './pages/SoportePage'
-import TicketPage from './pages/TicketPage'
-import TecnicosPage from './pages/TecnicosPage'
-import DesempenoEquipoPage from './pages/DesempenoEquipoPage'
-import JornadasPage from './pages/soporte/JornadasPage'
-import VehiculosPage from './pages/VehiculosPage'
-import RedesIpv4Page from './pages/red/RedesIpv4Page'
-import AuditoriaPage from './pages/red/AuditoriaPage'
-import ShapingPage from './pages/red/ShapingPage'
-import MonitoreoPage from './pages/nms/MonitoreoPage'
-import PlanesPage from './pages/servicios/PlanesPage'
-import ProspectosPage from './pages/ventas/ProspectosPage'
-import CoberturaPage from './pages/ventas/CoberturaPage'
-import DashboardComercialPage from './pages/ventas/DashboardComercialPage'
-import MapaComercialPage from './pages/ventas/MapaComercialPage'
-import ExpedientePage from './pages/ventas/ExpedientePage'
-import CobranzaPage from './pages/ventas/CobranzaPage'
-import InteligenciaPage from './pages/ventas/InteligenciaPage'
-import ReportesPage from './pages/ventas/ReportesPage'
-import CotizadorPage from './pages/ventas/CotizadorPage'
-import PromocionesPage from './pages/ventas/PromocionesPage'
+const OLTPage = lazy(() => import('./pages/OLTPage'))
+const OltDetallePage = lazy(() => import('./pages/OltDetallePage'))
+const Tr069Page = lazy(() => import('./pages/Tr069Page'))
+const TiposOnuPage = lazy(() => import('./pages/olt/TiposOnuPage'))
+const DashboardGponPage = lazy(() => import('./pages/olt/DashboardGponPage'))
+const ONUsPage = lazy(() => import('./pages/ONUsPage'))
+const OnusPage = lazy(() => import('./pages/olt/OnusPage'))
+const OnuDetallePage = lazy(() => import('./pages/olt/OnuDetallePage'))
+const CajasNapPage = lazy(() => import('./pages/olt/CajasNapPage'))
+const PerfilesPage = lazy(() => import('./pages/PerfilesPage'))
+const MetricasPage = lazy(() => import('./pages/MetricasPage'))
+const MikrotikPage = lazy(() => import('./pages/MikrotikPage'))
+const BloqueosPage = lazy(() => import('./pages/BloqueosPage'))
+const AjusteSeccionPage = lazy(() => import('./pages/AjusteSeccionPage'))
+const AjustesPage = lazy(() => import('./pages/AjustesPage'))
+const LicenciaPage = lazy(() => import('./pages/LicenciaPage'))
+const MensajeriaPage = lazy(() => import('./pages/MensajeriaPage'))
+const TareasPage = lazy(() => import('./pages/TareasPage'))
+const GeneralPage = lazy(() => import('./pages/GeneralPage'))
+const EmpresaPage = lazy(() => import('./pages/EmpresaPage'))
+const PortalClientePage = lazy(() => import('./pages/PortalClientePage'))
+const PersonalPage = lazy(() => import('./pages/PersonalPage'))
+const ComisionesPage = lazy(() => import('./pages/ajustes/ComisionesPage'))
+const SimuladorComisionesPage = lazy(() => import('./pages/ajustes/SimuladorComisionesPage'))
+const AlertasPage = lazy(() => import('./pages/ajustes/AlertasPage'))
+const PaginaCortePage = lazy(() => import('./pages/ajustes/PaginaCortePage'))
+const PlantillasPage = lazy(() => import('./pages/ajustes/PlantillasPage'))
+const PrestadorPage = lazy(() => import('./pages/ajustes/PrestadorPage'))
+const FirmaPage = lazy(() => import('./pages/ajustes/FirmaPage'))
+const IntegracionesPage = lazy(() => import('./pages/ajustes/IntegracionesPage'))
+const IncidenciasPage = lazy(() => import('./pages/red/IncidenciasPage'))
+const PlantillasWhatsappPage = lazy(() => import('./pages/ajustes/PlantillasWhatsappPage'))
+const ServidorCorreoPage = lazy(() => import('./pages/ServidorCorreoPage'))
+const ClientesPage = lazy(() => import('./pages/ClientesPage'))
+const ImportarAbonadosPage = lazy(() => import('./pages/clientes/ImportarAbonadosPage'))
+const FacturacionPage = lazy(() => import('./pages/FacturacionPage'))
+const PagosPage = lazy(() => import('./pages/PagosPage'))
+const ClienteDetallePage = lazy(() => import('./pages/ClienteDetallePage'))
+const MapaClientesPage = lazy(() => import('./pages/MapaClientesPage'))
+const InstalacionesPage = lazy(() => import('./pages/InstalacionesPage'))
+const OrdenInstalacionPage = lazy(() => import('./pages/OrdenInstalacionPage'))
+const AltaCampoPage = lazy(() => import('./pages/AltaCampoPage'))
+const ContratosPage = lazy(() => import('./pages/ContratosPage'))
+const TransaccionesPage = lazy(() => import('./pages/TransaccionesPage'))
+const ConciliacionPage = lazy(() => import('./pages/ConciliacionPage'))
+const ArcotelPage = lazy(() => import('./pages/ArcotelPage'))
+const RecaudacionPage = lazy(() => import('./pages/recaudacion/InicioPage'))
+const EstadisticasPage = lazy(() => import('./pages/EstadisticasPage'))
+const SoportePage = lazy(() => import('./pages/SoportePage'))
+const TicketPage = lazy(() => import('./pages/TicketPage'))
+const TecnicosPage = lazy(() => import('./pages/TecnicosPage'))
+const DesempenoEquipoPage = lazy(() => import('./pages/DesempenoEquipoPage'))
+const JornadasPage = lazy(() => import('./pages/soporte/JornadasPage'))
+const VehiculosPage = lazy(() => import('./pages/VehiculosPage'))
+const RedesIpv4Page = lazy(() => import('./pages/red/RedesIpv4Page'))
+const AuditoriaPage = lazy(() => import('./pages/red/AuditoriaPage'))
+const ShapingPage = lazy(() => import('./pages/red/ShapingPage'))
+const MonitoreoPage = lazy(() => import('./pages/nms/MonitoreoPage'))
+const PlanesPage = lazy(() => import('./pages/servicios/PlanesPage'))
+const ProspectosPage = lazy(() => import('./pages/ventas/ProspectosPage'))
+const CoberturaPage = lazy(() => import('./pages/ventas/CoberturaPage'))
+const DashboardComercialPage = lazy(() => import('./pages/ventas/DashboardComercialPage'))
+const MapaComercialPage = lazy(() => import('./pages/ventas/MapaComercialPage'))
+const ExpedientePage = lazy(() => import('./pages/ventas/ExpedientePage'))
+const CobranzaPage = lazy(() => import('./pages/ventas/CobranzaPage'))
+const InteligenciaPage = lazy(() => import('./pages/ventas/InteligenciaPage'))
+const ReportesPage = lazy(() => import('./pages/ventas/ReportesPage'))
+const CotizadorPage = lazy(() => import('./pages/ventas/CotizadorPage'))
+const PromocionesPage = lazy(() => import('./pages/ventas/PromocionesPage'))
 import LayoutCampo from './components/tecnico/LayoutCampo'
-import InicioCampoPage from './pages/tecnico/InicioPage'
-import OrdenesCampoPage from './pages/tecnico/OrdenesPage'
-import MisRetirosPage from './pages/campo/MisRetirosPage'
-import EntregarEquiposPage from './pages/campo/EntregarEquiposPage'
-import RecibirEntregasPage from './pages/inventario/RecibirEntregasPage'
-import SoporteCampoPage from './pages/tecnico/SoporteCampoPage'
-import AvisosCampoPage from './pages/tecnico/AvisosPage'
-import PerfilCampoPage from './pages/tecnico/PerfilPage'
-import RedCampoPage from './pages/tecnico/RedPage'
-import DesempenoCampoPage from './pages/tecnico/DesempenoPage'
-import JornadaCampoPage from './pages/tecnico/JornadaPage'
-import BackofficePage from './pages/instalaciones/BackofficePage'
-import StockPage from './pages/inventario/StockPage'
-import MovimientosPage from './pages/inventario/MovimientosPage'
-import ComprasPage from './pages/inventario/ComprasPage'
-import MiAlmacenPage from './pages/inventario/MiAlmacenPage'
-import RetirosPage from './pages/inventario/RetirosPage'
-import MiComisionPage from './pages/ventas/MiComisionPage'
-import ComisionesEquipoPage from './pages/ventas/ComisionesEquipoPage'
-import VelocidadesPage from './pages/servicios/VelocidadesPage'
+const InicioCampoPage = lazy(() => import('./pages/tecnico/InicioPage'))
+const OrdenesCampoPage = lazy(() => import('./pages/tecnico/OrdenesPage'))
+const MisRetirosPage = lazy(() => import('./pages/campo/MisRetirosPage'))
+const EntregarEquiposPage = lazy(() => import('./pages/campo/EntregarEquiposPage'))
+const RecibirEntregasPage = lazy(() => import('./pages/inventario/RecibirEntregasPage'))
+const SoporteCampoPage = lazy(() => import('./pages/tecnico/SoporteCampoPage'))
+const AvisosCampoPage = lazy(() => import('./pages/tecnico/AvisosPage'))
+const PerfilCampoPage = lazy(() => import('./pages/tecnico/PerfilPage'))
+const RedCampoPage = lazy(() => import('./pages/tecnico/RedPage'))
+const DesempenoCampoPage = lazy(() => import('./pages/tecnico/DesempenoPage'))
+const JornadaCampoPage = lazy(() => import('./pages/tecnico/JornadaPage'))
+const BackofficePage = lazy(() => import('./pages/instalaciones/BackofficePage'))
+const StockPage = lazy(() => import('./pages/inventario/StockPage'))
+const MovimientosPage = lazy(() => import('./pages/inventario/MovimientosPage'))
+const ComprasPage = lazy(() => import('./pages/inventario/ComprasPage'))
+const MiAlmacenPage = lazy(() => import('./pages/inventario/MiAlmacenPage'))
+const RetirosPage = lazy(() => import('./pages/inventario/RetirosPage'))
+const MiComisionPage = lazy(() => import('./pages/ventas/MiComisionPage'))
+const ComisionesEquipoPage = lazy(() => import('./pages/ventas/ComisionesEquipoPage'))
+const VelocidadesPage = lazy(() => import('./pages/servicios/VelocidadesPage'))
+
+/**
+ * Lo que se ve mientras baja la pantalla pedida.
+ *
+ * Deliberadamente igual al indicador del `index.html`: el primero lo dibuja el
+ * navegador antes de que exista React y este lo reemplaza sin que se note. Dos
+ * indicadores distintos seguidos se leen como dos cargas, no como una.
+ */
+function Cargando() {
+  return (
+    <div className="grid min-h-dvh place-items-center">
+      <div
+        className="size-9 animate-spin rounded-full border-[3px] border-[rgba(3,105,161,.18)] border-t-[#0369A1] motion-reduce:animate-pulse"
+        role="status"
+        aria-label="Cargando"
+      />
+    </div>
+  )
+}
 
 export default function App() {
   return (
@@ -104,6 +124,20 @@ export default function App() {
           escribir la contraseña. */}
       <FranjaAmbiente />
 
+      {/*
+        Cada pantalla es su propio archivo y se baja cuando se entra a ella.
+
+        Antes las noventa viajaban juntas en un solo bloque de 2,6 MB, y el
+        navegador tenía que descargarlo, parsearlo y ejecutarlo entero antes de
+        dibujar cualquier cosa — aunque fuera a mostrar la ficha de un abonado.
+        Con varias pestañas abiertas a la vez, ese trabajo se multiplicaba y
+        unas quedaban colgadas mientras otras abrían.
+
+        `Suspense` es lo que hace falta para que esto sea legal: mientras baja
+        la pantalla pedida, muestra el indicador de abajo. Sin él, React no
+        tiene qué dibujar en ese hueco y rompe.
+      */}
+      <Suspense fallback={<Cargando />}>
       <Routes>
         <Route path="/login" element={<Login />} />
 
@@ -318,6 +352,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   )
 }

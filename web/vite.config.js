@@ -114,6 +114,34 @@ export default defineConfig({
         principal: resolve(process.cwd(), 'index.html'),
         portal: resolve(process.cwd(), 'portal/index.html'),
       },
+
+      /**
+       * Las librerías, en sus propios archivos.
+       *
+       * Dos motivos, y el segundo pesa más que el primero:
+       *
+       *   · Los gráficos y los mapas los usan siete y cinco pantallas de casi
+       *     trescientas. Metidos en el bloque principal, los paga TODO el
+       *     mundo: la ficha de un abonado, que no dibuja ninguno de los dos,
+       *     igual tiene que parsearlos.
+       *
+       *   · Se cachean entre despliegues. React y Supabase no cambian cuando
+       *     nosotros publicamos; con todo junto, cada actualización obliga a
+       *     bajar de nuevo el megabyte entero de librerías que ya estaban. Con
+       *     esto se baja solo lo que cambió — y acá se actualiza seguido.
+       */
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          supabase: ['@supabase/supabase-js'],
+          graficos: ['recharts'],
+          mapas: ['leaflet'],
+        },
+      },
     },
+
+    // El aviso de "hay bloques de más de 500 kB" ya no aporta: el reparto está
+    // decidido a propósito y revisado con los tamaños a la vista.
+    chunkSizeWarningLimit: 900,
   },
 })

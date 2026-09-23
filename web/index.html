@@ -34,7 +34,45 @@
     <meta name="theme-color" content="#E4E9F0" />
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      Lo que se ve mientras arranca la aplicación.
+
+      Va DENTRO de #root a propósito: React reemplaza el contenido de ese
+      contenedor cuando monta, y así el indicador desaparece solo. Puesto al
+      lado quedaría tapando la aplicación para siempre — con `position:fixed`
+      encima de todo y sin nadie que lo saque.
+
+      El navegador lo pinta apenas recibe el HTML —dos kilobytes— mientras baja
+      y arranca el JavaScript. Sin esto la pantalla queda EN BLANCO todo ese
+      rato, y un blanco no se distingue de una falla: quien entra por primera
+      vez desde un celular concluye que el sistema no anda.
+
+      Con estilos en línea porque una hoja aparte es otra petición: llegaría
+      después, y el blanco seguiría estando justo en el momento que esto viene
+      a cubrir.
+
+      El texto aparece recién a los cuatro segundos, con una animación y sin
+      JavaScript. Antes sobra —la carga normal ya terminó— y después hace falta,
+      porque es cuando quien mira empieza a dudar.
+    -->
+    <div id="root">
+      <div style="position:absolute;inset:0;display:grid;place-items:center;background:#E4E9F0">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:18px">
+          <div style="width:38px;height:38px;border:3px solid rgba(3,105,161,.18);border-top-color:#0369A1;border-radius:50%;animation:girar .8s linear infinite"></div>
+          <p style="margin:0;font:500 13px/1.4 system-ui,-apple-system,'Segoe UI',sans-serif;color:#52627A;opacity:0;animation:aparecer .4s ease 4s forwards">
+            Cargando el sistema…
+          </p>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes girar { to { transform: rotate(360deg) } }
+      @keyframes aparecer { to { opacity: 1 } }
+      /* Quien pidió menos movimiento no ve girar nada: el círculo late. */
+      @media (prefers-reduced-motion: reduce) {
+        @keyframes girar { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+      }
+    </style>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
