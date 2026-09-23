@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { achicarLogo, enKb } from '../lib/imagenLogo'
 import { ArrowLeft, Image, Settings } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/apiNetwork'
@@ -21,6 +22,7 @@ export default function GeneralPage() {
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [error, setError] = useState(null)
+  const [resumenLogo, setResumenLogo] = useState(null)
 
   useEffect(() => {
     api.general
@@ -35,24 +37,36 @@ export default function GeneralPage() {
     setForm((f) => ({ ...f, [campo]: e.target.value }))
   }
 
-  function cargarLogo(e) {
+  /**
+   * El logo viaja en base64 en cada carga de página —también la del abonado,
+   * desde el celular con datos móviles—, así que no puede entrar como venga.
+   *
+   * Antes se rechazaba el archivo pesado y se explicaba a qué tamaño traerlo.
+   * Eso mandaba a quien instala el sistema a abrir un editor de imágenes, y el
+   * logo que le pasó su diseñador siempre viene en dos mil píxeles. Ahora lo
+   * achica el navegador y se avisa en cuánto quedó.
+   */
+  async function cargarLogo(e) {
     const f = e.target.files?.[0]
     if (!f) return
 
-    // El logo viaja en cada carga del login, y el login lo abre gente desde el
-    // celular con datos móviles.
-    if (f.size > 300 * 1024) {
-      setError(new Error('El logo pesa más de 300 KB. Con 200×200 alcanza.'))
-      e.target.value = ''
-      return
-    }
-
-    const lector = new FileReader()
-    lector.onload = () => {
+    try {
+      const r = await achicarLogo(f)
       setGuardado(false)
-      setForm((x) => ({ ...x, logo_b64: lector.result }))
+      setForm((x) => ({ ...x, logo_b64: r.dataUrl }))
+      setResumenLogo(
+        r.achicada
+          ? `${r.ancho}×${r.alto} · ${enKb(r.peso)} (venía de ${enKb(r.pesoOriginal)})`
+          : `${r.ancho}×${r.alto} · ${enKb(r.peso)}`,
+      )
+      setError(null)
+    } catch (err) {
+      setError(err)
+    } finally {
+      // Se limpia siempre: sin esto, elegir el mismo archivo otra vez —después
+      // de corregirlo— no dispara el evento y parece que la pantalla se colgó.
+      e.target.value = ''
     }
-    lector.readAsDataURL(f)
   }
 
   async function guardar(e) {
@@ -114,13 +128,23 @@ export default function GeneralPage() {
 
         <Card title="Logo" subtitle="El de la pantalla de entrada" icon={Image}>
           <div className="flex flex-wrap items-center gap-6">
-            <Field label="Imagen" hint="PNG o JPG, hasta 300 KB. Cuadrado se ve mejor.">
+            <Field
+              label="Imagen"
+              hint="PNG, JPG o WebP. Se achica solo: subí el que tengas."
+            >
               <input
                 type="file"
-                accept="image/png,image/jpeg"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 onChange={cargarLogo}
                 className="w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:text-slate-200"
               />
+              {resumenLogo && (
+                <p className="mt-1.5 t-dato text-xs text-slate-500">{resumenLogo}</p>
+              )}
+              <p className="mt-1 text-xs leading-snug text-slate-500">
+                Si lo tenés en PNG con fondo transparente, usá ese: el de fondo blanco deja un
+                recuadro alrededor sobre el gris del sistema.
+              </p>
             </Field>
 
             {form?.logo_b64 && (
