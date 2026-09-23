@@ -113,11 +113,13 @@ export const SHAPING = {
 export const CONTROL_PPPOE = {
   olt: {
     label: 'La OLT (traffic table)',
+    donde: 'En la OLT',
     ayuda:
       'Lo normal en fibra. El perfil PPP del MikroTik se crea sin rate-limit: un límite ahí competiría con la OLT y ganaría el menor de los dos.',
   },
   mikrotik: {
     label: 'El MikroTik (perfil PPP)',
+    donde: 'En el perfil PPP del MikroTik',
     ayuda:
       'El perfil lleva el rate-limit con la velocidad del plan. Se usa donde no hay OLT en el camino o donde no se quiere que ella controle.',
   },

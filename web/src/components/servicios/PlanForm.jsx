@@ -441,7 +441,21 @@ export default function PlanForm({
         </div>
 
         <div className="t-panel p-3">
-          <p className="text-xs font-medium text-slate-300">{SHAPING.pppoe.label}</p>
+          {/*
+            Este panel decía solo "Abonados por PPPoE" mientras el de abajo
+            declaraba label, dónde limita y cuándo aplica. Esa asimetría hacía
+            leer el selector de acá como si fuera la única forma de controlar el
+            caudal del plan, y quien trabaja con IP fija y Simple Queue —que el
+            sistema soporta igual de bien— concluía que no estaba contemplado.
+          */}
+          <p className="text-xs font-medium text-slate-300">
+            {SHAPING.pppoe.label} → {CONTROL_PPPOE[form.control_pppoe]?.donde}
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500">{SHAPING.pppoe.aplica}</p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Solo afecta a los abonados con conexión PPPoE. Los de IP fija se limitan con la
+            Simple Queue del panel de abajo, y en ellos este campo no interviene.
+          </p>
 
           <div className="mt-3">
             <Field
