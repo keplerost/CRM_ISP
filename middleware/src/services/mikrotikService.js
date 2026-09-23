@@ -49,6 +49,12 @@ export const listarReglasNat = (r) => driver(r).listarReglasNat(r)
 export const asegurarReglaCorte = (r, lista) => driver(r).asegurarReglaCorte(r, lista)
 export const asegurarRedireccionPago = (r, datos) => driver(r).asegurarRedireccionPago(r, datos)
 
+// El servicio de API y desde qué redes contesta. Ver el comentario del driver:
+// el firewall y `/ip/service` son dos capas distintas, y la segunda rechaza sin
+// contestar — el puerto parece abierto y la sesión se cae sin una sola línea.
+export const leerServicioApi = (r) => driver(r).leerServicioApi(r)
+export const asegurarApiPermitida = (r, datos) => driver(r).asegurarApiPermitida(r, datos)
+
 // --- IPv6, si el router lo tiene encendido ----------------------------------
 export const LISTA_MOROSOS_V6 = binaria.LISTA_MOROSOS_V6
 export const soportaIpv6 = (r) => driver(r).soportaIpv6(r)

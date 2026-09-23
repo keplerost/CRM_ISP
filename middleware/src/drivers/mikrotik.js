@@ -690,3 +690,67 @@ export async function escanear(router) {
     addressList: await intentar('address lists', '/ip/firewall/address-list'),
   }
 }
+
+// =============================================================================
+// El servicio de API, restringido a la red de gestión
+// =============================================================================
+//
+// Mismo contrato que en el driver binario. Ver el comentario largo de allá: las
+// dos capas —firewall y `/ip/service`— y por qué se vuelve a leer después de
+// escribir.
+
+function servicioDe(servicios, router) {
+  const puerto = Number(router.puerto_api)
+  return (
+    servicios.find((s) => Number(s.port) === puerto && /^api/.test(s.name ?? '')) ??
+    servicios.find((s) => s.name === (puerto === 8729 ? 'api-ssl' : 'api'))
+  )
+}
+
+const redesDe = (servicio) =>
+  String(servicio?.address ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x, i, todas) => todas.indexOf(x) === i)
+
+export async function leerServicioApi(router) {
+  const servicios = await request(router, 'GET', '/ip/service')
+  const s = servicioDe(servicios ?? [], router)
+  if (!s) return { encontrado: false }
+
+  return {
+    encontrado: true,
+    nombre: s.name,
+    puerto: Number(s.port),
+    deshabilitado: s.disabled === 'true' || s.disabled === true,
+    redes: redesDe(s),
+  }
+}
+
+export async function asegurarApiPermitida(router, { red, forzar = false }) {
+  if (!red) throw new Error('Falta la red de gestión')
+
+  const servicios = await request(router, 'GET', '/ip/service')
+  const s = servicioDe(servicios ?? [], router)
+  if (!s) return { cambiada: false, estado: 'sin-servicio' }
+
+  const antes = redesDe(s)
+
+  if (!antes.length && !forzar) return { cambiada: false, estado: 'abierta', antes, despues: antes }
+  if (antes.includes(red)) return { cambiada: false, estado: 'ya-estaba', antes, despues: antes }
+
+  const despues = [...antes, red]
+  await request(router, 'PATCH', `/ip/service/${encodeURIComponent(s['.id'])}`, {
+    address: despues.join(','),
+  })
+
+  const confirmado = redesDe(servicioDe((await request(router, 'GET', '/ip/service')) ?? [], router))
+
+  return {
+    cambiada: true,
+    estado: confirmado.includes(red) ? 'agregada' : 'no-aplico',
+    antes,
+    despues: confirmado,
+  }
+}

@@ -237,6 +237,10 @@ export const api = {
     prepararIpv6: (id, datos) => post(`/api/mikrotik/${id}/ipv6`, datos),
     apagarIpv6: (id) => del(`/api/mikrotik/${id}/ipv6`),
 
+    // Dejar un equipo nuevo listo para operar. `revisar` no toca nada.
+    revisarConfiguracion: (id, red) =>
+      get(`/api/mikrotik/${id}/configurar${red ? `?red=${encodeURIComponent(red)}` : ''}`),
+    configurar: (id, datos) => post(`/api/mikrotik/${id}/configurar`, datos),
     revisarReparacion: (id) => get(`/api/mikrotik/${id}/reparar`),
     reparar: (id, datos) => post(`/api/mikrotik/${id}/reparar`, datos),
 

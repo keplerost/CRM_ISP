@@ -1247,3 +1247,98 @@ export const testVelocidad = (router, { destino, duracion = 5, direccion = 'both
     }
   })
 }
+
+// =============================================================================
+// El servicio de API, restringido a la red de gestión
+// =============================================================================
+//
+// RouterOS filtra la API en dos capas distintas, y eso confunde el diagnóstico:
+//
+//   1. El firewall (`/ip/firewall/filter`) decide si el paquete entra.
+//   2. `/ip/service` decide si, una vez aceptada la conexión TCP, el servicio
+//      le contesta a ese origen.
+//
+// Si la capa 1 permite y la 2 no, el puerto responde a cualquier prueba de
+// conexión —un `telnet` dice "abierto"— pero la sesión se cierra sin una sola
+// respuesta. Visto desde el sistema parece un problema de red; es de permisos.
+// Pasó en la puesta en marcha del primer router del piloto y costó media tarde.
+
+/** Cuál de los servicios es el que usa este router. */
+function servicioDe(servicios, router) {
+  const puerto = Number(router.puerto_api)
+  return (
+    servicios.find((s) => Number(s.port) === puerto && /^api/.test(s.name ?? '')) ??
+    servicios.find((s) => s.name === (puerto === 8729 ? 'api-ssl' : 'api'))
+  )
+}
+
+/** La lista de `address` como arreglo, sin repetidos y sin vacíos. */
+const redesDe = (servicio) =>
+  String(servicio?.address ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((x, i, todas) => todas.indexOf(x) === i)
+
+export const leerServicioApi = (router) =>
+  conConexion(router, async (conn) => {
+    const servicios = await conn.write('/ip/service/print')
+    const s = servicioDe(servicios, router)
+    if (!s) return { encontrado: false }
+
+    return {
+      encontrado: true,
+      nombre: s.name,
+      puerto: Number(s.port),
+      deshabilitado: s.disabled === 'true',
+      redes: redesDe(s),
+    }
+  })
+
+/**
+ * Agrega la red de gestión a la lista de orígenes permitidos de la API.
+ *
+ * Agrega: no reemplaza. La lista puede tener las redes de otro sistema que
+ * también administra este router —en el piloto, las dos de WispHub— y pisarlas
+ * le quita el control sin que nadie se entere hasta que un pago no reconecta.
+ *
+ * Con la lista VACÍA no escribe nada. Vacía significa "responde a cualquier
+ * origen": poner la nuestra ahí no agrega un permiso, saca todos los demás. Se
+ * informa y se deja la decisión a quien opera, que es el único que sabe qué más
+ * le habla a este equipo.
+ */
+export const asegurarApiPermitida = (router, { red, forzar = false }) =>
+  conConexion(router, async (conn) => {
+    if (!red) throw new Error('Falta la red de gestión')
+
+    const servicios = await conn.write('/ip/service/print')
+    const s = servicioDe(servicios, router)
+    if (!s) return { cambiada: false, estado: 'sin-servicio' }
+
+    const antes = redesDe(s)
+
+    if (!antes.length && !forzar) {
+      return { cambiada: false, estado: 'abierta', antes, despues: antes }
+    }
+    if (antes.includes(red)) {
+      return { cambiada: false, estado: 'ya-estaba', antes, despues: antes }
+    }
+
+    const despues = [...antes, red]
+    await conn.write('/ip/service/set', params({ '.id': s['.id'], address: despues.join(',') }))
+
+    // Se vuelve a leer a propósito.
+    //
+    // `set` sobre un servicio puede no aplicar y NO devolver error —pasó con un
+    // `set api address=...` escrito sin `[find name=api]`, que se aceptó en
+    // silencio y dejó la lista igual—. Dar por bueno lo que no se verificó es
+    // exactamente lo que hizo perder esa tarde.
+    const confirmado = redesDe(servicioDe(await conn.write('/ip/service/print'), router))
+
+    return {
+      cambiada: true,
+      estado: confirmado.includes(red) ? 'agregada' : 'no-aplico',
+      antes,
+      despues: confirmado,
+    }
+  })

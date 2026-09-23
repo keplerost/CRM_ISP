@@ -15,6 +15,7 @@ import { useTabla } from '../lib/useTabla'
 import { api } from '../lib/apiNetwork'
 import RouterForm from '../components/mikrotik/RouterForm'
 import ClientesRouterPanel from '../components/mikrotik/ClientesRouterPanel'
+import ConfigurarRouter from '../components/mikrotik/ConfigurarRouter'
 import RepararRouter from '../components/mikrotik/RepararRouter'
 import PrepararIpv6 from '../components/mikrotik/PrepararIpv6'
 import {
@@ -267,6 +268,12 @@ export default function MikrotikPage() {
       )}
 
       {router && <ClientesRouterPanel key={router.id} router={router} />}
+
+      {/*
+        Antes que Reparar, a propósito: configurar es lo primero que se hace con
+        un equipo nuevo, y reparar solo tiene sentido cuando ya tiene abonados.
+      */}
+      {router && <ConfigurarRouter key={`configurar-${router.id}`} router={router} />}
       {router && <RepararRouter key={`reparar-${router.id}`} router={router} />}
 
       {/* Va al final: es opcional y la mayoría de los ISP todavía no lo usa. */}

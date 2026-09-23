@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import * as reparar from '../services/repararRouter.js'
+import * as configurar from '../services/configurarRouter.js'
 import * as ipv6 from '../services/ipv6Router.js'
 import { asyncHandler, badRequest } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
@@ -493,6 +494,34 @@ router.delete(
   '/:id/ipv6',
   asyncHandler(async (req, res) => {
     res.json(await ipv6.apagar(req.params.id))
+  }),
+)
+
+/**
+ * Dejar un equipo recién dado de alta listo para operar.
+ *
+ * `GET` informa qué le falta sin tocar nada; `POST` lo aplica. La separación es
+ * la misma que en `reparar`, y por el mismo motivo: en un router con abonados,
+ * ver el plan antes es lo que permite apretar el botón sin miedo.
+ */
+router.get(
+  '/:id/configurar',
+  asyncHandler(async (req, res) => {
+    res.json(await configurar.revisar(req.params.id, { red: req.query?.red }))
+  }),
+)
+
+router.post(
+  '/:id/configurar',
+  asyncHandler(async (req, res) => {
+    res.json(
+      await configurar.configurar(req.params.id, {
+        red: req.body?.red,
+        pasos: req.body?.pasos,
+        destinoAviso: req.body?.destinoAviso,
+        forzarApi: req.body?.forzarApi === true,
+      }),
+    )
   }),
 )
 
