@@ -451,7 +451,7 @@ function Grupo({ item, contadores, plegado }) {
   )
 }
 
-export default function Sidebar() {
+export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
   const { puede, perfil, cargandoPerfil } = usePermisos()
   const marca = useMarca()
   const contadores = useContadores(puede)
@@ -503,11 +503,34 @@ export default function Sidebar() {
   )
 
   return (
-    <aside
-      className={`flex shrink-0 flex-col border-r border-[rgba(15,23,42,0.06)] bg-white transition-[width] ${
-        plegado ? 'w-16' : 'w-60'
-      }`}
-    >
+    <>
+      {/*
+        El velo, solo en pantallas chicas y solo con el menú abierto. Además de
+        oscurecer, es lo que cierra el menú al tocar fuera — sin él, en un
+        teléfono no hay a dónde tocar para salir.
+      */}
+      {abierto && (
+        <button
+          type="button"
+          aria-label="Cerrar el menú"
+          onClick={onCerrar}
+          className="fixed inset-0 z-30 bg-[rgba(15,23,42,0.45)] lg:hidden"
+        />
+      )}
+
+      {/*
+        En pantallas chicas la barra es un cajón que entra por la izquierda; de
+        `lg` para arriba vuelve a ser una columna fija como siempre.
+
+        Antes ocupaba su ancho SIEMPRE. En un teléfono de 360 px se comía 240, y
+        con el relleno del contenido quedaban unos setenta para trabajar: los
+        campos se apretaban tanto que no se podía ni buscar un abonado.
+      */}
+      <aside
+        className={`z-40 flex shrink-0 flex-col border-r border-[rgba(15,23,42,0.06)] bg-white transition-transform lg:transition-[width] max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:w-64 ${
+          abierto ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'
+        } ${plegado ? 'lg:w-16' : 'lg:w-60'}`}
+      >
       {/* La marca sale de la configuración, no está escrita acá: cada ISP que
           instala el sistema pone la suya en Ajustes → General. */}
       <div className="flex items-center gap-2 border-b border-[rgba(15,23,42,0.06)] px-4 py-4">
@@ -602,6 +625,7 @@ export default function Sidebar() {
         <ChevronsLeft size={16} className={`transition-transform ${plegado ? 'rotate-180' : ''}`} />
         {!plegado && 'Ocultar menú'}
       </button>
-    </aside>
+      </aside>
+    </>
   )
 }

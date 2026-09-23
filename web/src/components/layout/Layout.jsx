@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Navbar from './Navbar'
@@ -18,12 +19,26 @@ export default function Layout() {
   const { pathname } = useLocation()
   const permitido = puedeEntrar(puede, pathname)
 
+  /**
+   * El menú, abierto o cerrado. Solo importa en pantallas chicas, donde la
+   * barra lateral es un cajón; de `lg` para arriba está siempre a la vista y
+   * este estado no la afecta.
+   *
+   * Se cierra al navegar. Sin eso, elegir una opción deja el menú tapando
+   * justo la pantalla que se acaba de abrir, y hay que cerrarlo a mano cada
+   * vez.
+   */
+  const [menuAbierto, setMenuAbierto] = useState(false)
+  useEffect(() => setMenuAbierto(false), [pathname])
+
   return (
     <div className="flex h-full">
-      <Sidebar />
+      <Sidebar abierto={menuAbierto} onCerrar={() => setMenuAbierto(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Navbar />
-        <main className="flex-1 overflow-y-auto p-6">
+        <Navbar onAbrirMenu={() => setMenuAbierto(true)} />
+        {/* Menos relleno en el teléfono: 24 px por lado son casi el 14% de una
+            pantalla de 360, y se los saca directamente al contenido. */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Cuatro estados, y ninguno se adivina. Antes eran dos, y "todavía no
               sé" caía del lado de "sí": por eso el vendedor veía medio sistema
               durante la recarga. */}

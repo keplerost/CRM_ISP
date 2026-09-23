@@ -43,7 +43,7 @@ export function Card({
   return (
     <section className={`t-card ${desbordable ? '' : 'overflow-hidden'} ${className}`}>
       {(title || actions) && (
-        <header className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.06)] px-6 pt-5 pb-4">
+        <header className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.06)] px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
           <div className="flex min-w-0 items-center gap-3">
             {/* La barrita vertical de marca. Es `aria-hidden` porque no dice
                 nada que el título no diga ya: quien escucha la pantalla no
@@ -63,7 +63,9 @@ export function Card({
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </header>
       )}
-      <div className="p-6">{children}</div>
+      {/* 24 px por lado son casi el 14% de una pantalla de 360: en el teléfono
+          ese relleno se le saca directamente al contenido. */}
+      <div className="p-4 sm:p-6">{children}</div>
     </section>
   )
 }

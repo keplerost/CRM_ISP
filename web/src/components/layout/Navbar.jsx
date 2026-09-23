@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DollarSign, LogOut, ServerCog } from 'lucide-react'
+import { DollarSign, LogOut, Menu, ServerCog } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth, usePermisos } from '../../lib/AuthContext'
 import { api } from '../../lib/apiNetwork'
@@ -10,7 +10,7 @@ import Campana from './Campana'
  * Barra superior. Muestra el estado del middleware porque, sin él, todo el módulo
  * de red falla — conviene verlo de un vistazo antes de empezar a debuggear.
  */
-export default function Navbar() {
+export default function Navbar({ onAbrirMenu = () => {} }) {
   const { puede } = usePermisos()
   const { usuario, cerrarSesion } = useAuth()
   const [middleware, setMiddleware] = useState({ estado: 'consultando' })
@@ -46,17 +46,31 @@ export default function Navbar() {
   }[middleware.estado]
 
   return (
-    <header className="flex items-center justify-between border-b border-[rgba(15,23,42,0.06)] bg-white px-6 py-3">
-      <div className="flex items-center gap-3 text-xs text-slate-400">
+    <header className="flex items-center justify-between border-b border-[rgba(15,23,42,0.06)] bg-white px-3 py-2.5 sm:px-6 sm:py-3">
+      <div className="flex min-w-0 items-center gap-3 text-xs text-slate-400">
+        {/* Abre el menú. Solo en pantallas chicas: de `lg` para arriba la barra
+            lateral está siempre a la vista y este botón no haría nada. */}
+        <button
+          type="button"
+          onClick={onAbrirMenu}
+          aria-label="Abrir el menú"
+          className="-ml-1 shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-200 lg:hidden"
+        >
+          <Menu size={20} />
+        </button>
+
         {modoDemo && (
           <span className="rounded-full bg-[#FFFBEB] px-2.5 py-0.5 font-semibold text-amber-300">
             MODO DEMO — datos de ejemplo
           </span>
         )}
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-2" title={indicador[1]}>
           <ServerCog size={14} />
           <span className={`h-2 w-2 rounded-full ${indicador[0]}`} />
-          {indicador[1]}
+          {/* El texto solo desde `sm`: en un teléfono "middleware sin configurar:
+              ..." empuja todo y deja sin lugar a los botones. El punto de color
+              sigue estando, y su `title` dice lo mismo al tocarlo. */}
+          <span className="hidden sm:inline">{indicador[1]}</span>
         </span>
       </div>
 
