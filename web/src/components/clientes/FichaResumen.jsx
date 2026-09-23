@@ -31,6 +31,7 @@ const EDITABLES = [
   'tipo_identificacion',
   'identificacion',
   'direccion',
+  'referencia_servicio',
   'zona',
   'telefono',
   'telefono_movil',
@@ -193,6 +194,28 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
 
             <Field label="Dirección principal" className="sm:col-span-2">
               <Input value={form.direccion} onChange={set('direccion')} />
+            </Field>
+
+            {/*
+              Para qué es este servicio, cuando la misma persona tiene más de
+              uno: la casa y el local. Antes eso se decía pegándole un "-2" al
+              apellido, que salía impreso en la factura y en el contrato.
+
+              Esto no sale en ninguno de los dos: el nombre y la dirección son
+              lo que se imprime, y esto se ve solo por dentro y en el selector
+              del portal del abonado.
+            */}
+            <Field
+              label="Referencia del servicio"
+              hint="Casa, Local, Bodega. Para distinguirlo por dentro: no sale en la factura."
+              className="sm:col-span-2"
+            >
+              <Input
+                value={form.referencia_servicio ?? ''}
+                onChange={set('referencia_servicio')}
+                placeholder="Casa"
+                maxLength={40}
+              />
             </Field>
 
             {/* La zona es de gestión, no de red: es con la que se arma a quién
