@@ -26,6 +26,24 @@ import { extraerIp } from './importador.js'
 
 const LISTA_MOROSOS = mk.LISTA_MOROSOS
 
+/**
+ * ¿A este abonado lo atiende un secret PPPoE?
+ *
+ * Importa porque esta pantalla revisa secrets, y en un ISP que trabaja con IP
+ * fija y Simple Queue no hay ninguno. Sin distinguirlo, reportaba a TODOS los
+ * abonados como "falta usuario PPPoE" — veintisiete avisos sobre algo que está
+ * bien, que es la forma más rápida de que nadie vuelva a leer esta pantalla.
+ *
+ * Manda `tipo_conexion`. Cuando no está cargado —fichas viejas, anteriores a
+ * que existiera la columna— se deduce de si tiene usuario PPPoE: si lo tiene,
+ * alguien se lo puso para algo.
+ */
+export function usaPppoe(cliente) {
+  const tipo = String(cliente?.tipo_conexion ?? '').trim().toLowerCase()
+  if (tipo) return tipo === 'pppoe'
+  return Boolean(String(cliente?.usuario_ppp ?? '').trim())
+}
+
 /** Qué hay que arreglar, sin tocar nada. */
 export async function revisar(routerId) {
   const equipo = await cargarRouter(routerId)
@@ -33,7 +51,7 @@ export async function revisar(routerId) {
   const [{ data: clientes }, secrets, lista, perfiles] = await Promise.all([
     db()
       .from('clientes')
-      .select('id, nombre, estado, ip, usuario_ppp, clave_ppp, plan_id, planes_velocidad(nombre, perfil_ppp)')
+      .select('id, nombre, estado, ip, tipo_conexion, usuario_ppp, clave_ppp, plan_id, planes_velocidad(nombre, perfil_ppp)')
       .eq('router_id', routerId),
     mk.listarPppSecrets(equipo).catch(() => []),
     mk.listarBloqueos(equipo, LISTA_MOROSOS).catch(() => []),
@@ -59,7 +77,14 @@ export async function revisar(routerId) {
     const ip = extraerIp(c.ip)
 
     // --- El secret ---
-    if (!c.usuario_ppp) {
+    //
+    // Solo para los de PPPoE. A los de IP fija no les corresponde uno: su
+    // límite es la Simple Queue, que gobierna la sincronización del plan, y su
+    // dirección se la da un lease. Revisarles el secret sería inventarles una
+    // falta.
+    if (!usaPppoe(c)) {
+      // nada que revisar acá
+    } else if (!c.usuario_ppp) {
       sinDatos.push({ cliente: c.nombre, id: c.id, falta: 'usuario PPPoE' })
     } else {
       const s = porUsuario.get(c.usuario_ppp)

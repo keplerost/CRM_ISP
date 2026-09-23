@@ -9,6 +9,7 @@ import {
   resumirServicios,
   tieneContacto,
 } from '../src/lib/servicios.js'
+import { usaPppoe } from '../src/services/repararRouter.js'
 
 /**
  * Una persona con varios servicios.
@@ -245,4 +246,45 @@ test('el alterno de dos servicios nunca coincide', () => {
   const a = nombreDeColaAlterno({ nombre: 'JUAN PEREZ' }, '10.10.7.17')
   const b = nombreDeColaAlterno({ nombre: 'JUAN PEREZ' }, '10.10.7.31')
   assert.notEqual(a, b)
+})
+
+/**
+ * A quién le corresponde un secret PPPoE.
+ *
+ * ── Qué se protege ──
+ *
+ * Que "Reparar el router" no reporte como falta lo que es una decisión. En un
+ * ISP con IP fija y Simple Queue ningún abonado tiene secret, y sin distinguirlo
+ * la pantalla listaba a los veintisiete como "falta usuario PPPoE": veintisiete
+ * avisos sobre algo que está bien, que es la forma más rápida de que nadie
+ * vuelva a leer esa pantalla — y de que el día que haya un aviso de verdad pase
+ * desapercibido.
+ */
+
+test('el tipo de conexión manda', () => {
+  assert.equal(usaPppoe({ tipo_conexion: 'pppoe' }), true)
+  assert.equal(usaPppoe({ tipo_conexion: 'ip' }), false)
+})
+
+test('un abonado de IP fija no necesita secret aunque tenga uno viejo cargado', () => {
+  // Pasa al migrar de PPPoE a IP fija: el campo queda con lo de antes.
+  assert.equal(usaPppoe({ tipo_conexion: 'ip', usuario_ppp: 'jperez' }), false)
+})
+
+test('sin tipo cargado se deduce del usuario PPPoE', () => {
+  // Fichas anteriores a que existiera la columna. Si alguien le puso usuario,
+  // fue para algo.
+  assert.equal(usaPppoe({ usuario_ppp: 'jperez' }), true)
+  assert.equal(usaPppoe({ usuario_ppp: '' }), false)
+  assert.equal(usaPppoe({ usuario_ppp: '   ' }), false)
+  assert.equal(usaPppoe({}), false)
+})
+
+test('no se cuelga con una ficha vacía', () => {
+  assert.equal(usaPppoe(null), false)
+  assert.equal(usaPppoe(undefined), false)
+})
+
+test('el tipo se compara sin importar mayúsculas ni espacios', () => {
+  assert.equal(usaPppoe({ tipo_conexion: ' PPPoE ' }), true)
 })
