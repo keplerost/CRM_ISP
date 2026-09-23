@@ -103,7 +103,15 @@ export default function Navbar({ onAbrirMenu = () => {} }) {
         )}
 
         <Campana />
-        <span className="hidden text-xs text-slate-400 sm:inline">{usuario?.email}</span>
+        {/* El correo lleva a Mi perfil: es donde uno busca sus propios datos,
+            y es el único camino para cambiarse la contraseña. */}
+        <NavLink
+          to="/mi-perfil"
+          title="Mi perfil y mi contraseña"
+          className="hidden max-w-[16rem] truncate rounded-lg px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-slate-200 sm:inline-block"
+        >
+          {usuario?.email}
+        </NavLink>
         <button
           onClick={cerrarSesion}
           className="flex items-center gap-1.5 rounded-xl border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-800"

@@ -16,6 +16,7 @@ const OnusPage = lazy(() => import('./pages/olt/OnusPage'))
 const OnuDetallePage = lazy(() => import('./pages/olt/OnuDetallePage'))
 const CajasNapPage = lazy(() => import('./pages/olt/CajasNapPage'))
 const PerfilesPage = lazy(() => import('./pages/PerfilesPage'))
+const MiPerfilPage = lazy(() => import('./pages/MiPerfilPage'))
 const MetricasPage = lazy(() => import('./pages/MetricasPage'))
 const MikrotikPage = lazy(() => import('./pages/MikrotikPage'))
 const BloqueosPage = lazy(() => import('./pages/BloqueosPage'))
@@ -242,6 +243,11 @@ export default function App() {
         <Route path="onus/:id" element={<OnuDetallePage />} />
         <Route path="naps" element={<CajasNapPage />} />
         <Route path="perfiles" element={<PerfilesPage />} />
+
+        {/* Sin permiso: cualquiera que entró tiene que poder cambiar SU
+            contraseña. Atarla a un permiso dejaría afuera justo a quien más lo
+            necesita — el que recibió una clave dictada por otro. */}
+        <Route path="mi-perfil" element={<MiPerfilPage />} />
         <Route path="metricas" element={<MetricasPage />} />
         <Route path="bloqueos" element={<BloqueosPage />} />
 

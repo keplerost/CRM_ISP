@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Info, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Info, Loader2, X, CheckCircle2 } from 'lucide-react'
 
 /**
  * Primitivas de UI compartidas. Tailwind puro, sin librería de componentes.
@@ -287,8 +287,9 @@ export function Aviso({ children, tipo = 'info' }) {
   const estilos = {
     info: 'bg-[#F0F9FF] text-sky-200',
     alerta: 'bg-[#FFFBEB] text-amber-300',
+    exito: 'bg-[#ECFDF5] text-emerald-300',
   }
-  const Icono = tipo === 'alerta' ? AlertTriangle : Info
+  const Icono = { alerta: AlertTriangle, exito: CheckCircle2 }[tipo] ?? Info
   return (
     <div className={`flex items-start gap-3 rounded-xl px-4 py-3 text-sm ${estilos[tipo]}`}>
       <Icono size={16} className="mt-0.5 shrink-0" />
