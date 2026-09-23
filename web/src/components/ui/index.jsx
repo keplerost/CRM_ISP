@@ -143,6 +143,48 @@ export const Badge = ({ color = 'gris', children }) => (
   <span className={`t-badge ${COLORES_BADGE[color]}`}>{children}</span>
 )
 
+/**
+ * Una IP que se abre en el navegador.
+ *
+ * Entrar al equipo del abonado es de las cosas que más se repiten en el día, y
+ * hasta ahora eran cuatro clics: abrir la ficha, ir a Servicio, leer la
+ * dirección y tipearla en otra pestaña. Ahora es uno.
+ *
+ * Tres decisiones, todas por algo:
+ *
+ *   · Se abre en pestaña nueva. El equipo puede tardar o no responder, y no
+ *     puede costar perder la pantalla donde se estaba trabajando.
+ *   · `stopPropagation`, porque estas direcciones viven dentro de filas que a
+ *     su vez llevan a la ficha del abonado. Sin esto, un clic haría las dos
+ *     cosas y la pestaña nueva quedaría tapada por una navegación.
+ *   · Si el texto no es una IPv4, se muestra igual pero sin enlace. Un enlace
+ *     a "—" o a "pendiente" solo sirve para dar error.
+ *
+ * `rel="noopener"` no es decorativo: sin él, la página que se abre puede
+ * manipular la que la abrió a través de `window.opener`.
+ */
+export function EnlaceIp({ ip, puerto, esquema = 'http', className = '' }) {
+  const texto = String(ip ?? '').trim()
+  const esIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(texto)
+
+  if (!esIpv4) return <span className={className}>{ip ?? '—'}</span>
+
+  const destino = `${esquema}://${texto}${puerto ? `:${puerto}` : ''}`
+
+  return (
+    <a
+      href={destino}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Abrir ${destino} en una pestaña nueva`}
+      onClick={(e) => e.stopPropagation()}
+      className={`underline decoration-dotted underline-offset-2 hover:text-sky-400 ${className}`}
+    >
+      {texto}
+    </a>
+  )
+}
+
 /** Badge de estado de una ONU/ONT. */
 export function EstadoBadge({ estado }) {
   const mapa = {

@@ -8,7 +8,7 @@ import {
   Users,
 } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
-import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, Field, Input, Select, Stat, Table } from '../ui'
+import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, Field, Input, Select, Stat, Table, EnlaceIp } from '../ui'
 
 /**
  * Gestión de clientes de un router concreto.
@@ -249,7 +249,9 @@ function Importar({ router, onError }) {
                   />
                 </td>
                 <td className="px-3 py-2 font-medium text-slate-100">{c.nombre}</td>
-                <td className="px-3 py-2 font-mono text-xs">{c.ip ?? '—'}</td>
+                <td className="px-3 py-2 font-mono text-xs">
+                  <EnlaceIp ip={c.ip} />
+                </td>
                 <td className="px-3 py-2 text-xs">{c.usuario_ppp ?? '—'}</td>
                 <td className="px-3 py-2 text-xs">{c.velocidad_cruda ?? '—'}</td>
                 <td className="px-3 py-2">

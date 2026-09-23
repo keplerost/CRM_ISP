@@ -14,7 +14,7 @@ import { codigoLargo } from '../../lib/abonados'
 import { carteraApi } from '../../lib/cartera'
 import { dineroCero as dinero } from '../../lib/formato'
 import ConPermiso from '../layout/ConPermiso'
-import { Aviso, Badge, Button, Modal, Textarea } from '../ui'
+import { Aviso, Badge, Button, Modal, Textarea, EnlaceIp } from '../ui'
 
 /**
  * Quién es este abonado para el sistema, arriba de todo.
@@ -163,7 +163,11 @@ export default function IdentidadCliente({ cliente, promesa, onGuardado, onError
           <RouterIcon size={14} className="shrink-0 text-slate-500" />
           {cliente.router ?? <span className="text-slate-500">sin router asignado</span>}
         </div>
-        {cliente.ip && <div className="mt-1 font-mono text-[11px] text-slate-500">{cliente.ip}</div>}
+        {cliente.ip && (
+          <div className="mt-1 font-mono text-[11px] text-slate-500">
+            <EnlaceIp ip={cliente.ip} />
+          </div>
+        )}
       </Dato>
 
       {/* El número del abonado --------------------------------------------- */}

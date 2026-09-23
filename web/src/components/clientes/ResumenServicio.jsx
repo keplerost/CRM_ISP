@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { dinero } from '../../lib/formato'
 import { Activity, Pencil, Radio, Trash2, Wifi } from 'lucide-react'
-import { Aviso, Badge, Button, Card } from '../ui'
+import { Aviso, Badge, Button, Card, EnlaceIp } from '../ui'
 import Trasladar from './Trasladar'
 
 /**
@@ -113,7 +113,7 @@ export default function ResumenServicio({
                   {dinero(cliente.precio_mensual ?? cliente.plan_precio)}
                 </td>
                 <td className="px-3 py-2 font-mono text-xs">
-                  {cliente.ip ?? '—'}
+                  <EnlaceIp ip={cliente.ip} />
                   {cliente.tipo_conexion && cliente.tipo_conexion !== 'ip' ? (
                     <span className="block text-[11px] uppercase text-sky-400">
                       {cliente.tipo_conexion}
