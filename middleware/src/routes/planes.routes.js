@@ -366,10 +366,22 @@ router.post(
       // Lo que quedó sin aplicar por estar a medio configurar. La velocidad se
       // aplica igual.
       avisos: perfil.avisos ?? [],
+      /*
+        El texto no puede afirmar que limita la OLT.
+
+        Decía "el caudal lo controla la traffic table de la OLT" siempre que el
+        plan no fuera 'mikrotik'. Pero este mismo plan también sirve a abonados
+        de IP fija, a los que limita su Simple Queue en el router y que muchas
+        veces ni tienen una OLT administrada en el camino. En un nodo así, el
+        mensaje mandaba a buscar una traffic table que no existe.
+
+        Lo cierto en los dos casos es lo mismo: el límite NO está en el perfil.
+        Dónde está depende de cada abonado, no del plan.
+      */
       regla:
         plan.control_pppoe === 'mikrotik'
           ? 'Este plan controla el caudal en el router: el perfil lleva el rate-limit con la velocidad del plan.'
-          : 'El perfil queda sin rate-limit a propósito: el caudal lo controla la traffic table de la OLT, y un límite acá competiría con ella.',
+          : 'El perfil queda sin rate-limit a propósito, y solo afecta a los abonados PPPoE: a ellos los limita la traffic table de la OLT. Los de IP fija no usan este perfil — a esos los limita su Simple Queue.',
       mensaje: `Perfil "${perfil.nombre}" en ${aplicados.length} de ${asignados.length} routers.`,
     })
   }),
