@@ -118,6 +118,26 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
 
   // --- Acciones sobre el servicio, que van a la base y no a la red ----------
 
+  /**
+   * Suspender y activar, en el sistema Y en el router.
+   *
+   * ── Lo que hacía antes ──
+   *
+   * Solo cambiaba el estado en la base. El abonado quedaba marcado como cortado
+   * y seguía navegando, porque su IP nunca entraba a la lista del router. El
+   * aviso de "activar" incluso decía "recordá quitarlo de la lista", que es
+   * pedirle a una persona que se acuerde de lo que la máquina no hizo.
+   *
+   * En el piloto se suspendieron ocho abonados a mano y los ocho siguieron con
+   * internet. Nadie lo notó hasta que Reparar lo mostró.
+   *
+   * ── Por qué el estado se guarda igual si el router falla ──
+   *
+   * Porque la decisión comercial ya se tomó, y perderla obligaría a repetirla.
+   * Lo que no se puede es ocultarlo: si el router no respondió, se dice con
+   * todas las letras y queda para que "Reparar el router" lo corrija después.
+   * Esa reconciliación existe justamente para este momento.
+   */
   async function cambiarEstado(estado, aviso) {
     if (!await confirmar(aviso)) return
 
@@ -126,11 +146,55 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
     try {
       const { error } = await supabase.from('clientes').update({ estado }).eq('id', cliente.id)
       if (error) throw error
+
+      const enElRouter = await aplicarEnRouter(estado)
       await onGuardado?.()
+
+      if (!enElRouter.ok) {
+        onError?.(
+          new Error(
+            `El abonado quedó como "${estado}" en el sistema, pero el router no se actualizó: ` +
+              `${enElRouter.nota} Corregilo con "Reparar el router".`,
+          ),
+        )
+      }
     } catch (err) {
       onError?.(err)
     } finally {
       setGuardando(false)
+    }
+  }
+
+  /** Agrega o quita la IP de la lista de cortados, según el estado nuevo. */
+  async function aplicarEnRouter(estado) {
+    if (estado !== 'cortado' && estado !== 'activo') return { ok: true, nota: '' }
+
+    if (!cliente.router_id || !cliente.ip) {
+      return { ok: false, nota: 'No tiene router o IP cargados.' }
+    }
+
+    try {
+      const entradas = await api.mikrotik.bloqueos(cliente.router_id)
+      const entrada = entradas.find(
+        (e) => e.address === cliente.ip || String(e.address).startsWith(`${cliente.ip}/`),
+      )
+
+      if (estado === 'cortado') {
+        if (entrada) return { ok: true, nota: 'Ya estaba bloqueado.' }
+        // El endpoint asegura además la regla de corte: sin ella, la lista se
+        // llena y el tráfico sigue pasando.
+        await api.mikrotik.bloquear(cliente.router_id, {
+          address: cliente.ip,
+          comment: cliente.nombre,
+        })
+        return { ok: true, nota: '' }
+      }
+
+      if (!entrada) return { ok: true, nota: '' }
+      await api.mikrotik.desbloquear(cliente.router_id, entrada.id)
+      return { ok: true, nota: '' }
+    } catch (err) {
+      return { ok: false, nota: err.message }
     }
   }
 
@@ -359,7 +423,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                 onClick={() =>
                   cambiarEstado(
                     'activo',
-                    `¿Marcar a ${cliente.nombre} como activo? Recordá quitarlo de la lista de cortados en el router.`,
+                    `¿Marcar a ${cliente.nombre} como activo? Se le quita el bloqueo en el router.`,
                   )
                 }
               />
@@ -371,7 +435,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                 onClick={() =>
                   cambiarEstado(
                     'cortado',
-                    `¿Suspender el servicio de ${cliente.nombre}? Se queda sin internet.`,
+                    `¿Suspender el servicio de ${cliente.nombre}? Se le corta el internet en el router.`,
                   )
                 }
               />
