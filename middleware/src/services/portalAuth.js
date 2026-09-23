@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
+import { principalDe, puedeCambiarA, resumirServicios } from '../lib/servicios.js'
 import { db } from '../lib/db.js'
 import { config } from '../config.js'
 import { AppError, badRequest } from '../lib/errors.js'
@@ -65,19 +66,35 @@ function igual(a, b) {
  * Los dados de baja quedan afuera: ya no son clientes, y dejarlos entrar sería
  * darle acceso a sus datos a alguien que quizás ya no vive en esa casa.
  */
-async function porIdentificacion(identificacion) {
+const CAMPOS_SERVICIO =
+  'id, nombre, identificacion, direccion, referencia_servicio, created_at, ' +
+  'email, telefono, telefono_movil, estado, telegram_chat_id, portal_clave_hash'
+
+/**
+ * Todos los servicios de esa cédula.
+ *
+ * Devuelve una lista y no una fila. Antes usaba `maybeSingle()`, que falla
+ * cuando hay más de un resultado — y eso obligaba a que la base impidiera
+ * cédulas repetidas, lo que a su vez obligaba a cargar el segundo servicio de
+ * una persona con el nombre deformado y sin identificación.
+ */
+async function serviciosDe(identificacion) {
   const limpia = String(identificacion ?? '').replace(/\D/g, '')
-  if (limpia.length < 5) return null
+  if (limpia.length < 5) return []
 
   const { data, error } = await db()
     .from('clientes')
-    .select('id, nombre, identificacion, email, telefono, telefono_movil, estado, telegram_chat_id, portal_clave_hash')
+    .select(CAMPOS_SERVICIO)
     .eq('identificacion', limpia)
     .neq('estado', 'baja')
-    .maybeSingle()
 
   if (error) throw new AppError(`No se pudo buscar al abonado: ${error.message}`, { status: 502 })
-  return data
+  return data ?? []
+}
+
+/** Sobre cuál de los servicios trabaja el ingreso. Ver `lib/servicios.js`. */
+async function porIdentificacion(identificacion) {
+  return principalDe(await serviciosDe(identificacion))
 }
 
 /** A dónde mandarle el código, y por qué canal. */
@@ -189,7 +206,8 @@ function enmascarar(destino) {
  * su huella: si se filtra la tabla de sesiones, no se puede entrar con ella.
  */
 export async function entrar({ identificacion, codigo, agente } = {}) {
-  const cliente = await porIdentificacion(identificacion)
+  const servicios = await serviciosDe(identificacion)
+  const cliente = principalDe(servicios)
   const rechazo = badRequest('El código no es correcto o ya venció.')
 
   // Mismo error para "no existe la cédula" y "el código está mal": distinguir
@@ -228,7 +246,7 @@ export async function entrar({ identificacion, codigo, agente } = {}) {
   // sesión nueva cada vez que alguien lo lea.
   await db().from('portal_codigos').update({ usado_en: new Date().toISOString() }).eq('id', fila.id)
 
-  return abrirSesion(cliente, agente)
+  return abrirSesion(cliente, agente, servicios)
 }
 
 /**
@@ -247,7 +265,8 @@ export async function entrar({ identificacion, codigo, agente } = {}) {
  * afuera de su propia cuenta sin forma de resolverlo solo.
  */
 export async function entrarConClave({ identificacion, clave, agente } = {}) {
-  const cliente = await porIdentificacion(identificacion)
+  const servicios = await serviciosDe(identificacion)
+  const cliente = principalDe(servicios)
 
   // El mismo error para "no existe la cédula" y "contraseña incorrecta".
   // Distinguirlos convertiría el formulario en un buscador de abonados.
@@ -262,11 +281,11 @@ export async function entrarConClave({ identificacion, clave, agente } = {}) {
 
   if (!verificarClave(clave, cliente.portal_clave_hash)) throw rechazo
 
-  return abrirSesion(cliente, agente)
+  return abrirSesion(cliente, agente, servicios)
 }
 
 /** Crea la sesión y devuelve el token. Lo comparten las dos formas de entrar. */
-async function abrirSesion(cliente, agente) {
+async function abrirSesion(cliente, agente, servicios = []) {
   const token = randomBytes(32).toString('base64url')
 
   const { error } = await db()
@@ -286,6 +305,76 @@ async function abrirSesion(cliente, agente) {
     nombre: cliente.nombre,
     expira_dias: VIDA_SESION_DIAS,
     tiene_clave: Boolean(cliente.portal_clave_hash),
+    // Los otros servicios de la misma persona, para poder ofrecerlos sin que
+    // tenga que volver a entrar. Va vacío cuando hay uno solo, que es el caso
+    // habitual: el portal no dibuja nada y no cambia para nadie.
+    servicios: servicios.length > 1 ? resumirServicios(servicios, cliente.id) : [],
+  }
+}
+
+/**
+ * Pasar la sesión a otro servicio de la misma persona.
+ *
+ * No vuelve a pedir código ni contraseña, y eso es correcto: quien entró ya
+ * demostró ser dueño de esa cédula. Lo que sí se comprueba, en cada cambio, es
+ * que el destino tenga la MISMA identificación que el origen — la sesión no
+ * alcanza para abrir la ficha de otro.
+ *
+ * Se modifica la sesión existente en vez de abrir una nueva: el token sigue
+ * siendo el mismo, el portal no tiene que volver a guardarlo, y no quedan
+ * sesiones sueltas cada vez que alguien mira su otro servicio.
+ */
+/**
+ * Los otros servicios de quien tiene esta sesión abierta.
+ *
+ * Devuelve vacío cuando hay uno solo —el caso habitual— para que el portal no
+ * dibuje un selector de una sola opción.
+ */
+export async function serviciosDeLaSesion(clienteId) {
+  const { data, error } = await db()
+    .from('clientes')
+    .select('identificacion')
+    .eq('id', clienteId)
+    .maybeSingle()
+
+  if (error || !data?.identificacion) return []
+
+  const servicios = await serviciosDe(data.identificacion)
+  return servicios.length > 1 ? resumirServicios(servicios, clienteId) : []
+}
+
+export async function cambiarServicio(token, destinoId) {
+  const actualId = await clienteDeLaSesion(token)
+  if (!actualId) throw badRequest('La sesión venció. Volvé a entrar.')
+
+  const { data: fichas, error } = await db()
+    .from('clientes')
+    .select(CAMPOS_SERVICIO)
+    .in('id', [actualId, destinoId])
+
+  if (error) throw new AppError(`No se pudo leer el servicio: ${error.message}`, { status: 502 })
+
+  const actual = fichas?.find((c) => c.id === actualId)
+  const destino = fichas?.find((c) => c.id === destinoId)
+
+  // El mismo mensaje para "no existe" y "no es tuyo". Distinguirlos convertiría
+  // esto en una forma de averiguar qué fichas existen.
+  if (!puedeCambiarA(actual, destino)) throw badRequest('Ese servicio no está disponible.')
+
+  const { error: errorSesion } = await db()
+    .from('portal_sesiones')
+    .update({ cliente_id: destino.id, ultimo_uso: new Date().toISOString() })
+    .eq('token_hash', huella(token))
+
+  if (errorSesion) {
+    throw new AppError(`No se pudo cambiar de servicio: ${errorSesion.message}`, { status: 502 })
+  }
+
+  const servicios = await serviciosDe(destino.identificacion)
+
+  return {
+    nombre: destino.nombre,
+    servicios: servicios.length > 1 ? resumirServicios(servicios, destino.id) : [],
   }
 }
 

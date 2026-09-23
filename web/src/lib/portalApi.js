@@ -74,6 +74,9 @@ export const portalApi = {
   entrarConClave: (identificacion, clave) => pedir('POST', '/entrar-clave', { identificacion, clave }),
   cambiarClave: (actual, nueva) => pedir('POST', '/clave', { actual, nueva }),
   salir: () => pedir('POST', '/salir'),
+  // Pasar a otro servicio de la misma persona. El token no cambia: se mueve
+  // la sesión, así que no hay nada que volver a guardar.
+  cambiarServicio: (clienteId) => pedir('POST', '/servicio', { clienteId }),
 
   miCuenta: () => pedir('GET', '/mi-cuenta'),
   facturas: () => pedir('GET', '/facturas'),

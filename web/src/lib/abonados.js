@@ -224,6 +224,9 @@ export const COLUMNAS_ABONADOS = [
   { clave: 'codigo', titulo: 'ID', grupo: 'principal', mono: true, texto: (c) => codigoLargo(c.codigo) },
   { clave: 'nombre', titulo: 'Nombre', grupo: 'principal', fija: true, texto: (c) => c.nombre ?? '' },
   { clave: 'direccion', titulo: 'Dirección principal', grupo: 'principal', ancho: true, texto: (c) => c.direccion ?? '' },
+  // Para qué es el servicio cuando una persona tiene más de uno. Uso interno:
+  // el nombre y la dirección son lo que sale impreso, esto no.
+  { clave: 'referencia_servicio', titulo: 'Servicio', grupo: 'principal', texto: (c) => c.referencia_servicio ?? '' },
   { clave: 'ip', titulo: 'IP', grupo: 'principal', mono: true, texto: (c) => c.ip ?? '' },
   { clave: 'mac', titulo: 'MAC', grupo: 'principal', mono: true, texto: (c) => c.mac_address ?? '' },
   // `exacto` porque es un número corto: filtrar "5" por partes traería también

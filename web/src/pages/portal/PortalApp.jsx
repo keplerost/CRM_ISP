@@ -117,6 +117,34 @@ export default function PortalApp() {
                 dos líneas y no saluda a nadie. */}
             Hola, {String(cuenta?.nombre ?? '').split(' ')[0]}
           </p>
+
+          {/*
+            El selector de servicio, solo para quien tiene más de uno.
+            `servicios` viene vacío con uno solo, así que para la mayoría el
+            encabezado no cambia en nada.
+
+            Es un <select> nativo a propósito: se abre con el selector del
+            sistema operativo, que en un celular es más cómodo y accesible que
+            cualquier menú dibujado a mano.
+          */}
+          {cuenta?.servicios?.length > 1 && (
+            <select
+              id="servicio-actual"
+              value={cuenta.servicios.find((x) => x.actual)?.id ?? ''}
+              onChange={async (e) => {
+                await portalApi.cambiarServicio(e.target.value)
+                await cargar()
+              }}
+              className="mt-0.5 max-w-full truncate rounded border border-slate-700 bg-transparent py-0.5 pl-1 pr-5 text-xs text-slate-500"
+              aria-label="Qué servicio estás viendo"
+            >
+              {cuenta.servicios.map((sv) => (
+                <option key={sv.id} value={sv.id}>
+                  {sv.referencia || sv.direccion || sv.nombre}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <button onClick={salir} className="p-1 text-slate-500" aria-label="Salir">
           <LogOut size={18} />

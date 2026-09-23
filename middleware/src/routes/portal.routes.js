@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { asyncHandler, AppError } from '../lib/errors.js'
 import {
   cambiarClave,
+  cambiarServicio,
+  serviciosDeLaSesion,
   cerrarLasDemas,
   clienteDeLaSesion,
   entrar,
@@ -106,7 +108,14 @@ router.use(conSesion)
 router.get(
   '/mi-cuenta',
   asyncHandler(async (req, res) => {
-    res.json(await miCuenta(req.clienteId))
+    // Los servicios van acá y no solo en la respuesta del ingreso: al recargar
+    // la página esa respuesta ya no existe, y el selector tiene que seguir
+    // estando. El portal se abre en un celular y se recarga todo el tiempo.
+    const [cuenta, servicios] = await Promise.all([
+      miCuenta(req.clienteId),
+      serviciosDeLaSesion(req.clienteId),
+    ])
+    res.json({ ...cuenta, servicios })
   }),
 )
 
@@ -162,6 +171,20 @@ router.post(
     // dispositivo sí.
     await cerrarLasDemas(req.clienteId, tokenDe(req))
     res.json(r)
+  }),
+)
+
+/**
+ * Pasar la sesión a otro servicio de la misma persona.
+ *
+ * El token no cambia: se mueve la sesión, no se abre otra. Así el portal no
+ * tiene que volver a guardar nada y no quedan sesiones sueltas cada vez que
+ * alguien mira su otro servicio.
+ */
+router.post(
+  '/servicio',
+  asyncHandler(async (req, res) => {
+    res.json(await cambiarServicio(tokenDe(req), req.body?.clienteId))
   }),
 )
 

@@ -29,6 +29,7 @@ const VACIO = {
   email: '',
   telefono: '',
   direccion: '',
+  referencia_servicio: '',
   tipo_conexion: 'ip',
   ip: '',
   red_ipv4: '',
@@ -74,6 +75,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
   // Las direcciones ya tomadas de la red elegida. Se piden al cambiar de red y
   // no al abrir: son cientos por red y casi siempre se usa una sola.
   const [ocupadas, setOcupadas] = useState([])
+  const [otrosServicios, setOtrosServicios] = useState([])
 
   const [form, setForm] = useState(() => (cliente ? desdeFila(cliente) : VACIO))
   const [error, setError] = useState(null)
@@ -116,6 +118,45 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
       vivo = false
     }
   }, [redElegida?.id])
+
+  /**
+   * Si esa cédula ya tiene servicios, avisarlo.
+   *
+   * Es lo que reemplaza al índice único que la base tenía hasta la migración
+   * 192. Aquel rechazaba el alta y obligaba a inventar un "JUAN PEREZ-2" con la
+   * cédula vacía — que después no se puede facturar bien ni firmar.
+   *
+   * Un aviso es mejor que un rechazo porque las dos situaciones existen y se
+   * ven iguales desde acá: alguien está cargando el segundo servicio de una
+   * persona —el local además de la casa— o está duplicando una ficha por error.
+   * Quien carga sabe cuál de las dos es; la base no.
+   */
+  useEffect(() => {
+    const cedula = String(form.identificacion ?? '').replace(/\D/g, '')
+    if (cedula.length < 5) {
+      setOtrosServicios([])
+      return
+    }
+
+    let vivo = true
+    // Se espera a que deje de escribir: sin esto sale una consulta por tecla.
+    const reloj = setTimeout(() => {
+      supabase
+        .from('clientes')
+        .select('id, nombre, referencia_servicio, direccion, estado')
+        .eq('identificacion', cedula)
+        .neq('estado', 'baja')
+        .then(({ data }) => {
+          if (!vivo) return
+          setOtrosServicios((data ?? []).filter((c) => c.id !== cliente?.id))
+        })
+    }, 400)
+
+    return () => {
+      vivo = false
+      clearTimeout(reloj)
+    }
+  }, [form.identificacion, cliente?.id])
 
   const libres = useMemo(
     () =>
@@ -171,6 +212,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
         email: form.email || null,
         telefono: form.telefono || null,
         direccion: form.direccion || null,
+        referencia_servicio: form.referencia_servicio || null,
         tipo_conexion: form.tipo_conexion || 'ip',
         /**
          * Los datos de la otra forma de conexión no se guardan.
@@ -238,6 +280,25 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
         <Field label="Dirección" className="sm:col-span-2">
           <Input value={form.direccion} onChange={set('direccion')} />
         </Field>
+
+        {/*
+          Para qué es este servicio, cuando la misma persona tiene más de uno.
+          Es lo que antes se decía pegándole un "-2" al apellido, y que salía
+          impreso en la factura y en el contrato. Esto no sale en ninguno de los
+          dos: se ve solo en las pantallas internas.
+        */}
+        <Field
+          label="Referencia del servicio"
+          hint="Casa, Local, Bodega. Solo para distinguirlo por dentro: no sale en la factura."
+          className="sm:col-span-2"
+        >
+          <Input
+            value={form.referencia_servicio}
+            onChange={set('referencia_servicio')}
+            placeholder="Casa"
+            maxLength={40}
+          />
+        </Field>
       </div>
 
       {idIncompleta && (
@@ -245,6 +306,32 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
           La {form.tipo_identificacion === '04' ? 'RUC' : 'cédula'} debería tener {largo} dígitos y
           tiene {form.identificacion.replace(/\D/g, '').length}. El SRI rechaza el comprobante si no
           coincide.
+        </Aviso>
+      )}
+
+      {/*
+        No es un error: esa cédula puede tener varios servicios a propósito —la
+        casa y el local— y también puede estar duplicándose una ficha por
+        descuido. Desde acá las dos se ven igual, así que se muestra lo que hay
+        y decide quien carga.
+      */}
+      {otrosServicios.length > 0 && (
+        <Aviso>
+          Esta cédula ya tiene {otrosServicios.length}{' '}
+          {otrosServicios.length === 1 ? 'servicio' : 'servicios'}:
+          <ul className="mt-1 space-y-0.5">
+            {otrosServicios.map((o) => (
+              <li key={o.id} className="text-xs">
+                <b>{o.nombre}</b>
+                {o.referencia_servicio ? ` · ${o.referencia_servicio}` : ''}
+                {o.direccion ? ` · ${o.direccion}` : ''}
+              </li>
+            ))}
+          </ul>
+          <span className="mt-1 block text-xs">
+            Si estás agregando otro servicio de la misma persona, está bien: ponele el nombre real
+            y una referencia para distinguirlo. Si es un duplicado, cerrá y editá el que ya existe.
+          </span>
         </Aviso>
       )}
 
