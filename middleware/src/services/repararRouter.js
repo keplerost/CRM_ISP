@@ -334,6 +334,26 @@ export async function reparar(routerId, { borrarDesconocidos = false } = {}) {
     }
   }
 
+  /**
+   * La regla de corte, antes de tocar la lista.
+   *
+   * La entrada del address-list por sí sola no corta nada: hace falta el `drop`
+   * que dropea el forward de esa lista. Sin esto, reparar llenaría la lista de
+   * IPs y el tráfico seguiría pasando — el mismo problema que venía a arreglar,
+   * con otro disfraz y más difícil de ver, porque en el router "están todos
+   * bloqueados".
+   *
+   * Es idempotente, y de paso actualiza el nombre de la regla si quedó con la
+   * firma vieja.
+   */
+  if (plan.morosos.some((m) => m.accion === 'agregar')) {
+    try {
+      await mk.asegurarReglaCorte(equipo, equipo.lista_morosos || undefined)
+    } catch (e) {
+      hecho.fallos.push(`regla de corte: ${e.message}`)
+    }
+  }
+
   for (const m of plan.morosos) {
     try {
       if (m.accion === 'agregar') {
