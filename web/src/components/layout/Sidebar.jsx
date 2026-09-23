@@ -511,8 +511,14 @@ export default function Sidebar() {
       {/* La marca sale de la configuración, no está escrita acá: cada ISP que
           instala el sistema pone la suya en Ajustes → General. */}
       <div className="flex items-center gap-2 border-b border-[rgba(15,23,42,0.06)] px-4 py-4">
+        {/* `contain` y no `cover`: un logo apaisado metido en un cuadrado se
+            recorta por los lados, y lo que se pierde suele ser el nombre. */}
         {marca?.logo_b64 ? (
-          <img src={marca.logo_b64} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+          <img
+            src={marca.logo_b64}
+            alt=""
+            className="h-8 w-auto max-w-28 shrink-0 rounded-lg object-contain"
+          />
         ) : (
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-tr from-sky-700 to-sky-400 text-sm font-bold text-white">
             {(marca?.nombre_sistema ?? 'S').trim().charAt(0).toUpperCase()}

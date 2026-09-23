@@ -80,14 +80,32 @@ export default function PortalLogin({ onEntrar }) {
     <div className="flex min-h-dvh items-center justify-center bg-[#F6F8FB] p-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
+          {/*
+            Mismo criterio que la entrada del sistema: si hay logo, manda el
+            logo y el nombre no se repite debajo —casi todos lo llevan adentro—.
+            Acá pesa todavía más: el abonado entra desde el celular, mira dos
+            segundos y tiene que reconocer a su proveedor sin leer.
+
+            El nombre sigue disponible para lectores de pantalla, en el `alt` y
+            en un h1 que no se ve.
+          */}
           {marca.logo_b64 ? (
-            <img src={marca.logo_b64} alt="" className="mx-auto mb-3 max-h-16" />
+            <>
+              <img
+                src={marca.logo_b64}
+                alt={marca.nombre_sistema}
+                className="mx-auto mb-4 h-auto max-h-24 w-auto max-w-[72%] object-contain sm:max-h-32"
+              />
+              <h1 className="sr-only">{marca.nombre_sistema}</h1>
+            </>
           ) : (
-            <div className="mx-auto mb-3 grid size-14 place-items-center rounded-2xl bg-sky-600 text-xl font-bold text-white">
-              {marca.nombre_sistema.trim().charAt(0).toUpperCase()}
-            </div>
+            <>
+              <div className="mx-auto mb-3 grid size-16 place-items-center rounded-2xl bg-sky-600 text-2xl font-bold text-white">
+                {marca.nombre_sistema.trim().charAt(0).toUpperCase()}
+              </div>
+              <h1 className="text-xl font-semibold text-slate-100">{marca.nombre_sistema}</h1>
+            </>
           )}
-          <h1 className="text-xl font-semibold text-slate-100">{marca.nombre_sistema}</h1>
           <p className="mt-1 text-sm text-slate-500">Consultá tu cuenta</p>
         </div>
 
