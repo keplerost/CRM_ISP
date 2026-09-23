@@ -19,9 +19,29 @@ import { AlertTriangle, Info, Loader2, X } from 'lucide-react'
  * aceptados. Lo único que se tocó es cómo se dibujan.
  */
 
-export function Card({ title, subtitle, icon: Icon, actions, children, className = '' }) {
+/**
+ * `desbordable` deja salir lo que flota por fuera de la tarjeta.
+ *
+ * El recorte existe por el radio: sin él, el encabezado con su línea inferior
+ * se sale de las esquinas redondeadas. Pero recorta TODO, y una tarjeta que
+ * contiene un buscador con panel de resultados lo corta justo en su borde de
+ * abajo — se ve el encabezado del panel y ninguna de las filas.
+ *
+ * Por eso es una decisión de quien usa la tarjeta y no del tema: solo las
+ * pocas que contienen algo flotante lo piden, y las demás conservan el recorte
+ * que necesitan.
+ */
+export function Card({
+  title,
+  subtitle,
+  icon: Icon,
+  actions,
+  children,
+  className = '',
+  desbordable = false,
+}) {
   return (
-    <section className={`t-card overflow-hidden ${className}`}>
+    <section className={`t-card ${desbordable ? '' : 'overflow-hidden'} ${className}`}>
       {(title || actions) && (
         <header className="flex items-start justify-between gap-4 border-b border-[rgba(15,23,42,0.06)] px-6 pt-5 pb-4">
           <div className="flex min-w-0 items-center gap-3">

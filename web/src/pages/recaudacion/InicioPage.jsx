@@ -130,7 +130,12 @@ export default function RecaudacionInicioPage() {
           </div>
         </Card>
       ) : (
-        <Card title="Cobrar" icon={Search} subtitle="Nombre, cédula o número de contrato">
+        <Card
+          title="Cobrar"
+          icon={Search}
+          subtitle="Nombre, cédula o número de contrato"
+          desbordable
+        >
           <div className="p-4">
             <BuscadorCliente onElegir={setCliente} />
           </div>

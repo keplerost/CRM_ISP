@@ -126,7 +126,9 @@ function Registrar({ onError }) {
 
   return (
     <div className="space-y-4">
-      <Card>
+      {/* `desbordable`: el panel de resultados del buscador cae por fuera de
+          la tarjeta, y el recorte de Card lo cortaba en su borde de abajo. */}
+      <Card desbordable>
         <BuscadorCliente
           onElegir={(c) => {
             setResultado(null)

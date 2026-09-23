@@ -183,7 +183,7 @@ export default function FichaContratos({ cliente = null, onError, onGuardado }) 
         </div>
       )}
 
-      <Card title="Nuevo contrato" icon={Plus}>
+      <Card title="Nuevo contrato" icon={Plus} desbordable>
         <form onSubmit={crear} className="space-y-4">
           {!cliente &&
             (destino ? (

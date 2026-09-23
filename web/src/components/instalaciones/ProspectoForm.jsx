@@ -142,8 +142,7 @@ export default function ProspectoForm({ onError, onCreado }) {
     <Card
       title="Nuevo trabajo"
       subtitle="Los datos que se toman al recibir el pedido. La factibilidad y la agenda se completan después."
-      icon={UserPlus}
-    >
+      icon={UserPlus} desbordable>
       <form onSubmit={crear} className="space-y-4">
         <div className="t-panel p-3">
           {cliente ? (

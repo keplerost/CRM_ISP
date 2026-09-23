@@ -206,7 +206,7 @@ export default function FichaInstalaciones({ cliente = null, onError, onGuardado
         </div>
       )}
 
-      <Card title={cliente ? 'Agendar una visita' : 'Nueva instalación'} icon={Plus}>
+      <Card title={cliente ? 'Agendar una visita' : 'Nueva instalación'} icon={Plus} desbordable>
         <form onSubmit={crear} className="space-y-4">
           {!cliente &&
             (destino ? (
