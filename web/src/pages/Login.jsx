@@ -41,21 +41,42 @@ export default function Login() {
   }
 
   return (
-    <div className="grid h-full place-items-center p-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10 sm:px-6">
       <AvisoLicencia licencia={licencia} />
 
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
+        <div className="mb-7 text-center sm:mb-8">
           {/* El logo del ISP si lo cargó; si no, su inicial. Nunca una marca
               ajena: el técnico que entra todos los días tiene que ver la suya. */}
           {marca.logo_b64 ? (
-            <img src={marca.logo_b64} alt="" className="mx-auto mb-3 max-h-14" />
+            <>
+              {/*
+                Con logo, el nombre NO se repite debajo.
+                Casi todos los logos de ISP ya llevan el nombre dentro —el de
+                CNET dice "CNET S.A"—, así que escribirlo otra vez lo duplica y
+                le roba tamaño al logo, que es lo que se reconoce de un vistazo.
+                Sigue estando para quien usa lector de pantalla: va en el `alt`
+                y en un h1 que no se ve pero se lee.
+
+                La altura crece con la pantalla en vez de ser fija, y el ancho
+                se topa al 72% para que un logo apaisado no toque los bordes en
+                un teléfono.
+              */}
+              <img
+                src={marca.logo_b64}
+                alt={marca.nombre_sistema}
+                className="mx-auto mb-4 h-auto max-h-24 w-auto max-w-[72%] object-contain sm:max-h-32"
+              />
+              <h1 className="sr-only">{marca.nombre_sistema}</h1>
+            </>
           ) : (
-            <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-sky-600 text-lg font-bold text-white">
-              {marca.nombre_sistema.trim().charAt(0).toUpperCase()}
-            </div>
+            <>
+              <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-sky-600 text-xl font-bold text-white sm:h-16 sm:w-16 sm:text-2xl">
+                {marca.nombre_sistema.trim().charAt(0).toUpperCase()}
+              </div>
+              <h1 className="t-titulo text-xl font-bold text-slate-100">{marca.nombre_sistema}</h1>
+            </>
           )}
-          <h1 className="t-titulo text-lg font-bold text-slate-100">{marca.nombre_sistema}</h1>
           {marca.lema && <p className="mt-1 text-xs text-slate-500">{marca.lema}</p>}
         </div>
 
