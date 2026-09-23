@@ -2,6 +2,9 @@ import { db, cargarRouter } from '../lib/db.js'
 import { badRequest } from '../lib/errors.js'
 import * as mk from './mikrotikService.js'
 import { extraerIp } from './importador.js'
+import { compararColas, compararLeases } from '../lib/comparaRouter.js'
+import { camposDeCola } from '../lib/velocidad.js'
+import { nombreDeCola, nombreDeColaAlterno } from '../lib/servicios.js'
 
 /**
  * Dejar el MikroTik igual a lo que dice el sistema.
@@ -48,14 +51,22 @@ export function usaPppoe(cliente) {
 export async function revisar(routerId) {
   const equipo = await cargarRouter(routerId)
 
-  const [{ data: clientes }, secrets, lista, perfiles] = await Promise.all([
+  const [{ data: clientes }, secrets, lista, perfiles, colas, leases, { data: planes }] =
+    await Promise.all([
     db()
       .from('clientes')
-      .select('id, nombre, estado, ip, tipo_conexion, usuario_ppp, clave_ppp, plan_id, planes_velocidad(nombre, perfil_ppp)')
+      .select('id, nombre, estado, ip, mac_address, tipo_conexion, usuario_ppp, clave_ppp, plan_id, referencia_servicio, planes_velocidad(nombre, perfil_ppp)')
       .eq('router_id', routerId),
     mk.listarPppSecrets(equipo).catch(() => []),
     mk.listarBloqueos(equipo, LISTA_MOROSOS).catch(() => []),
     mk.listarPppProfiles(equipo).catch(() => []),
+    // Las colas y las leases son la otra mitad del abonado de IP fija: la cola
+    // lo limita y la lease le entrega su dirección. Si alguna de las dos quedó
+    // con la IP vieja, el corte apunta a una dirección que en el router no es
+    // de nadie.
+    mk.listarSimpleQueues(equipo).catch(() => []),
+    mk.listarDhcpLeases(equipo).catch(() => []),
+    db().from('planes_velocidad').select('*'),
   ])
 
   if (!clientes?.length) throw badRequest('Este router no tiene clientes asignados en el sistema')
@@ -142,6 +153,21 @@ export async function revisar(routerId) {
     }
   }
 
+  /**
+   * Lo que se espera de cada cola, plan por plan.
+   *
+   * Se calcula con `camposDeCola`, el MISMO que usa la sincronización para
+   * escribir. Comparar contra otra cosa haría que reparar corrigiera para
+   * siempre algo que ya está bien.
+   */
+  const esperadoPorPlan = new Map(
+    (planes ?? []).map((p) => [p.id, camposDeCola(p).campos]),
+  )
+
+  const deIpFija = (clientes ?? []).filter((c) => !usaPppoe(c))
+  const diffColas = compararColas({ clientes: deIpFija, colas, esperadoPorPlan })
+  const diffLeases = compararLeases({ clientes: deIpFija, leases })
+
   // Lo que hay en el router y el sistema no conoce. NO se toca por defecto.
   const usuariosDelSistema = new Set(clientes.map((c) => c.usuario_ppp).filter(Boolean))
   const ipsDelSistema = new Set(clientes.map((c) => extraerIp(c.ip)).filter(Boolean))
@@ -158,6 +184,8 @@ export async function revisar(routerId) {
   return {
     router: { id: equipo.id, nombre: equipo.nombre },
     secrets: secrets2,
+    colas: diffColas,
+    leases: diffLeases,
     morosos,
     sin_datos: sinDatos,
     desconocidos,
@@ -168,10 +196,20 @@ export async function revisar(routerId) {
       bloqueos_a_agregar: morosos.filter((m) => m.accion === 'agregar').length,
       bloqueos_a_quitar: morosos.filter((m) => m.accion === 'quitar').length,
       sin_datos: sinDatos.length,
-      desconocidos_en_router: desconocidos.secrets.length + desconocidos.bloqueos.length,
+      desconocidos_en_router:
+        desconocidos.secrets.length + desconocidos.bloqueos.length + diffColas.desconocidas.length,
+      colas_a_crear: diffColas.faltan.length,
+      colas_a_corregir: diffColas.corregir.length,
+      colas_duplicadas: diffColas.duplicadas.length,
+      leases_a_corregir: diffLeases.corregir.length,
       // Si no hay nada que hacer, decirlo con todas las letras: es el resultado
       // más frecuente y el más tranquilizador.
-      sin_cambios: secrets2.length === 0 && morosos.length === 0,
+      sin_cambios:
+        secrets2.length === 0 &&
+        morosos.length === 0 &&
+        diffColas.faltan.length === 0 &&
+        diffColas.corregir.length === 0 &&
+        diffLeases.corregir.length === 0,
     },
   }
 }
@@ -187,7 +225,7 @@ export async function revisar(routerId) {
 export async function reparar(routerId, { borrarDesconocidos = false } = {}) {
   const plan = await revisar(routerId)
   const equipo = await cargarRouter(routerId)
-  const hecho = { secrets: 0, bloqueos: 0, borrados: 0, fallos: [] }
+  const hecho = { secrets: 0, colas: 0, leases: 0, bloqueos: 0, borrados: 0, fallos: [] }
 
   for (const s of plan.secrets) {
     try {
@@ -210,6 +248,60 @@ export async function reparar(routerId, { borrarDesconocidos = false } = {}) {
       hecho.secrets++
     } catch (e) {
       hecho.fallos.push(`secret ${s.usuario}: ${e.message}`)
+    }
+  }
+
+  /**
+   * Las colas que faltan o no coinciden.
+   *
+   * Va ANTES de la lista de morosos a propósito: si a alguien hay que crearle
+   * la cola y además bloquearlo, conviene que primero exista lo que lo limita.
+   *
+   * Se vuelve a leer la ficha en vez de confiar en lo que trae el plan: entre
+   * revisar y aplicar pasa el tiempo que tarda alguien en mirar la pantalla y
+   * decidir, y en el medio le pueden haber cambiado el plan.
+   */
+  for (const c of [...plan.colas.faltan, ...plan.colas.corregir]) {
+    try {
+      const { data: ficha } = await db()
+        .from('clientes')
+        .select('nombre, ip, ipv6_prefijo, referencia_servicio, planes_velocidad(*)')
+        .eq('id', c.id)
+        .maybeSingle()
+
+      if (!ficha?.ip || !ficha.planes_velocidad) {
+        hecho.fallos.push(`cola de ${c.cliente}: le falta IP o plan`)
+        continue
+      }
+
+      const { campos } = camposDeCola(ficha.planes_velocidad)
+      await mk.asegurarSimpleQueue(equipo, {
+        nombre: nombreDeCola(ficha),
+        nombreAlterno: nombreDeColaAlterno(ficha, ficha.ip),
+        ip: ficha.ip,
+        ipv6: equipo.ipv6_activo ? ficha.ipv6_prefijo || null : null,
+        comentario: ficha.planes_velocidad.nombre,
+        campos,
+      })
+      hecho.colas++
+    } catch (e) {
+      hecho.fallos.push(`cola de ${c.cliente}: ${e.message}`)
+    }
+  }
+
+  /**
+   * Las leases que entregan una dirección distinta a la que dice el sistema.
+   *
+   * Es la otra mitad del cambio de IP: sin esto el equipo del abonado sigue
+   * recibiendo la vieja, y la cola nueva —que ya apunta a la nueva— no lo
+   * alcanza nunca.
+   */
+  for (const l of plan.leases.corregir) {
+    try {
+      await mk.asegurarLeaseFija(equipo, { ip: l.ip, mac: l.mac, comentario: l.cliente })
+      hecho.leases++
+    } catch (e) {
+      hecho.fallos.push(`lease de ${l.cliente}: ${e.message}`)
     }
   }
 

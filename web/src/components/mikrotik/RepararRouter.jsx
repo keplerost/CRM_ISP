@@ -47,7 +47,8 @@ export default function RepararRouter({ router }) {
       <Card>
         <div className="space-y-2 p-4 text-sm">
           <p className="font-medium text-emerald-300">
-            {hecho.secrets} secrets · {hecho.bloqueos} bloqueos
+            {hecho.secrets} secrets · {hecho.colas ?? 0} colas · {hecho.leases ?? 0} leases ·{' '}
+            {hecho.bloqueos} bloqueos
             {hecho.borrados ? ` · ${hecho.borrados} borrados` : ''}
           </p>
           {hecho.fallos?.map((f) => (
@@ -75,9 +76,9 @@ export default function RepararRouter({ router }) {
         <div>
           <h3 className="text-sm font-semibold text-slate-100">Reparar el router</h3>
           <p className="mt-0.5 text-xs leading-snug text-slate-500">
-            Compara lo que dice el sistema contra lo que tiene el MikroTik y corrige la diferencia:
-            secrets que faltan, IPs que no coinciden, y abonados que pagaron y siguen bloqueados
-            porque el router estaba caído.
+            Compara lo que dice el sistema contra lo que tiene el MikroTik y corrige la
+            diferencia: colas y secrets que faltan, IPs que no coinciden, y abonados que pagaron y
+            siguen bloqueados porque el router estaba caído.
           </p>
         </div>
 
@@ -95,12 +96,56 @@ export default function RepararRouter({ router }) {
                 nada que corregir.
               </Aviso>
             ) : (
+              <>
               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                <Dato n={plan.resumen.colas_a_crear} t="colas a crear" />
+                <Dato n={plan.resumen.colas_a_corregir} t="colas a corregir" />
+                <Dato n={plan.resumen.leases_a_corregir} t="leases a corregir" />
+                <Dato n={plan.resumen.colas_duplicadas} t="colas duplicadas" />
                 <Dato n={plan.resumen.secrets_a_crear} t="secrets a crear" />
                 <Dato n={plan.resumen.secrets_a_corregir} t="secrets a corregir" />
                 <Dato n={plan.resumen.bloqueos_a_agregar} t="a bloquear" />
                 <Dato n={plan.resumen.bloqueos_a_quitar} t="a desbloquear" color="text-emerald-400" />
               </div>
+
+              {plan.colas?.faltan?.length > 0 && (
+                <Lista titulo="Sin cola en el router">
+                  {plan.colas.faltan.map((c) => (
+                    <li key={c.id} className="py-1">
+                      <span className="text-slate-200">{c.cliente}</span>
+                      <span className="ml-2 font-mono text-slate-500">{c.ip}</span>
+                      <span className="ml-2 text-amber-400">navega sin límite</span>
+                    </li>
+                  ))}
+                </Lista>
+              )}
+
+              {plan.colas?.corregir?.length > 0 && (
+                <Lista titulo="Colas que no coinciden">
+                  {plan.colas.corregir.map((c) => (
+                    <li key={c.id} className="py-1">
+                      <span className="text-slate-200">{c.cliente}</span>
+                      <span className="ml-2 text-amber-400">
+                        {c.diferencias
+                          .map((d) => `${d.campo}: router ${d.router} → sistema ${d.sistema}`)
+                          .join(' · ')}
+                      </span>
+                    </li>
+                  ))}
+                </Lista>
+              )}
+
+              {plan.leases?.corregir?.length > 0 && (
+                <Lista titulo="Leases con otra dirección">
+                  {plan.leases.corregir.map((l) => (
+                    <li key={l.id} className="py-1">
+                      <span className="text-slate-200">{l.cliente}</span>
+                      <span className="ml-2 text-amber-400">{l.motivo}</span>
+                    </li>
+                  ))}
+                </Lista>
+              )}
+              </>
             )}
 
             {plan.secrets.length > 0 && (
