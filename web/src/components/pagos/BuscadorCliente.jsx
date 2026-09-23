@@ -151,16 +151,19 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
         )}
 
         {/*
+          `w-full` y nada más: el panel mide exactamente lo que el campo de
+          búsqueda. Tenía un ancho máximo propio y quedaba más angosto que el
+          campo del que cuelga, lo que se ve como un escalón.
+
+          El nombre largo ya no necesita ancho extra: se muestra en varias
+          líneas en vez de cortarse.
+
           `max-h` con desplazamiento en vez de `overflow-hidden` a secas: con
           varios resultados el panel crecía hasta donde fuera y lo recortaba lo
           que tuviera encima, sin forma de ver el resto.
-
-          Y `min-w-[22rem]` porque el ancho del campo de búsqueda no alcanza
-          para un nombre ecuatoriano completo con sus dos apellidos. El panel
-          puede ser más ancho que el campo: flota por encima de todo.
         */}
         {(resultados.length > 0 || buscando || error || limpiar(texto).length >= 2) && (
-          <div className="absolute z-20 mt-1 max-h-80 w-full min-w-[22rem] max-w-[min(30rem,90vw)] overflow-y-auto t-card-sm shadow-xl">
+          <div className="absolute z-20 mt-1 max-h-80 w-full overflow-y-auto t-card-sm shadow-xl">
             {error && <p className="px-3 py-2 text-xs text-red-300">{error.message}</p>}
 
             {!error && buscando && <p className="px-3 py-2 text-xs text-slate-500">Buscando…</p>}
