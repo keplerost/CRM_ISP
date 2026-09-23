@@ -196,6 +196,22 @@ export default function RepararRouter({ router }) {
               </Aviso>
             )}
 
+            {/*
+              Los accesos que NO son de abonados: L2TP, PPTP, SSTP, OpenVPN.
+              Viven en el mismo `/ppp secret` que los clientes, y uno de ellos
+              suele ser por donde el administrador entra al sector. Se muestran
+              para que se sepa que están, y NO se ofrecen para borrar.
+            */}
+            {plan.desconocidos.accesos?.length > 0 && (
+              <div className="rounded-lg border border-[rgba(15,23,42,0.08)] p-3">
+                <p className="text-xs text-slate-400">
+                  Además hay <b>{plan.desconocidos.accesos.length}</b> acceso(s) de VPN en el
+                  router —L2TP, PPTP u OpenVPN— que no son abonados y no se tocan:{' '}
+                  {plan.desconocidos.accesos.map((a) => `${a.usuario} (${a.servicio})`).join(', ')}
+                </p>
+              </div>
+            )}
+
             {plan.resumen.desconocidos_en_router > 0 && (
               <div className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                 <p className="text-xs text-amber-200">
@@ -205,6 +221,8 @@ export default function RepararRouter({ router }) {
                 <p className="text-[11px] leading-snug text-amber-200/70">
                   Pueden ser abonados cuya ficha todavía no se migró. Borrarlos los deja sin
                   internet sin que nadie sepa por qué, así que no se tocan salvo que lo pidas.
+                  Los accesos de VPN del administrador no entran acá: se listan aparte y nunca
+                  se borran.
                 </p>
                 <label className="flex items-center gap-2 text-xs text-slate-300">
                   <input

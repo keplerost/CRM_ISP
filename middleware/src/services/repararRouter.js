@@ -172,10 +172,39 @@ export async function revisar(routerId) {
   const usuariosDelSistema = new Set(clientes.map((c) => c.usuario_ppp).filter(Boolean))
   const ipsDelSistema = new Set(clientes.map((c) => extraerIp(c.ip)).filter(Boolean))
 
+  /**
+   * Un secret que no es de PPPoE no es de un abonado.
+   *
+   * `/ppp secret` es compartido: ahí viven también los accesos de L2TP, PPTP,
+   * SSTP y OpenVPN. El del administrador para entrar al sector por VPN sale
+   * exactamente igual que el de un cliente.
+   *
+   * Sin distinguirlo, "borrar lo que el sistema no conoce" ofrece borrar el
+   * propio acceso remoto al equipo. Y el efecto no se ve hasta la próxima vez
+   * que alguien necesita entrar —probablemente de urgencia, probablemente sin
+   * poder llegar de otra forma—, cuando ya nadie recuerda haber tocado esto.
+   *
+   * Pasó en el piloto: el único secret desconocido del nodo era el L2TP con el
+   * que se llega al sector.
+   *
+   * `any` sí se considera de abonado: es el valor por defecto de RouterOS y con
+   * el que se crean los secrets de PPPoE si nadie lo cambia.
+   */
+  const esDeAbonado = (s) => {
+    const servicio = String(s.service ?? 'any').trim().toLowerCase()
+    return servicio === 'any' || servicio === 'pppoe'
+  }
+
+  const sinReclamar = secrets.filter((s) => s.name && !usuariosDelSistema.has(s.name))
+
   const desconocidos = {
-    secrets: secrets
-      .filter((s) => s.name && !usuariosDelSistema.has(s.name))
+    secrets: sinReclamar
+      .filter(esDeAbonado)
       .map((s) => ({ usuario: s.name, ip: s['remote-address'] ?? null, perfil: s.profile ?? null })),
+    // Se informan aparte y NO se borran nunca: no son abonados.
+    accesos: sinReclamar
+      .filter((s) => !esDeAbonado(s))
+      .map((s) => ({ usuario: s.name, servicio: s.service, perfil: s.profile ?? null })),
     bloqueos: [...enLista.entries()]
       .filter(([ip]) => !ipsDelSistema.has(ip))
       .map(([ip, e]) => ({ ip, comentario: e.comment ?? null, id: e['.id'] ?? e.id ?? null })),
