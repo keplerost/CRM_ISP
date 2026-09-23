@@ -88,7 +88,7 @@ cat > "$SCRIPT" <<EOF
 add name=vpn-gestion connect-to=$PUBLICO port=$PUERTO protocol=tcp mode=ip \\
     user=$NOMBRE password="" certificate=$NOMBRE.crt_0 \\
     cipher=aes256-cbc auth=sha256 \\
-    add-default-route=no disabled=no comment="Gestion SmartOLT"
+    add-default-route=no disabled=no comment="Gestion ZenithCore"
 
 # Permitir la API solo desde la VPN. Cambiá 8728 si usás otro puerto.
 /ip service set api address=${RED_VPN}/${PREFIJO}

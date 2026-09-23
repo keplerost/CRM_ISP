@@ -1,4 +1,5 @@
-import { AppError } from '../lib/errors.js'
+import { AppError } from '../lib/errors.js'
+import { comentario, esNuestra, hayQueRenombrar, MARCA } from '../lib/marcaReglas.js'
 
 /**
  * Driver MikroTik — REST API de RouterOS v7.
@@ -170,16 +171,24 @@ export const listarReglasNat = (router) => request(router, 'GET', '/ip/firewall/
  * en cada arranque del taller.
  */
 export async function asegurarReglaCorte(router, lista = LISTA_MOROSOS) {
-  const COMENTARIO = 'SmartOLT-CorteMorosos'
   const reglas = await listarReglasFilter(router)
-  const yaExiste = Array.isArray(reglas) && reglas.some((r) => r.comment === COMENTARIO)
-  if (yaExiste) return { creada: false, mensaje: 'La regla de corte ya existía' }
+  const nuestra = Array.isArray(reglas) ? reglas.find((r) => esNuestra(r.comment, 'corte')) : null
+  if (nuestra) {
+    // Ver el driver binario: el renombre se completa solo, equipo por equipo.
+    if (hayQueRenombrar(nuestra.comment, 'corte')) {
+      await request(router, 'PATCH', `/ip/firewall/filter/${encodeURIComponent(nuestra['.id'])}`, {
+        comment: comentario('corte'),
+      })
+      return { creada: false, renombrada: true, mensaje: 'La regla de corte ya existía; se actualizó su nombre' }
+    }
+    return { creada: false, mensaje: 'La regla de corte ya existía' }
+  }
 
   await request(router, 'PUT', '/ip/firewall/filter', {
     chain: 'forward',
     'src-address-list': lista,
     action: 'drop',
-    comment: COMENTARIO,
+    comment: comentario('corte'),
   })
   return { creada: true, mensaje: 'Regla de corte creada' }
 }
@@ -237,18 +246,26 @@ export async function asegurarReglaCorteIpv6(router, lista = LISTA_MOROSOS_V6) {
   const reglas = await request(router, 'GET', '/ipv6/firewall/filter')
   const hechas = []
 
-  for (const [comentario, campo] of [
-    ['SmartOLT-CorteMorosos-v6-salida', 'src-address-list'],
-    ['SmartOLT-CorteMorosos-v6-entrada', 'dst-address-list'],
+  for (const [clave, campo] of [
+    ['corteV6Salida', 'src-address-list'],
+    ['corteV6Entrada', 'dst-address-list'],
   ]) {
-    if (reglas.some((r) => r.comment === comentario)) continue
+    const nuestra = Array.isArray(reglas) ? reglas.find((r) => esNuestra(r.comment, clave)) : null
+    if (nuestra) {
+      if (hayQueRenombrar(nuestra.comment, clave)) {
+        await request(router, 'PATCH', `/ipv6/firewall/filter/${encodeURIComponent(nuestra['.id'])}`, {
+          comment: comentario(clave),
+        })
+      }
+      continue
+    }
     await request(router, 'PUT', '/ipv6/firewall/filter', {
       chain: 'forward',
       [campo]: lista,
       action: 'drop',
-      comment: comentario,
+      comment: comentario(clave),
     })
-    hechas.push(comentario)
+    hechas.push(comentario(clave))
   }
 
   return {
@@ -260,10 +277,19 @@ export async function asegurarReglaCorteIpv6(router, lista = LISTA_MOROSOS_V6) {
 }
 
 export async function asegurarRedireccionPago(router, { destino, puerto = 80, lista = LISTA_MOROSOS }) {
-  const COMENTARIO = 'SmartOLT-RedireccionPago'
   const reglas = await listarReglasNat(router)
-  const yaExiste = Array.isArray(reglas) && reglas.some((r) => r.comment === COMENTARIO)
-  if (yaExiste) return { creada: false, mensaje: 'La regla de redirección ya existía' }
+  const nuestra = Array.isArray(reglas)
+    ? reglas.find((r) => esNuestra(r.comment, 'redireccion'))
+    : null
+  if (nuestra) {
+    if (hayQueRenombrar(nuestra.comment, 'redireccion')) {
+      await request(router, 'PATCH', `/ip/firewall/nat/${encodeURIComponent(nuestra['.id'])}`, {
+        comment: comentario('redireccion'),
+      })
+      return { creada: false, renombrada: true, mensaje: 'La redirección ya existía; se actualizó su nombre' }
+    }
+    return { creada: false, mensaje: 'La regla de redirección ya existía' }
+  }
 
   await request(router, 'PUT', '/ip/firewall/nat', {
     chain: 'dstnat',
@@ -273,7 +299,7 @@ export async function asegurarRedireccionPago(router, { destino, puerto = 80, li
     action: 'dst-nat',
     'to-addresses': destino,
     'to-ports': String(puerto),
-    comment: COMENTARIO,
+    comment: comentario('redireccion'),
   })
   return { creada: true, mensaje: 'Regla de redirección de pago creada' }
 }
@@ -578,7 +604,7 @@ export async function exportarClientes(router, { clientes, modo = 'simple-queue'
         name: c.nombre,
         target,
         'max-limit': c.velocidad_cruda,
-        comment: c.comentario ?? 'SmartOLT',
+        comment: c.comentario ?? MARCA,
       })
       creados.push(c.nombre)
     } catch (err) {

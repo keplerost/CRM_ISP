@@ -1,6 +1,7 @@
 import { cargarRouter } from '../lib/db.js'
 import { badRequest } from '../lib/errors.js'
 import * as mt from './mikrotikService.js'
+import { esNuestra } from '../lib/marcaReglas.js'
 
 /**
  * Dejar un router recién dado de alta listo para operar.
@@ -31,17 +32,16 @@ import * as mt from './mikrotikService.js'
  */
 
 /**
- * Los comentarios con que el sistema marca sus propias reglas.
+ * Las reglas se reconocen por su comentario y no por su contenido: el operador
+ * puede haberle cambiado la cadena o el orden y seguiría siendo la nuestra.
  *
- * Tienen que coincidir con los de los drivers. Se buscan por comentario y no
- * por contenido porque el operador puede haber ajustado la regla —otra cadena,
- * otro orden— y seguiría siendo la nuestra.
+ * Quién decide si un comentario es nuestro vive en `lib/marcaReglas.js`, que es
+ * también el que sabe reconocer la firma vieja. Tener acá una copia de esas
+ * cadenas fue una mala idea que duró un día: al renombrar la marca, esta
+ * pantalla habría seguido buscando las viejas y habría informado "falta" sobre
+ * reglas que estaban puestas.
  */
-const MARCAS = {
-  corteV4: 'SmartOLT-CorteMorosos',
-  redireccion: 'SmartOLT-RedireccionPago',
-  corteV6: ['SmartOLT-CorteMorosos-v6-salida', 'SmartOLT-CorteMorosos-v6-entrada'],
-}
+const CLAVES_V6 = ['corteV6Salida', 'corteV6Entrada']
 
 const PRIVADAS = [/^10\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./]
 
@@ -115,7 +115,7 @@ export async function revisar(routerId, { red } = {}) {
   const reglas = filter.status === 'fulfilled' ? (filter.value ?? []) : []
   const lista = equipo.lista_morosos || mt.LISTA_MOROSOS
   pasos.push(
-    reglas.some((r) => r.comment === MARCAS.corteV4)
+    reglas.some((r) => esNuestra(r.comment, 'corte'))
       ? paso('corte_v4', 'Regla de corte por mora', 'ok', `Ya existe, sobre la lista "${lista}"`)
       : paso(
           'corte_v4',
@@ -134,7 +134,7 @@ export async function revisar(routerId, { red } = {}) {
     pasos.push(paso('corte_v6', 'Corte en IPv6', 'error', 'No se pudo leer el firewall IPv6'))
   } else {
     const v6 = ipv6.value ?? []
-    const faltan = MARCAS.corteV6.filter((c) => !v6.some((r) => r.comment === c))
+    const faltan = CLAVES_V6.filter((clave) => !v6.some((r) => esNuestra(r.comment, clave)))
     pasos.push(
       faltan.length
         ? paso(
@@ -195,7 +195,7 @@ export async function revisar(routerId, { red } = {}) {
   // ── La página que ve el cortado ──
   const nats = nat.status === 'fulfilled' ? (nat.value ?? []) : []
   pasos.push(
-    nats.some((r) => r.comment === MARCAS.redireccion)
+    nats.some((r) => esNuestra(r.comment, 'redireccion'))
       ? paso('redireccion', 'Página de aviso al cortado', 'ok', 'La redirección ya existe')
       : paso(
           'redireccion',
