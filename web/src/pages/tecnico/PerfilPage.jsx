@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Gauge, LogOut, Map, Monitor, Phone, Route, Shield, User, Wrench } from 'lucide-react'
+import { Gauge, KeyRound, LogOut, Map, Monitor, Phone, Route, Shield, User, Wrench } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth, usePermisos } from '../../lib/AuthContext'
 import { nombreRol } from '../../lib/permisos'
 import { APPS_MAPA, useMapaPreferido } from '../../lib/mapaPreferido'
 import { OPTICA, RADIO } from '../../lib/instalaciones'
 import EstadoSinConexion from '../../components/tecnico/EstadoSinConexion'
+import CambiarMiClave from '../../components/CambiarMiClave'
 
 /**
  * El perfil del técnico.
@@ -115,6 +116,24 @@ export default function PerfilPage() {
           <Monitor size={17} className="text-slate-500" />
           Ver la versión de escritorio
         </Link>
+        {/*
+          Cambiar la contraseña, desplegable.
+          Va plegado porque se usa una vez —cuando le entregan la clave por
+          primera vez— y esta pantalla se abre todos los días para otra cosa.
+          Pero tiene que estar ACÁ: el técnico vive en la app de campo y no
+          entra al sistema de escritorio, así que sin esto la clave que le
+          dictaron se le queda puesta para siempre.
+        */}
+        <details className="rounded-xl">
+          <summary className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-3 text-[14px] text-slate-300 active:bg-slate-800">
+            <KeyRound size={17} className="text-slate-500" />
+            Cambiar mi contraseña
+          </summary>
+          <div className="px-3 pb-3 pt-1">
+            <CambiarMiClave compacto />
+          </div>
+        </details>
+
         <button
           type="button"
           onClick={cerrarSesion}
