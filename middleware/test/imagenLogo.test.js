@@ -1,7 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { medidasDestino, pesoDeDataUrl, enKb } from '../../web/src/lib/imagenLogo.js'
+import {
+  medidasDestino,
+  pesoDeDataUrl,
+  enKb,
+  tieneTransparencia,
+} from '../../web/src/lib/imagenLogo.js'
 
 /**
  * El logo, achicado al subirlo.
@@ -99,4 +104,43 @@ test('los kilobytes se muestran sin decimales y nunca en cero', () => {
   // Un logo minúsculo tiene que decir "1 KB" y no "0 KB", que se lee como si
   // no se hubiera guardado nada.
   assert.equal(enKb(120), '1 KB')
+})
+
+/**
+ * La transparencia decide el formato de salida.
+ *
+ * Un PNG con el fondo blanco pintado se ve idéntico a uno sin fondo mientras
+ * esté sobre blanco. La diferencia aparece recién al ponerlo sobre el gris del
+ * sistema, y ahí ya es tarde: el logo queda con un recuadro y nada en pantalla
+ * explica por qué.
+ */
+
+/** Píxeles RGBA sueltos, como los devuelve getImageData. */
+const px = (...alfas) => Uint8ClampedArray.from(alfas.flatMap((a) => [0, 0, 0, a]))
+
+test('detecta transparencia con un solo píxel no opaco', () => {
+  // Alcanza uno: el borde suavizado de un logo recortado son unos pocos
+  // píxeles semitransparentes en todo el contorno.
+  assert.equal(tieneTransparencia(px(255, 255, 254, 255)), true)
+})
+
+test('una imagen totalmente opaca no la tiene', () => {
+  assert.equal(tieneTransparencia(px(255, 255, 255, 255)), false)
+})
+
+test('un fondo completamente transparente la tiene', () => {
+  assert.equal(tieneTransparencia(px(0, 0, 0, 0)), true)
+})
+
+test('mira el alfa y no el color', () => {
+  // Blanco puro y opaco: es el caso del PNG con el fondo pintado, que es
+  // exactamente lo que hay que NO confundir con transparencia.
+  const blancoOpaco = Uint8ClampedArray.from([255, 255, 255, 255, 255, 255, 255, 255])
+  assert.equal(tieneTransparencia(blancoOpaco), false)
+})
+
+test('sin datos no inventa transparencia', () => {
+  assert.equal(tieneTransparencia(new Uint8ClampedArray(0)), false)
+  assert.equal(tieneTransparencia(null), false)
+  assert.equal(tieneTransparencia(undefined), false)
 })

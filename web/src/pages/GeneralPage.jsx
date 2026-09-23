@@ -54,11 +54,15 @@ export default function GeneralPage() {
       const r = await achicarLogo(f)
       setGuardado(false)
       setForm((x) => ({ ...x, logo_b64: r.dataUrl }))
-      setResumenLogo(
-        r.achicada
+      // Se dice si trae transparencia porque es la pregunta que nadie puede
+      // contestar mirando el archivo: un PNG con el fondo blanco pintado se ve
+      // igual que uno sin fondo hasta que se lo pone sobre un color.
+      setResumenLogo({
+        texto: r.achicada
           ? `${r.ancho}×${r.alto} · ${enKb(r.peso)} (venía de ${enKb(r.pesoOriginal)})`
           : `${r.ancho}×${r.alto} · ${enKb(r.peso)}`,
-      )
+        transparente: r.transparente,
+      })
       setError(null)
     } catch (err) {
       setError(err)
@@ -139,7 +143,14 @@ export default function GeneralPage() {
                 className="w-full text-xs text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:text-slate-200"
               />
               {resumenLogo && (
-                <p className="mt-1.5 t-dato text-xs text-slate-500">{resumenLogo}</p>
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="t-dato text-xs text-slate-500">{resumenLogo.texto}</p>
+                  <p className={`text-xs ${resumenLogo.transparente ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {resumenLogo.transparente
+                      ? 'Fondo transparente'
+                      : 'Fondo opaco: esta imagen tiene el fondo pintado, no es transparente'}
+                  </p>
+                </div>
               )}
               <p className="mt-1 text-xs leading-snug text-slate-500">
                 Si lo tenés en PNG con fondo transparente, usá ese: el de fondo blanco deja un

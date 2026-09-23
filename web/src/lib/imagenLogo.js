@@ -56,11 +56,25 @@ export function pesoDeDataUrl(dataUrl) {
 }
 
 /**
+ * ¿Queda algún píxel que no sea totalmente opaco?
+ *
+ * Se recorre solo el canal alfa, que es uno de cada cuatro bytes. Alcanza con
+ * encontrar UNO: en cuanto aparece, la imagen tiene transparencia y hay que
+ * guardarla en un formato que la conserve.
+ */
+export function tieneTransparencia(datos) {
+  if (!datos?.length) return false
+  for (let i = 3; i < datos.length; i += 4) {
+    if (datos[i] < 255) return true
+  }
+  return false
+}
+
+/**
  * Lee un archivo de imagen y devuelve una data URL liviana.
  *
- * Sale en WebP, que para un logo pesa una fracción de lo que pesa el PNG y
- * conserva la transparencia — un logo sin fondo es lo que se integra bien con
- * el gris del sistema. Si el navegador no sabe hacer WebP, cae a PNG solo.
+ * El formato lo decide la propia imagen: PNG si tiene transparencia, WebP si
+ * es opaca. El porqué está en el comentario largo de más abajo.
  */
 export function achicarLogo(archivo, { anchoMax = ANCHO_MAX, altoMax = ALTO_MAX } = {}) {
   return new Promise((resolver, rechazar) => {
@@ -95,16 +109,41 @@ export function achicarLogo(archivo, { anchoMax = ANCHO_MAX, altoMax = ALTO_MAX 
       ctx.imageSmoothingQuality = 'high'
       ctx.drawImage(img, 0, 0, medidas.ancho, medidas.alto)
 
-      // Se prueba WebP y se comprueba que haya salido: un navegador que no lo
-      // soporta devuelve un PNG sin avisar, y el prefijo es la única señal.
-      let salida = lienzo.toDataURL('image/webp', 0.92)
-      if (!salida.startsWith('data:image/webp')) salida = lienzo.toDataURL('image/png')
+      /*
+        El formato se elige según si la imagen tiene transparencia.
+
+        Con transparencia va PNG, aunque pese más. El WebP con pérdida que
+        produce el lienzo no siempre conserva el canal alfa —depende del
+        navegador y no avisa: devuelve una imagen válida, opaca, con el fondo
+        aplanado en blanco—. El logo llega al login con un recuadro blanco
+        alrededor y no hay nada en pantalla que explique por qué.
+
+        Sin transparencia va WebP, que para un logo pesa una fracción del PNG.
+
+        Y se comprueba el prefijo igual: un navegador sin WebP devuelve PNG sin
+        decirlo.
+      */
+      let transparente = false
+      try {
+        const px = ctx.getImageData(0, 0, lienzo.width, lienzo.height).data
+        transparente = tieneTransparencia(px)
+      } catch {
+        // Si el lienzo quedara marcado por origen cruzado, no se puede mirar.
+        // Ante la duda, PNG: conserva lo que haya.
+        transparente = true
+      }
+
+      let salida = transparente ? lienzo.toDataURL('image/png') : lienzo.toDataURL('image/webp', 0.92)
+      if (!transparente && !salida.startsWith('data:image/webp')) {
+        salida = lienzo.toDataURL('image/png')
+      }
 
       resolver({
         dataUrl: salida,
         ancho: medidas.ancho,
         alto: medidas.alto,
         achicada: medidas.achicada,
+        transparente,
         pesoOriginal: archivo.size,
         peso: pesoDeDataUrl(salida),
       })
