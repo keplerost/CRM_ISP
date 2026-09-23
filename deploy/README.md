@@ -372,6 +372,47 @@ publicadas.
 
 ---
 
+## El correo de acceso
+
+Para que el personal pueda recuperar su contraseña solo, sin pedírsela a quien
+administra, hay que configurar dos cosas en el panel de Supabase. El sistema ya
+trae el "¿Olvidaste tu contraseña?" en la pantalla de entrada; esto es lo que
+falta del otro lado.
+
+**Project Settings → Authentication → SMTP Settings** → *Enable Custom SMTP*, con
+los mismos datos con los que el sistema ya manda las facturas:
+
+| Campo | Valor |
+|---|---|
+| Host / Port | el de tu proveedor — con Gmail, `smtp.gmail.com` y `465` |
+| Username | la cuenta que envía |
+| Password | una **contraseña de aplicación**, no la del correo |
+| Sender email | la misma cuenta del Username |
+
+> Sin esto el envío igual funciona, pero lo hace el servidor de Supabase: tiene
+> un límite bajo de correos por hora y cae en spam seguido. Sirve para probar,
+> no para uso diario.
+
+> El puerto 465 habla TLS desde el saludo. Si hay una casilla de cifrado, va
+> activada: un 465 sin TLS no existe, y el error que devuelve —"Greeting never
+> received"— no lo dice.
+
+**Authentication → URL Configuration → Redirect URLs**, agregar:
+
+```
+https://TU-DOMINIO/nueva-clave
+```
+
+Sin eso Supabase rechaza el enlace por apuntar a una dirección no autorizada: el
+correo llega y no sirve.
+
+Y una condición que no es de configuración: **cada usuario necesita su correo
+cargado**, y que sea uno al que de verdad entre. Si dos comparten uno, o si
+alguien tiene el de la empresa que solo lee el dueño, la recuperación vuelve a
+depender de quien administra.
+
+---
+
 ## Actualizar
 
 ```bash
