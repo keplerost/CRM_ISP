@@ -17,6 +17,7 @@ const OnuDetallePage = lazy(() => import('./pages/olt/OnuDetallePage'))
 const CajasNapPage = lazy(() => import('./pages/olt/CajasNapPage'))
 const PerfilesPage = lazy(() => import('./pages/PerfilesPage'))
 const MiPerfilPage = lazy(() => import('./pages/MiPerfilPage'))
+const NuevaClavePage = lazy(() => import('./pages/NuevaClavePage'))
 const MetricasPage = lazy(() => import('./pages/MetricasPage'))
 const MikrotikPage = lazy(() => import('./pages/MikrotikPage'))
 const BloqueosPage = lazy(() => import('./pages/BloqueosPage'))
@@ -145,6 +146,11 @@ export default function App() {
       {/* Fuera del layout Y fuera de ProtectedRoute: es la pantalla a la que
           llega el cliente bloqueado, que por definición no pudo entrar. */}
       <Route path="/licencia" element={<LicenciaPage suelta />} />
+
+      {/* El destino del enlace de recuperación. Va fuera del marco: la sesión
+          que abre ese enlace es una sesión como cualquier otra, y sin menú
+          alrededor el camino queda a la vista — poner la contraseña y seguir. */}
+      <Route path="/nueva-clave" element={<NuevaClavePage />} />
 
       {/* El asistente de alta va fuera del layout: se usa en el celular, en la
           calle, y ahí el menú lateral solo roba pantalla.

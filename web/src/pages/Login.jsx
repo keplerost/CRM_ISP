@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { LogIn } from 'lucide-react'
+import { LogIn, Mail } from 'lucide-react'
 import { supabase, supabaseConfigurado } from '../lib/supabaseClient'
 import { modoDemo } from '../lib/demo'
 import { useAuth } from '../lib/AuthContext'
@@ -19,9 +19,36 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [enviando, setEnviando] = useState(false)
+  const [modoOlvide, setModoOlvide] = useState(false)
+  const [enviado, setEnviado] = useState(false)
 
   if (cargando) return <Cargando texto="Verificando sesión…" />
   if (sesion) return <Navigate to="/" replace />
+
+  /**
+   * Manda el enlace para poner una contraseña nueva.
+   *
+   * ── Por qué el mensaje es siempre el mismo ──
+   *
+   * Diga lo que diga Supabase, acá se contesta igual: "si ese correo
+   * corresponde a un usuario, te llega un enlace". Distinguir "no existe" de
+   * "ya salió" convertiría esta pantalla en un comprobador de qué correos
+   * tienen cuenta, que es el primer paso de cualquiera que quiera entrar.
+   *
+   * El destino del enlace se arma con el origen actual y no con una dirección
+   * fija: así funciona igual en el servidor de verdad, en una prueba local y
+   * el día que cambie el dominio, sin tener que acordarse de tocarlo.
+   */
+  async function recuperar(e) {
+    e.preventDefault()
+    setError(null)
+    setEnviando(true)
+    await supabase.auth
+      .resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/nueva-clave` })
+      .catch(() => {})
+    setEnviando(false)
+    setEnviado(true)
+  }
 
   async function entrar(e) {
     e.preventDefault()
@@ -103,9 +130,34 @@ export default function Login() {
         )}
 
         <form
-          onSubmit={entrar}
+          onSubmit={modoOlvide ? recuperar : entrar}
           className="space-y-4 t-card p-6"
         >
+          {modoOlvide && !enviado && (
+            <p className="text-xs leading-snug text-slate-500">
+              Poné tu correo y te llega un enlace para elegir una contraseña nueva.
+            </p>
+          )}
+
+          {enviado ? (
+            <>
+              <Aviso tipo="exito">
+                Si ese correo corresponde a un usuario, te va a llegar un enlace en unos minutos.
+                Revisá también el correo no deseado.
+              </Aviso>
+              <button
+                type="button"
+                onClick={() => {
+                  setModoOlvide(false)
+                  setEnviado(false)
+                }}
+                className="w-full text-center text-xs text-sky-400 hover:text-sky-300"
+              >
+                Volver a entrar
+              </button>
+            </>
+          ) : (
+          <>
           <Field label="Email">
             <Input
               type="email"
@@ -117,28 +169,45 @@ export default function Login() {
             />
           </Field>
 
-          <Field label="Contraseña">
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </Field>
+          {!modoOlvide && (
+            <Field label="Contraseña">
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </Field>
+          )}
 
           <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
           <Button
             type="submit"
             variante="primario"
-            icon={LogIn}
+            icon={modoOlvide ? Mail : LogIn}
             cargando={enviando}
             className="w-full"
             disabled={!supabaseConfigurado || vencida}
           >
-            Entrar
+            {modoOlvide ? 'Mandarme el enlace' : 'Entrar'}
           </Button>
+
+          {/* El enlace para recuperar. Va debajo del botón y no arriba: lo
+              busca quien ya falló, no quien está por escribir su clave. */}
+          <button
+            type="button"
+            onClick={() => {
+              setModoOlvide((x) => !x)
+              setError(null)
+            }}
+            className="block w-full pt-1 text-center text-xs text-sky-400 hover:text-sky-300"
+          >
+            {modoOlvide ? 'Volver a entrar con mi contraseña' : '¿Olvidaste tu contraseña?'}
+          </button>
+          </>
+          )}
 
           {/* Se puede activar sin entrar: si la licencia venció, exigir sesión
               para renovarla sería cerrar la puerta con la llave adentro. */}
