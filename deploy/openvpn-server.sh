@@ -128,8 +128,7 @@ export EASYRSA_REQ_CN="smartolt-vpn-ca"
 ./easyrsa gen-req server nopass >/dev/null
 ./easyrsa sign-req server server >/dev/null
 ./easyrsa gen-dh >/dev/null
-openvpn --genkey secret "$DIR_PKI/pki/ta.key"
-ok "CA, certificado del servidor y clave TLS"
+ok "CA y certificado del servidor"
 
 azul "3/5  Configuración del servidor"
 mkdir -p "$DIR_CCD" /var/log/openvpn /etc/openvpn/server
@@ -145,7 +144,22 @@ ca   $DIR_PKI/pki/ca.crt
 cert $DIR_PKI/pki/issued/server.crt
 key  $DIR_PKI/pki/private/server.key
 dh   $DIR_PKI/pki/dh.pem
-tls-auth $DIR_PKI/pki/ta.key 0
+# SIN tls-auth, a propósito.
+#
+# tls-auth agrega un HMAC a cada paquete del saludo y el servidor descarta en
+# silencio al que no lo traiga. Es una buena capa contra escaneos y saturación.
+#
+# Pero RouterOS solo puede configurarlo importando un archivo .ovpn completo
+# (`/interface/ovpn-client/import-ovpn-configuration`): no hay propiedad para
+# agregárselo a un ovpn-client creado a mano, que es como lo arma
+# `agregar-cliente-vpn.sh`.
+#
+# Con tls-auth puesto acá, el router queda reintentando para siempre y el
+# servidor registra "cannot locate HMAC in incoming packet" — un error que no
+# menciona al cliente ni dice qué le falta. Pasó en la primera instalación real.
+#
+# Lo que autentica de verdad sigue estando: cada router tiene su certificado
+# firmado por esta CA, y sin él no entra aunque llegue al puerto.
 
 server $RED_VPN $MASCARA
 topology subnet
