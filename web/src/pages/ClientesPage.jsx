@@ -54,6 +54,7 @@ import {
   Select,
   Stat,
   Table,
+  EnlaceIp,
 } from '../components/ui'
 
 /**
@@ -932,9 +933,10 @@ function Fila({ c, columnas, ctx, onBorrar, onEditar }) {
 /**
  * Lo que se pinta en cada celda.
  *
- * Casi todas son el texto que ya calculó el catálogo. Las cuatro que no lo son
- * están acá y no allá porque son JSX: el nombre abre la ficha, el estado y el
- * enlace son etiquetas de color, y la deuda se pinta en rojo solo si la hay.
+ * Casi todas son el texto que ya calculó el catálogo. Las que no lo son están
+ * acá y no allá porque son JSX: el nombre abre la ficha, la IP abre el equipo,
+ * el estado y el enlace son etiquetas de color, y la deuda se pinta en rojo
+ * solo si la hay.
  */
 function Celda({ col, c, ctx }) {
   const texto = col.texto(c, ctx)
@@ -953,6 +955,10 @@ function Celda({ col, c, ctx }) {
       </div>
     )
   }
+
+  // La IP abre el equipo del abonado en otra pestaña. Es la razón por la que
+  // esta columna se mira: entrar a la ONT o al router del cliente.
+  if (col.clave === 'ip') return <EnlaceIp ip={c.ip} />
 
   if (col.clave === 'estatus') {
     const link = enlace(c)
