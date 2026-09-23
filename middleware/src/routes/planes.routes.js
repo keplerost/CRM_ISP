@@ -1,4 +1,5 @@
-import { Router } from 'express'
+import { Router } from 'express'
+import { nombreDeCola, nombreDeColaAlterno } from '../lib/servicios.js'
 import { asyncHandler, notFound, badRequest, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
 import { db, cargarRouter } from '../lib/db.js'
@@ -45,7 +46,7 @@ async function cargarPlan(id) {
 async function repartirAbonados(planId) {
   const { data, error } = await db()
     .from('clientes')
-    .select('id, nombre, ip, ipv6_prefijo, router_id, tipo_conexion, estado')
+    .select('id, nombre, referencia_servicio, ip, ipv6_prefijo, router_id, tipo_conexion, estado')
     .eq('plan_id', planId)
     .neq('estado', 'baja')
 
@@ -221,6 +222,7 @@ router.post(
     const creados = []
     const fallidos = []
     const duplicados = []
+    const renombrados = []
 
     // La traducción del plan a campos del router se hace una sola vez: es la
     // misma para todos sus abonados y no tiene sentido recalcularla doscientas.
@@ -238,7 +240,12 @@ router.post(
       for (const c of clientes) {
         try {
           const r = await mk.asegurarSimpleQueue(equipo, {
-            nombre: c.nombre,
+            // Con la referencia del servicio cuando la tiene: el nombre de una
+            // Simple Queue es único en RouterOS, y dos servicios de la misma
+            // persona comparten nombre a propósito. Si igual choca, el driver
+            // reintenta con el alterno, que lleva la IP.
+            nombre: nombreDeCola(c),
+            nombreAlterno: nombreDeColaAlterno(c, c.ip),
             ip: c.ip,
             // El prefijo v6 entra en la MISMA cola, no en una aparte: dos colas
             // de 150 Mbps se suman a 300 según por dónde baje el abonado. Solo
@@ -250,6 +257,11 @@ router.post(
 
           if (r.creada) creados.push({ nombre: c.nombre, router: equipo.nombre })
           else actualizados.push({ nombre: c.nombre, router: equipo.nombre })
+
+          // El nombre estaba tomado y se usó el alterno con la IP. Funciona,
+          // pero queda feo en el router: cargarle la referencia del servicio
+          // lo reemplaza por algo legible.
+          if (r.renombrada) renombrados.push({ nombre: c.nombre, ip: c.ip })
 
           // Dos colas apuntando al mismo abonado: la que manda es la primera y
           // la otra puede estar limitando de más. Hay que mirarla a mano.
@@ -270,6 +282,10 @@ router.post(
       creados: creados.length,
       fallidos,
       duplicados,
+      // A los que hubo que ponerles la IP en el nombre de la cola porque el
+      // suyo ya estaba tomado: es el segundo servicio de una misma persona.
+      // Cargarles la referencia del servicio lo deja legible.
+      renombrados,
       // Lo que quedó sin aplicar por estar a medio configurar. No es un error:
       // la velocidad se aplicó igual.
       avisos,

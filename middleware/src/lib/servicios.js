@@ -89,3 +89,44 @@ export function puedeCambiarA(actual, destino) {
 
   return a !== '' && a === b
 }
+
+/**
+ * Cómo se llama la Simple Queue de un abonado.
+ *
+ * ── Por qué no alcanza con el nombre ──
+ *
+ * En RouterOS el nombre de una Simple Queue es ÚNICO. Y desde que una persona
+ * puede tener varios servicios, sus fichas comparten nombre y cédula a
+ * propósito: la casa y el local son el mismo titular.
+ *
+ * El resultado es que al sincronizar el segundo, el router rechaza el nombre
+ * repetido y ese abonado se queda sin cola — sin límite de velocidad y sin que
+ * nada en el router lo explique, porque la cola que sí existe parece correcta.
+ *
+ * Pasó con los dos servicios de una abonada del piloto en cuanto se le corrigió
+ * el nombre: hasta entonces se distinguían por un "-2" pegado al apellido, que
+ * era justamente lo que había que sacar.
+ *
+ * ── Qué se le agrega ──
+ *
+ * La referencia del servicio, que es el campo que existe para esto y que la
+ * persona que opera reconoce: "Casa", "Local". Si no está cargada, la IP, que
+ * siempre está y siempre es distinta —es lo que la cola apunta—.
+ */
+export function nombreDeCola(cliente) {
+  const base = String(cliente?.nombre ?? '').trim() || 'Sin nombre'
+  const referencia = String(cliente?.referencia_servicio ?? '').trim()
+  return referencia ? `${base} · ${referencia}` : base
+}
+
+/**
+ * El nombre de respaldo, cuando el router rechaza el primero por repetido.
+ *
+ * Con la IP, que es única por definición: es lo que la cola apunta. Feo pero
+ * infalible, y solo aparece cuando la referencia del servicio está vacía —
+ * cargarla lo reemplaza por algo legible.
+ */
+export function nombreDeColaAlterno(cliente, ip) {
+  const base = String(cliente?.nombre ?? '').trim() || 'Sin nombre'
+  return `${base} (${String(ip ?? '').trim()})`
+}

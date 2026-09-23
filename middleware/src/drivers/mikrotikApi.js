@@ -548,27 +548,62 @@ export function buscarColaPorIp(colas, ip) {
 export const objetivoDeCola = (ip, ipv6) =>
   [ip ? `${ip}/32` : null, ipv6 || null].filter(Boolean).join(',')
 
-export const asegurarSimpleQueue = (router, { nombre, ip, ipv6, comentario, campos: cola = {} }) =>
+/**
+ * ¿El router rechazó esto por un nombre repetido?
+ *
+ * RouterOS contesta "already have such name" o parecido según la versión, así
+ * que se mira por palabras y no por el texto exacto. Un falso positivo solo
+ * provoca un reintento con otro nombre, que es inofensivo; un falso negativo
+ * deja al abonado sin cola, que no lo es.
+ */
+const esNombreRepetido = (err) => /already|such name|duplicate/i.test(err?.message ?? '')
+
+export const asegurarSimpleQueue = (
+  router,
+  { nombre, nombreAlterno, ip, ipv6, comentario, campos: cola = {} },
+) =>
   conConexion(router, async (conn) => {
     const previas = buscarColaPorIp(await conn.write('/queue/simple/print'), ip)
+
     // Los campos de velocidad llegan ya traducidos (`camposDeCola`): el driver
     // no decide qué se aplica, solo lo escribe.
-    const campos = params({
-      name: nombre,
-      target: objetivoDeCola(ip, ipv6),
-      ...cola,
-      comment: comentario,
-    })
+    const armar = (comoSeLlama) =>
+      params({
+        name: comoSeLlama,
+        target: objetivoDeCola(ip, ipv6),
+        ...cola,
+        comment: comentario,
+      })
+
+    /**
+     * Escribe, y si el nombre está tomado vuelve a intentar con el alterno.
+     *
+     * El nombre de una Simple Queue es ÚNICO en RouterOS, y desde que una
+     * persona puede tener varios servicios sus fichas comparten nombre: la casa
+     * y el local son el mismo titular. Sin este reintento, el segundo servicio
+     * se queda SIN COLA —sin límite de velocidad— y nada en el router lo
+     * explica, porque la cola que sí existe se ve perfecta.
+     */
+    const escribir = async (ruta, extra = []) => {
+      try {
+        await conn.write(ruta, [...extra, ...armar(nombre)])
+        return { renombrada: false }
+      } catch (err) {
+        if (!nombreAlterno || !esNombreRepetido(err)) throw err
+        await conn.write(ruta, [...extra, ...armar(nombreAlterno)])
+        return { renombrada: true }
+      }
+    }
 
     if (previas.length) {
       // Solo la primera: si un abonado tiene dos colas apuntándole, la segunda
       // es basura de una importación y tocarla no arregla nada. Se informa.
-      await conn.write('/queue/simple/set', [`=.id=${previas[0]['.id']}`, ...campos])
-      return { creada: false, actualizada: true, duplicadas: previas.length - 1 }
+      const r = await escribir('/queue/simple/set', [`=.id=${previas[0]['.id']}`])
+      return { creada: false, actualizada: true, duplicadas: previas.length - 1, ...r }
     }
 
-    await conn.write('/queue/simple/add', campos)
-    return { creada: true, actualizada: false, duplicadas: 0 }
+    const r = await escribir('/queue/simple/add')
+    return { creada: true, actualizada: false, duplicadas: 0, ...r }
   })
 
 // --- Fuentes para importar clientes -----------------------------------------

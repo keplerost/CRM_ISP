@@ -168,6 +168,16 @@ export default function AplicarPlanClientes({ plan, onCerrar }) {
                   </Aviso>
                 )}
 
+                {resultado.renombrados?.length > 0 && (
+                  <Aviso>
+                    A {resultado.renombrados.length} se les puso la IP en el nombre de la cola
+                    porque su nombre ya estaba tomado — es el segundo servicio de una misma
+                    persona. Funciona igual; cargarles la <b>referencia del servicio</b> en su
+                    ficha lo deja legible:{' '}
+                    {resultado.renombrados.map((r) => `${r.nombre} (${r.ip})`).join(', ')}
+                  </Aviso>
+                )}
+
                 {resultado.fallidos?.length > 0 && (
                   <Aviso tipo="alerta">
                     No se pudo con {resultado.fallidos.length}:

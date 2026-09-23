@@ -1,7 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { principalDe, puedeCambiarA, resumirServicios, tieneContacto } from '../src/lib/servicios.js'
+import {
+  nombreDeCola,
+  nombreDeColaAlterno,
+  principalDe,
+  puedeCambiarA,
+  resumirServicios,
+  tieneContacto,
+} from '../src/lib/servicios.js'
 
 /**
  * Una persona con varios servicios.
@@ -174,4 +181,68 @@ test('el resumen no filtra datos que el selector no debe mostrar', () => {
 test('marca cuál es el que se está viendo', () => {
   const lista = resumirServicios([ficha({ id: 'a' }), ficha({ id: 'b' })], 'b')
   assert.deepEqual(lista.map((x) => x.actual), [false, true])
+})
+
+/**
+ * El nombre de la Simple Queue.
+ *
+ * ── Qué se protege ──
+ *
+ * Que dos servicios de la misma persona no terminen peleando por el mismo
+ * nombre. En RouterOS el de una Simple Queue es único, así que el segundo se
+ * queda SIN COLA —sin límite de velocidad— y nada en el router lo explica: la
+ * cola que sí existe se ve perfecta.
+ *
+ * Pasó en el piloto en cuanto se le corrigió el nombre a una abonada con dos
+ * servicios. Hasta entonces se distinguían por un "-2" pegado al apellido, que
+ * era justamente lo que había que sacar.
+ */
+
+test('sin referencia, la cola se llama como el abonado', () => {
+  assert.equal(nombreDeCola({ nombre: 'JENNY ALEXANDRA VERA HOLGUIN' }), 'JENNY ALEXANDRA VERA HOLGUIN')
+})
+
+test('con referencia, la lleva al lado', () => {
+  // Es lo que distingue la casa del local, y lo que quien opera reconoce.
+  assert.equal(
+    nombreDeCola({ nombre: 'JENNY ALEXANDRA VERA HOLGUIN', referencia_servicio: 'Local' }),
+    'JENNY ALEXANDRA VERA HOLGUIN · Local',
+  )
+})
+
+test('dos servicios con referencia distinta dan nombres distintos', () => {
+  // La propiedad que importa: si los dos nombres coincidieran, el router
+  // rechazaría el segundo.
+  const casa = nombreDeCola({ nombre: 'JUAN PEREZ', referencia_servicio: 'Casa' })
+  const local = nombreDeCola({ nombre: 'JUAN PEREZ', referencia_servicio: 'Local' })
+  assert.notEqual(casa, local)
+})
+
+test('una referencia en blanco no ensucia el nombre', () => {
+  // Viene así de un formulario donde alguien entró y salió del campo.
+  for (const vacia of ['', '   ', null, undefined]) {
+    assert.equal(nombreDeCola({ nombre: 'JUAN PEREZ', referencia_servicio: vacia }), 'JUAN PEREZ')
+  }
+})
+
+test('sin nombre no devuelve una cadena vacía', () => {
+  // RouterOS rechaza una cola sin nombre, y el error no dice cuál abonado era.
+  assert.equal(nombreDeCola({}), 'Sin nombre')
+  assert.equal(nombreDeCola(null), 'Sin nombre')
+  assert.equal(nombreDeCola({ nombre: '   ' }), 'Sin nombre')
+})
+
+test('el alterno lleva la IP, que siempre es distinta', () => {
+  assert.equal(
+    nombreDeColaAlterno({ nombre: 'JUAN PEREZ' }, '10.10.7.31'),
+    'JUAN PEREZ (10.10.7.31)',
+  )
+})
+
+test('el alterno de dos servicios nunca coincide', () => {
+  // Es el último recurso cuando ninguno tiene referencia cargada: la IP es lo
+  // que la cola apunta, así que dos colas distintas no pueden compartirla.
+  const a = nombreDeColaAlterno({ nombre: 'JUAN PEREZ' }, '10.10.7.17')
+  const b = nombreDeColaAlterno({ nombre: 'JUAN PEREZ' }, '10.10.7.31')
+  assert.notEqual(a, b)
 })

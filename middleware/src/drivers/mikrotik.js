@@ -336,7 +336,13 @@ export const listarSimpleQueues = (router) => request(router, 'GET', '/queue/sim
 export const objetivoDeCola = (ip, ipv6) =>
   [ip ? `${ip}/32` : null, ipv6 || null].filter(Boolean).join(',')
 
-export async function asegurarSimpleQueue(router, { nombre, ip, ipv6, comentario, campos = {} }) {
+/** Ver el driver binario: el nombre de una Simple Queue es único en RouterOS. */
+const esNombreRepetido = (err) => /already|such name|duplicate/i.test(err?.message ?? '')
+
+export async function asegurarSimpleQueue(
+  router,
+  { nombre, nombreAlterno, ip, ipv6, comentario, campos = {} },
+) {
   const colas = await listarSimpleQueues(router)
   const previas = (Array.isArray(colas) ? colas : []).filter((q) =>
     String(q.target ?? '')
@@ -346,20 +352,33 @@ export async function asegurarSimpleQueue(router, { nombre, ip, ipv6, comentario
 
   // Los campos de velocidad llegan ya traducidos (`camposDeCola`): el driver no
   // decide qué se aplica, solo lo escribe.
-  const cuerpo = {
-    name: nombre,
+  const cuerpo = (comoSeLlama) => ({
+    name: comoSeLlama,
     target: objetivoDeCola(ip, ipv6),
     ...campos,
     ...(comentario ? { comment: comentario } : {}),
+  })
+
+  // Si el nombre está tomado se reintenta con el alterno. Sin esto, el segundo
+  // servicio de una misma persona se queda SIN COLA y nada lo explica.
+  const escribir = async (metodo, ruta) => {
+    try {
+      await request(router, metodo, ruta, cuerpo(nombre))
+      return { renombrada: false }
+    } catch (err) {
+      if (!nombreAlterno || !esNombreRepetido(err)) throw err
+      await request(router, metodo, ruta, cuerpo(nombreAlterno))
+      return { renombrada: true }
+    }
   }
 
   if (previas.length) {
-    await request(router, 'PATCH', `/queue/simple/${encodeURIComponent(previas[0]['.id'])}`, cuerpo)
-    return { creada: false, actualizada: true, duplicadas: previas.length - 1 }
+    const r = await escribir('PATCH', `/queue/simple/${encodeURIComponent(previas[0]['.id'])}`)
+    return { creada: false, actualizada: true, duplicadas: previas.length - 1, ...r }
   }
 
-  await request(router, 'PUT', '/queue/simple', cuerpo)
-  return { creada: true, actualizada: false, duplicadas: 0 }
+  const r = await escribir('PUT', '/queue/simple')
+  return { creada: true, actualizada: false, duplicadas: 0, ...r }
 }
 
 // --- Fuentes para importar clientes -----------------------------------------
