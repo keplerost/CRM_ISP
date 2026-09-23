@@ -150,8 +150,17 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
           </button>
         )}
 
+        {/*
+          `max-h` con desplazamiento en vez de `overflow-hidden` a secas: con
+          varios resultados el panel crecía hasta donde fuera y lo recortaba lo
+          que tuviera encima, sin forma de ver el resto.
+
+          Y `min-w-[22rem]` porque el ancho del campo de búsqueda no alcanza
+          para un nombre ecuatoriano completo con sus dos apellidos. El panel
+          puede ser más ancho que el campo: flota por encima de todo.
+        */}
         {(resultados.length > 0 || buscando || error || limpiar(texto).length >= 2) && (
-          <div className="absolute z-20 mt-1 w-full overflow-hidden t-card-sm shadow-xl">
+          <div className="absolute z-20 mt-1 max-h-80 w-full min-w-[22rem] max-w-[min(30rem,90vw)] overflow-y-auto t-card-sm shadow-xl">
             {error && <p className="px-3 py-2 text-xs text-red-300">{error.message}</p>}
 
             {!error && buscando && <p className="px-3 py-2 text-xs text-slate-500">Buscando…</p>}
@@ -162,16 +171,45 @@ export default function BuscadorCliente({ onElegir, autoFocus = true }) {
               </p>
             )}
 
+            {/* Cuántos hay, cuando son varios: si entran ocho y se ven tres,
+                no hay nada que diga que falta mirar más abajo. */}
+            {!error && !buscando && resultados.length > 1 && (
+              <p className="border-b border-[rgba(15,23,42,0.06)] px-3 py-1.5 text-[11px] text-slate-500">
+                {resultados.length} coincidencias
+              </p>
+            )}
+
             {resultados.map((c) => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => elegir(c)}
-                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-800"
+                className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left hover:bg-slate-800"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-sm text-slate-100">{c.nombre}</span>
-                  <span className="block truncate text-[11px] text-slate-500">
+                  {/*
+                    El nombre se muestra ENTERO, en varias líneas si hace falta.
+                    Cortado con puntos suspensivos obliga a adivinar, y con dos
+                    personas del mismo apellido la mitad visible es idéntica.
+                  */}
+                  <span className="block text-sm leading-snug text-slate-100">{c.nombre}</span>
+
+                  {/*
+                    La referencia y la dirección son lo que distingue a dos
+                    servicios de la MISMA persona, que desde la migración 192
+                    comparten nombre y cédula. Sin esto, elegir entre "la casa" y
+                    "el local" es una moneda al aire — y cobrarle al servicio
+                    equivocado deja una factura impaga y otra pagada de más.
+                  */}
+                  {(c.referencia_servicio || c.direccion) && (
+                    <span className="block text-[11px] leading-snug text-sky-400">
+                      {c.referencia_servicio ?? ''}
+                      {c.referencia_servicio && c.direccion ? ' · ' : ''}
+                      {c.direccion ?? ''}
+                    </span>
+                  )}
+
+                  <span className="block text-[11px] leading-snug text-slate-500">
                     {c.identificacion ?? 'sin identificación'}
                     {c.ip ? ` · ${c.ip}` : ''}
                     {c.usuario_ppp ? ` · ${c.usuario_ppp}` : ''}
