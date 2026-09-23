@@ -142,5 +142,28 @@ fi
 # acá es si el middleware arrancó y tiene su configuración, no si nginx sabe
 # redirigir.
 azul "Estado"
-curl -s --max-time 10 "http://127.0.0.1:${PUERTO_API}/api/health" || aviso "El health no respondió."
-echo
+
+# Se reintenta, en vez de preguntar una sola vez.
+#
+# `systemctl is-active` da positivo apenas el proceso existe, pero Node todavía
+# tarda en quedar escuchando. En una máquina chica, justo después de una
+# compilación que dejó la memoria exigida, eso puede ser bastante más que los
+# dos segundos que esperábamos: la actualización terminaba imprimiendo "El
+# health no respondió" sobre un sistema que estaba perfecto.
+#
+# Es el peor cartel posible al final de un despliegue — manda a diagnosticar
+# algo que no está roto, y la segunda vez que aparece ya nadie le cree.
+RESPUESTA=""
+for _ in $(seq 1 20); do
+    RESPUESTA="$(curl -s --max-time 3 "http://127.0.0.1:${PUERTO_API}/api/health" || true)"
+    [[ -n "$RESPUESTA" ]] && break
+    sleep 2
+done
+
+if [[ -n "$RESPUESTA" ]]; then
+    echo "  $RESPUESTA"
+else
+    aviso "El health no respondió después de 40 segundos. Qué dice el servicio:"
+    echo "      journalctl -u smartolt-middleware -n 40 --no-pager"
+    exit 1
+fi
