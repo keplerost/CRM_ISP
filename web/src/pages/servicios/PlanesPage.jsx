@@ -72,6 +72,7 @@ export default function PlanesPage() {
 
   const [editando, setEditando] = useState(null)
   const [asignados, setAsignados] = useState([])
+  const [pppoePorPlan, setPppoePorPlan] = useState(new Map())
   const [routersDe, setRoutersDe] = useState(null)
   const [colaDe, setColaDe] = useState(null)
   const [aplicarA, setAplicarA] = useState(null)
@@ -84,10 +85,29 @@ export default function PlanesPage() {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error: err } = await supabase
-      .from('v_planes')
-      .select('*')
-      .order('bajada_kbps', { ascending: true })
+
+    /**
+     * Se trae además cuántos abonados PPPoE tiene cada plan.
+     *
+     * El perfil PPP del router SOLO gobierna a los abonados PPPoE. En un ISP
+     * que trabaja con IP fija y Simple Queue —donde nadie usa un perfil— el
+     * contador "0 de 1" en ámbar marca como pendiente algo que no hace falta, y
+     * se lee como si el plan no estuviera asociado al router. Confunde, y es lo
+     * primero que se mira en esta pantalla.
+     *
+     * Se pide solo la columna `plan_id`: alcanza para contar y no arrastra las
+     * fichas enteras.
+     */
+    const [{ data, error: err }, { data: pppoe }] = await Promise.all([
+      supabase.from('v_planes').select('*').order('bajada_kbps', { ascending: true }),
+      supabase.from('clientes').select('plan_id').eq('tipo_conexion', 'pppoe').neq('estado', 'baja'),
+    ])
+
+    const cuenta = new Map()
+    for (const c of pppoe ?? []) {
+      if (c.plan_id) cuenta.set(c.plan_id, (cuenta.get(c.plan_id) ?? 0) + 1)
+    }
+    setPppoePorPlan(cuenta)
 
     if (err) setError(err)
     setPlanes(data ?? [])
@@ -241,7 +261,11 @@ export default function PlanesPage() {
 
   const activos = planes.filter((p) => p.activo)
   const abonados = planes.reduce((n, p) => n + Number(p.abonados ?? 0), 0)
-  const sinAprovisionar = planes.filter((p) => p.routers > 0 && p.routers_aplicados < p.routers)
+  // Solo cuentan los planes que de verdad necesitan el perfil: los que tienen
+  // algún abonado PPPoE. Para los demás, el perfil no gobierna a nadie.
+  const sinAprovisionar = planes.filter(
+    (p) => p.routers > 0 && p.routers_aplicados < p.routers && (pppoePorPlan.get(p.id) ?? 0) > 0,
+  )
 
   const Icono = ({ icon: I, onClick, title, peligro, cargando: c }) => (
     <button
@@ -275,7 +299,7 @@ export default function PlanesPage() {
         <Stat
           label="Sin aprovisionar"
           valor={sinAprovisionar.length}
-          sub="Perfil pendiente en algún router"
+          sub="Perfil PPP pendiente, en planes con abonados PPPoE"
           icon={RouterIcon}
           color={sinAprovisionar.length ? 'text-amber-400' : 'text-slate-500'}
         />
@@ -469,13 +493,20 @@ export default function PlanesPage() {
                             <button
                               type="button"
                               onClick={() => setRoutersDe(p)}
-                              title="Elegir en qué routers se ofrece y aprovisionar el perfil"
+                              title="En qué routers se ofrece el plan, y el perfil PPP de cada uno. Solo afecta a los abonados PPPoE."
                               className="text-left"
                             >
                               {p.routers > 0 ? (
-                                <Badge color={p.routers_aplicados === p.routers ? 'verde' : 'ambar'}>
-                                  {p.routers_aplicados} de {p.routers}
-                                </Badge>
+                                (pppoePorPlan.get(p.id) ?? 0) === 0 ? (
+                                  // Sin abonados PPPoE el perfil no gobierna a
+                                  // nadie: el ámbar marcaría como pendiente algo
+                                  // que no hace falta.
+                                  <Badge color="gris">no aplica</Badge>
+                                ) : (
+                                  <Badge color={p.routers_aplicados === p.routers ? 'verde' : 'ambar'}>
+                                    {p.routers_aplicados} de {p.routers}
+                                  </Badge>
+                                )
                               ) : (
                                 <span className="text-xs text-amber-400 underline decoration-dotted">
                                   sin asignar
