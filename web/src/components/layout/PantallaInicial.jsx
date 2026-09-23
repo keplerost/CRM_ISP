@@ -1,7 +1,25 @@
+import { lazy } from 'react'
 import { Navigate } from 'react-router-dom'
-import Dashboard from '../../pages/Dashboard'
-import TableroTecnico from '../../pages/tecnico/InicioPage'
-import TableroRecaudacion from '../../pages/recaudacion/InicioPage'
+
+/*
+  Los tres tableros van diferidos, y acá importa más que en cualquier otra
+  pantalla.
+
+  Esta es la puerta de entrada: la elige el rol y solo se dibuja UNO. Pero
+  importados de forma estática entraban los TRES en el bloque de arranque — y
+  con ellos recharts (421 kB) por el Dashboard y leaflet (150 kB) por el mapa
+  del técnico.
+
+  El resultado era que todo el sistema arrastraba los gráficos y los mapas al
+  abrir, aunque quien entrara fuera a ver la ficha de un abonado. Dividir las
+  rutas en App.jsx no alcanzaba: este archivo quedaba del lado eager y volvía a
+  meterlos por la ventana.
+
+  El `Suspense` que los sostiene es el de App.jsx, que envuelve todas las rutas.
+*/
+const Dashboard = lazy(() => import('../../pages/Dashboard'))
+const TableroTecnico = lazy(() => import('../../pages/tecnico/InicioPage'))
+const TableroRecaudacion = lazy(() => import('../../pages/recaudacion/InicioPage'))
 import SinPermiso from './SinPermiso'
 import { usePermisos } from '../../lib/AuthContext'
 import { puedeEntrar } from '../../lib/rutasPermisos'
