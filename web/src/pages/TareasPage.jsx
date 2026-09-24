@@ -47,6 +47,7 @@ const CAMPOS = {
        * una factura mal creada, se anula la factura y la barrida los reconecta
        * en quince minutos sin tocar nada.
        */
+      min: 0,
       hint: '0 = sin tope, corta a todos los que deben. Si ponés un número y se alcanza, el resto queda sin cortar hasta mañana.',
     },
     {
@@ -267,9 +268,20 @@ function Tarea({ tarea, form, set, ultima }) {
                       />
                     ) : (
                       <div className="flex items-center gap-2">
+                        {/*
+                          El mínimo lo dice cada campo, no la pantalla.
+
+                          Estaba fijo en 1, y en "Máximo por corrida" el 0 es un
+                          valor válido —significa "sin tope, cortá a todos"— y
+                          además lo que su propia ayuda recomienda. El navegador
+                          lo rechazaba: el campo contradecía a su propio texto.
+
+                          Un intervalo en minutos sí tiene que ser 1 o más: un
+                          0 ahí es una tarea que corre en bucle sin parar.
+                        */}
                         <Input
                           type="number"
-                          min={1}
+                          min={c.min ?? 1}
                           value={form[c.campo] ?? ''}
                           onChange={(e) => set(c.campo, e.target.value)}
                         />
