@@ -139,6 +139,7 @@ export async function paraMostrar() {
     // La franja horaria: no es de ningún canal, manda sobre todos.
     avisos_desde: f.avisos_desde ?? '08:00',
     avisos_hasta: f.avisos_hasta ?? '20:00',
+    whatsapp_pausa_segundos: f.whatsapp_pausa_segundos ?? 0,
     telegram: {
       tiene_token: Boolean(c.telegram.token),
       origen: origen(f.telegram_token_encrypted, env.TELEGRAM_BOT_TOKEN),
@@ -203,6 +204,9 @@ const CAMPOS_CLAROS = [
   // los canales, así que vive acá y no en cada uno.
   'avisos_desde',
   'avisos_hasta',
+  // Cuánto esperar entre dos mensajes de WhatsApp. Es del canal, no de la
+  // cola: el correo no lo necesita.
+  'whatsapp_pausa_segundos',
 ]
 
 /** Los secretos: qué campo del formulario va a qué columna cifrada. */

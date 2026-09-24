@@ -36,6 +36,38 @@ const dinero = (n) => `$${Number(n ?? 0).toFixed(2)}`
  * —cortando abonados, drenando una cola— y un mensaje que no sale no puede
  * interrumpir ese trabajo.
  */
+/** Espera sin bloquear el proceso. */
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Cuánto esperar entre dos mensajes de WhatsApp.
+ *
+ * ── Por qué solo WhatsApp ──
+ *
+ * El correo no tiene este problema: un servidor SMTP acepta una tanda seguida
+ * sin objetar. WhatsApp sí, y de dos formas distintas:
+ *
+ *   · Por la Cloud API de Meta hay un tope de conversaciones por día que sube
+ *     con la calificación de calidad del número.
+ *   · Por un CRM no oficial —Evolution y parecidos— el riesgo es peor: WhatsApp
+ *     puede BLOQUEAR el número por comportamiento automatizado, y ahí no se
+ *     pierde una tanda, se pierde la línea.
+ *
+ * Por eso vive en la configuración de WhatsApp y no en la de la cola: es una
+ * característica de ese canal, no del sistema de avisos.
+ *
+ * 0 lo desactiva, que es lo razonable para un ISP chico entregando por correo.
+ */
+async function pausaDeWhatsapp() {
+  const { data } = await db()
+    .from('config_mensajeria')
+    .select('whatsapp_pausa_segundos')
+    .maybeSingle()
+
+  const s = Number(data?.whatsapp_pausa_segundos ?? 0)
+  return Number.isFinite(s) && s > 0 ? Math.min(s, 300) * 1000 : 0
+}
+
 /**
  * La franja configurada, con los valores de fábrica si falta la columna.
  *
@@ -236,6 +268,10 @@ export async function drenarAvisos() {
   const enviados = []
   const fallidos = []
 
+  // Una sola vez por tanda: es el mismo valor para los cien avisos, y pedirlo
+  // en cada vuelta serían cien consultas para leer un número.
+  const pausaMs = await pausaDeWhatsapp()
+
   for (const a of data) {
     const r = await avisarAlAbonado({
       cliente: a,
@@ -294,6 +330,20 @@ export async function drenarAvisos() {
         tipo: a.tipo,
         canal: r.pendiente ? `${r.canal} (pendiente)` : r.canal,
       })
+
+      /*
+        La pausa va DESPUÉS de marcar el aviso como procesado.
+
+        Si fuera antes y el proceso se reiniciara en el medio —un despliegue, un
+        corte de luz— el mensaje ya habría salido y el aviso seguiría en la cola:
+        al abonado le llegaría dos veces.
+
+        Y solo cuando salió de verdad por WhatsApp: un `pendiente` es un mensaje
+        que quedó escrito para mandar a mano, así que no consumió ningún cupo.
+      */
+      if (pausaMs && !r.pendiente && /whatsapp/i.test(String(r.canal ?? ''))) {
+        await esperar(pausaMs)
+      }
       continue
     }
 

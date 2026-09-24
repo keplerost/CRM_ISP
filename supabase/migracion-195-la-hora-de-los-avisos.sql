@@ -115,3 +115,30 @@ BEGIN
          || 'WHERE ap.enviar_desde IS NULL OR ap.enviar_desde <= NOW()';
     RAISE NOTICE 'v_avisos_a_enviar respeta la hora de cada aviso.';
 END $guarda$;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. La pausa entre mensajes de WhatsApp
+-- -----------------------------------------------------------------------------
+-- El correo no necesita esto: un servidor SMTP acepta una tanda seguida sin
+-- objetar. WhatsApp sí, y de dos formas distintas:
+--
+--   · Por la Cloud API de Meta hay un tope de conversaciones por día que sube
+--     con la calificación de calidad del número.
+--   · Por un CRM no oficial —Evolution y parecidos— el riesgo es peor: WhatsApp
+--     puede BLOQUEAR el número por comportamiento automatizado. Ahí no se pierde
+--     una tanda, se pierde la línea.
+--
+-- 0 lo desactiva, que es lo razonable para un ISP chico entregando por correo.
+
+ALTER TABLE config_mensajeria
+    ADD COLUMN IF NOT EXISTS whatsapp_pausa_segundos INT NOT NULL DEFAULT 0;
+
+COMMENT ON COLUMN config_mensajeria.whatsapp_pausa_segundos IS
+    'Segundos de espera entre dos mensajes de WhatsApp. 0 = sin pausa.';
+
+ALTER TABLE config_mensajeria
+    DROP CONSTRAINT IF EXISTS config_mensajeria_pausa_check;
+ALTER TABLE config_mensajeria
+    ADD CONSTRAINT config_mensajeria_pausa_check
+    CHECK (whatsapp_pausa_segundos BETWEEN 0 AND 300);

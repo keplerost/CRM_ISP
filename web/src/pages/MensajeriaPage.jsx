@@ -33,6 +33,7 @@ export default function MensajeriaPage() {
         setForm({
           avisos_desde: c.avisos_desde ?? '08:00',
           avisos_hasta: c.avisos_hasta ?? '20:00',
+          whatsapp_pausa_segundos: c.whatsapp_pausa_segundos ?? 0,
           telegram_bot_usuario: c.telegram.bot_usuario ?? '',
           whatsapp_via: c.whatsapp.via ?? 'manual',
           whatsapp_phone_id: c.whatsapp.phone_id ?? '',
@@ -214,6 +215,40 @@ export default function MensajeriaPage() {
                 <option value="crm">CRM externo — sale por el número que ya usa tu bot</option>
               </Select>
             </Field>
+
+            {/*
+              La pausa entre mensajes.
+
+              Va acá y no en la configuración de la cola porque es propia de este
+              canal: el correo no la necesita —un servidor SMTP acepta una tanda
+              seguida sin objetar— y WhatsApp sí, de dos formas distintas.
+
+              Por la API oficial de Meta hay un tope de conversaciones por día
+              que sube con la calificación de calidad del número. Por un CRM no
+              oficial el riesgo es peor: WhatsApp puede BLOQUEAR el número por
+              comportamiento automatizado, y ahí no se pierde una tanda, se
+              pierde la línea.
+
+              Se muestra con todas las vías menos la manual, que no envía sola.
+            */}
+            {form.whatsapp_via !== 'manual' && (
+              <Field
+                label="Pausa entre mensajes (segundos)"
+                hint={
+                  form.whatsapp_via === 'crm' || form.whatsapp_via === 'evolution' || form.whatsapp_via === 'baileys'
+                    ? 'Con un número no oficial conviene espaciarlos: mandar muchos seguidos puede hacer que WhatsApp bloquee la línea. Entre 5 y 15 es lo habitual.'
+                    : '0 = sin pausa. Con la API oficial no suele hacer falta: el límite de Meta es por día, no por segundo.'
+                }
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  max={300}
+                  value={form.whatsapp_pausa_segundos ?? 0}
+                  onChange={set('whatsapp_pausa_segundos')}
+                />
+              </Field>
+            )}
 
             {form.whatsapp_via === 'evolution' && (
               <div className="space-y-4">
