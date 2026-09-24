@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import FranjaAmbiente from './components/layout/FranjaAmbiente'
+import AvisoVersion from './components/layout/AvisoVersion'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import ConPermiso from './components/layout/ConPermiso'
@@ -125,6 +126,11 @@ export default function App() {
           apareciera adentro, uno se entera de en qué ambiente está DESPUÉS de
           escribir la contraseña. */}
       <FranjaAmbiente />
+
+      {/* Fuera de las rutas, como la franja: una versión nueva importa igual
+          en el login que adentro, y así no hay que acordarse de ponerlo en
+          cada pantalla. */}
+      <AvisoVersion />
 
       {/*
         Cada pantalla es su propio archivo y se baja cuando se entra a ella.
