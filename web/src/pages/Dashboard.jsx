@@ -19,6 +19,7 @@ import {
   Wifi,
   WifiOff,
   XCircle,
+  PauseCircle,
 } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
@@ -271,6 +272,18 @@ export default function Dashboard() {
         .eq('fecha', hoy),
       supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
       supabase.from('v_expedientes').select('id').eq('completo', false),
+      /* Los pausados cuya fecha ya pasó.
+         Quedan sin servicio y sin factura, así que no generan ningún reclamo:
+         el abonado cree que sigue de viaje y el ISP no cobra. Es una pérdida
+         silenciosa, y la única forma de enterarse es que alguien se acuerde. */
+      supabase
+        .from('clientes')
+        .select('id, nombre, suspendido_motivo, suspendido_hasta', { count: 'exact' })
+        .eq('estado', 'suspendido')
+        .not('suspendido_hasta', 'is', null)
+        .lt('suspendido_hasta', hoy)
+        .order('suspendido_hasta')
+        .limit(6),
     ]
 
     Promise.allSettled(consultas).then((res) => {
@@ -302,6 +315,8 @@ export default function Dashboard() {
         instalaciones: filas(7),
         tecnicos: filas(8),
         expedientes: filas(9),
+        pausadosVencidos: filas(10),
+        pausadosVencidosTotal: cuantas(10),
       })
     })
 
@@ -361,6 +376,12 @@ export default function Dashboard() {
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
       <TareasConProblemas problemas={problemas} puede={abre} />
+
+      <PausadosVencidos
+        abonados={d.pausadosVencidos}
+        total={d.pausadosVencidosTotal}
+        puede={abre}
+      />
 
       {/* ── KPIs ───────────────────────────────────────────────────────────
           Seis números, y cada uno abre la pantalla donde se trabaja. Los dos
@@ -921,6 +942,63 @@ const TAREAS = {
  * navegando sin haber pagado" sí, porque nombra la consecuencia — que es lo que
  * decide si vale la pena dejar lo que uno estaba haciendo.
  */
+/**
+ * Los pausados que ya deberían haber vuelto.
+ *
+ * Es la única pérdida del sistema que no genera ningún reclamo: el abonado
+ * quedó sin servicio y sin factura, cree que sigue de viaje, y el ISP no cobra.
+ * Nadie llama porque a nadie le molesta — hasta que pasan tres meses.
+ *
+ * Por eso va en el panel y no en un listado: hay que tropezarse con esto, no
+ * ir a buscarlo.
+ */
+function PausadosVencidos({ abonados, total, puede }) {
+  if (!abonados?.length) return null
+
+  return (
+    <div className="t-card border-l-4 border-l-amber-500 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="t-kpi-icon shrink-0 bg-[#FFFBEB] text-amber-400">
+            <PauseCircle size={18} />
+          </span>
+          <div className="min-w-0">
+            <p className="t-titulo text-sm font-bold text-slate-100">
+              {total === 1
+                ? 'Un abonado pausado ya pasó su fecha'
+                : `${total} abonados pausados ya pasaron su fecha`}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Siguen sin internet y sin facturarse. Si ya volvieron, hay que reactivarlos.
+            </p>
+
+            <ul className="mt-2 space-y-0.5">
+              {abonados.map((c) => (
+                <li key={c.id} className="text-[11px] text-slate-500">
+                  <Link to={`/clientes/${c.id}`} className="font-medium text-slate-400 hover:text-sky-400">
+                    {c.nombre}
+                  </Link>
+                  <span className="t-dato"> · volvía el {c.suspendido_hasta}</span>
+                  {c.suspendido_motivo ? ` · ${c.suspendido_motivo}` : ''}
+                </li>
+              ))}
+              {total > abonados.length && (
+                <li className="text-[11px] text-slate-600">y {total - abonados.length} más</li>
+              )}
+            </ul>
+          </div>
+        </div>
+
+        {puede('/clientes') && (
+          <Link to="/clientes?estado=suspendido" className="t-btn t-btn-marca shrink-0">
+            Ver los pausados
+          </Link>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function TareasConProblemas({ problemas, puede }) {
   if (!problemas) return null
 
