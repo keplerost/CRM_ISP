@@ -15,6 +15,8 @@
  * Todo acá es lógica pura, sin red ni base de datos, para poder probarlo.
  */
 
+import { sinServicio } from '../lib/estados.js'
+
 const RE_IP = /^(\d{1,3}\.){3}\d{1,3}$/
 
 /** true si el texto es una IPv4 con octetos válidos. */
@@ -388,7 +390,8 @@ export function planificarSincronizacion(clientes = [], entradas = [], lista) {
   const cortadosEnSistema = new Map()
   const sinIp = []
   for (const c of clientes) {
-    if (c.estado !== 'cortado') continue
+    // Igual que en reparar: suspendido también va a la lista de corte.
+    if (!sinServicio(c.estado)) continue
     const ip = extraerIp(c.ip)
     // Sin IP no se puede cortar por address-list: hay que avisarlo, no ignorarlo.
     if (!ip) sinIp.push({ nombre: c.nombre, motivo: 'el cliente no tiene IP registrada' })

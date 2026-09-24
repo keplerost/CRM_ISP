@@ -3,6 +3,7 @@ import { badRequest } from '../lib/errors.js'
 import * as mk from './mikrotikService.js'
 import { extraerIp } from './importador.js'
 import { compararColas, compararLeases } from '../lib/comparaRouter.js'
+import { sinServicio } from '../lib/estados.js'
 import { camposDeCola } from '../lib/velocidad.js'
 import { nombreDeCola, nombreDeColaAlterno } from '../lib/servicios.js'
 
@@ -135,13 +136,23 @@ export async function revisar(routerId) {
     }
 
     // --- La lista de morosos ---
+    //
+    // `cortado` y `suspendido` cuentan igual: los dos significan que ese
+    // abonado no tiene que estar navegando. Mirando solo `cortado`, a un
+    // suspendido que estuviera en la lista se lo DESBLOQUEABA — se le devolvía
+    // el internet entendiendo que estaba al día.
     if (!ip) {
-      if (c.estado === 'cortado') {
+      if (sinServicio(c.estado)) {
         sinDatos.push({ cliente: c.nombre, id: c.id, falta: 'IP: sin ella no se puede cortar por lista' })
       }
-    } else if (c.estado === 'cortado' && !enLista.has(ip)) {
-      morosos.push({ cliente: c.nombre, ip, accion: 'agregar', motivo: 'está cortado y el router no lo bloquea' })
-    } else if (c.estado !== 'cortado' && enLista.has(ip)) {
+    } else if (sinServicio(c.estado) && !enLista.has(ip)) {
+      morosos.push({
+        cliente: c.nombre,
+        ip,
+        accion: 'agregar',
+        motivo: `figura como "${c.estado}" y el router no lo bloquea`,
+      })
+    } else if (!sinServicio(c.estado) && enLista.has(ip)) {
       morosos.push({
         cliente: c.nombre,
         ip,
