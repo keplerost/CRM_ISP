@@ -672,47 +672,6 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
 
       {/* ---------------------------------------------------- Baja */}
       <Modal abierto={Boolean(baja)} titulo="Dar de baja el servicio" onCerrar={() => setBaja(null)}>
-      {/*
-        Pausar por viaje. Aparte del de baja porque es lo contrario: el abonado
-        vuelve, y lo que se guarda —motivo y hasta cuándo— es para poder
-        reconstruir la conversación cuando vuelva.
-      */}
-      {pausa && (
-        <Modal abierto titulo="Pausar el servicio" onCerrar={() => setPausa(null)}>
-          <form onSubmit={pausar} className="space-y-4">
-            <Aviso>
-              Mientras esté pausado no se le factura y queda sin internet. Al reactivarlo vuelve
-              todo como estaba.
-            </Aviso>
-
-            <Field label="Motivo" hint="Lo que el abonado dijo. Sirve para acordarse dentro de dos meses por qué está parado.">
-              <Input
-                value={pausa.motivo}
-                onChange={(e) => setPausa((p) => ({ ...p, motivo: e.target.value }))}
-                placeholder="Vacaciones de los chicos / viaje / asunto personal"
-                autoFocus
-              />
-            </Field>
-
-            <Field label="Hasta" hint="Informativo: la reactivación se hace a mano.">
-              <Input
-                type="date"
-                value={pausa.hasta}
-                onChange={(e) => setPausa((p) => ({ ...p, hasta: e.target.value }))}
-              />
-            </Field>
-
-            <div className="flex justify-end gap-2">
-              <Button type="button" variante="fantasma" onClick={() => setPausa(null)}>
-                Cancelar
-              </Button>
-              <Button type="submit" variante="primario" cargando={guardando}>
-                Pausar el servicio
-              </Button>
-            </div>
-          </form>
-        </Modal>
-      )}
 
         {baja && (
           <form onSubmit={darDeBaja} className="space-y-4">
@@ -764,6 +723,48 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
           </form>
         )}
       </Modal>
+
+      {/*
+        Pausar el servicio. Aparte del de baja porque es lo contrario: el abonado
+        vuelve, y lo que se guarda —motivo y hasta cuándo— es para poder
+        reconstruir la conversación cuando vuelva.
+      */}
+      {pausa && (
+        <Modal abierto titulo="Pausar el servicio" onCerrar={() => setPausa(null)}>
+          <form onSubmit={pausar} className="space-y-4">
+            <Aviso>
+              Mientras esté pausado no se le factura y queda sin internet. Al reactivarlo vuelve
+              todo como estaba.
+            </Aviso>
+
+            <Field label="Motivo" hint="Lo que el abonado dijo. Sirve para acordarse dentro de dos meses por qué está parado.">
+              <Input
+                value={pausa.motivo}
+                onChange={(e) => setPausa((p) => ({ ...p, motivo: e.target.value }))}
+                placeholder="Vacaciones de los chicos / viaje / asunto personal"
+                autoFocus
+              />
+            </Field>
+
+            <Field label="Hasta" hint="Informativo: la reactivación se hace a mano.">
+              <Input
+                type="date"
+                value={pausa.hasta}
+                onChange={(e) => setPausa((p) => ({ ...p, hasta: e.target.value }))}
+              />
+            </Field>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variante="fantasma" onClick={() => setPausa(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" variante="primario" cargando={guardando}>
+                Pausar el servicio
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   )
 }
