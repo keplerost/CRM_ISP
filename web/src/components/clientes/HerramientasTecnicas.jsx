@@ -499,13 +499,18 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                 }
               />
               {/*
-                Pausar no es suspender por mora: el abonado no debe nada, avisó
-                que se iba, y mientras está pausado NO se le factura. Por eso es
-                una acción aparte y no una variante de la otra.
+                Pausar no es suspender por mora: el abonado no debe nada, pidió
+                parar, y mientras está pausado NO se le factura. Por eso es una
+                acción aparte y no una variante de la otra.
+
+                El motivo va libre porque las razones son muchas y ninguna es la
+                principal: vacaciones de los chicos, un viaje, una obra en la
+                casa, un mes flojo. Encasillarlo en una lista obligaría a elegir
+                mal justo cuando aparece el caso que no estaba previsto.
               */}
               <Herramienta
                 icon={PauseCircle}
-                label="Pausar por viaje"
+                label="Pausar el servicio"
                 disabled={cliente.estado === 'suspendido' || guardando}
                 onClick={() => setPausa({ motivo: '', hasta: '' })}
               />
@@ -680,11 +685,11 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
               todo como estaba.
             </Aviso>
 
-            <Field label="Motivo" hint="Para acordarse dentro de dos meses por qué está parado.">
+            <Field label="Motivo" hint="Lo que el abonado dijo. Sirve para acordarse dentro de dos meses por qué está parado.">
               <Input
                 value={pausa.motivo}
                 onChange={(e) => setPausa((p) => ({ ...p, motivo: e.target.value }))}
-                placeholder="Se va de viaje hasta fin de mes"
+                placeholder="Vacaciones de los chicos / viaje / asunto personal"
                 autoFocus
               />
             </Field>
