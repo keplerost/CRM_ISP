@@ -6,6 +6,7 @@ import {
   Laptop,
   Lock,
   Map,
+  PauseCircle,
   Power,
   PowerOff,
   RefreshCw,
@@ -71,6 +72,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
   const [baja, setBaja] = useState(null)
   const [motivos, setMotivos] = useState([])
   const [guardando, setGuardando] = useState(false)
+  const [pausa, setPausa] = useState(null)
 
   /**
    * El catálogo de motivos de baja, que se carga recién al abrir el diálogo.
@@ -144,7 +146,16 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
     setGuardando(true)
     onError?.(null)
     try {
-      const { error } = await supabase.from('clientes').update({ estado }).eq('id', cliente.id)
+      // Al reactivar se limpia la pausa: dejar el motivo viejo haría que la
+      // ficha siga diciendo "de viaje" sobre alguien que ya volvió.
+      const { error } = await supabase
+        .from('clientes')
+        .update(
+          estado === 'activo'
+            ? { estado, suspendido_motivo: null, suspendido_hasta: null }
+            : { estado },
+        )
+        .eq('id', cliente.id)
       if (error) throw error
 
       const enElRouter = await aplicarEnRouter(estado)
@@ -165,9 +176,57 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
     }
   }
 
+  /**
+   * Pausar el servicio a pedido del abonado.
+   *
+   * Distinto de suspender por mora: acá no debe nada, avisó que se iba, y
+   * mientras esté pausado NO se le factura. Por eso el motivo no es opcional en
+   * la práctica —dentro de dos meses nadie se acuerda de por qué está parado ni
+   * si corresponde cobrarle— aunque el campo lo permita vacío.
+   *
+   * La fecha es informativa: la reactivación es a mano. Un abonado que vuelve
+   * antes de tiempo, o que estira el viaje, es más frecuente que uno que vuelve
+   * justo el día que dijo.
+   */
+  async function pausar(e) {
+    e.preventDefault()
+    setGuardando(true)
+    onError?.(null)
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .update({
+          estado: 'suspendido',
+          suspendido_motivo: pausa.motivo || null,
+          suspendido_hasta: pausa.hasta || null,
+        })
+        .eq('id', cliente.id)
+      if (error) throw error
+
+      const enElRouter = await aplicarEnRouter('suspendido')
+      setPausa(null)
+      await onGuardado?.()
+
+      if (!enElRouter.ok) {
+        onError?.(
+          new Error(
+            `El abonado quedó pausado en el sistema, pero el router no se actualizó: ` +
+              `${enElRouter.nota} Corregilo con "Reparar el router".`,
+          ),
+        )
+      }
+    } catch (err) {
+      onError?.(err)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   /** Agrega o quita la IP de la lista de cortados, según el estado nuevo. */
   async function aplicarEnRouter(estado) {
-    if (estado !== 'cortado' && estado !== 'activo') return { ok: true, nota: '' }
+    // `suspendido` bloquea igual que `cortado`: el que pidió parar tampoco
+    // tiene que seguir navegando.
+    if (!['cortado', 'suspendido', 'activo'].includes(estado)) return { ok: true, nota: '' }
 
     if (!cliente.router_id || !cliente.ip) {
       return { ok: false, nota: 'No tiene router o IP cargados.' }
@@ -179,7 +238,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
         (e) => e.address === cliente.ip || String(e.address).startsWith(`${cliente.ip}/`),
       )
 
-      if (estado === 'cortado') {
+      if (estado !== 'activo') {
         if (entrada) return { ok: true, nota: 'Ya estaba bloqueado.' }
         // El endpoint asegura además la regla de corte: sin ella, la lista se
         // llena y el tráfico sigue pasando.
@@ -439,6 +498,17 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
                   )
                 }
               />
+              {/*
+                Pausar no es suspender por mora: el abonado no debe nada, avisó
+                que se iba, y mientras está pausado NO se le factura. Por eso es
+                una acción aparte y no una variante de la otra.
+              */}
+              <Herramienta
+                icon={PauseCircle}
+                label="Pausar por viaje"
+                disabled={cliente.estado === 'suspendido' || guardando}
+                onClick={() => setPausa({ motivo: '', hasta: '' })}
+              />
               <Herramienta
                 icon={Activity}
                 label="Conceder promesa"
@@ -596,7 +666,49 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
       </Modal>
 
       {/* ---------------------------------------------------- Baja */}
-      <Modal abierto={Boolean(baja)} titulo="Dar de baja el servicio" onCerrar={() => setBaja(null)}>
+      <Modal abierto={Boolean(baja)} titulo="Dar de baja el servicio" onCerrar={() => setBaja(null)}>
+      {/*
+        Pausar por viaje. Aparte del de baja porque es lo contrario: el abonado
+        vuelve, y lo que se guarda —motivo y hasta cuándo— es para poder
+        reconstruir la conversación cuando vuelva.
+      */}
+      {pausa && (
+        <Modal abierto titulo="Pausar el servicio" onCerrar={() => setPausa(null)}>
+          <form onSubmit={pausar} className="space-y-4">
+            <Aviso>
+              Mientras esté pausado no se le factura y queda sin internet. Al reactivarlo vuelve
+              todo como estaba.
+            </Aviso>
+
+            <Field label="Motivo" hint="Para acordarse dentro de dos meses por qué está parado.">
+              <Input
+                value={pausa.motivo}
+                onChange={(e) => setPausa((p) => ({ ...p, motivo: e.target.value }))}
+                placeholder="Se va de viaje hasta fin de mes"
+                autoFocus
+              />
+            </Field>
+
+            <Field label="Hasta" hint="Informativo: la reactivación se hace a mano.">
+              <Input
+                type="date"
+                value={pausa.hasta}
+                onChange={(e) => setPausa((p) => ({ ...p, hasta: e.target.value }))}
+              />
+            </Field>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variante="fantasma" onClick={() => setPausa(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" variante="primario" cargando={guardando}>
+                Pausar el servicio
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
         {baja && (
           <form onSubmit={darDeBaja} className="space-y-4">
             <p className="text-sm text-slate-300">

@@ -157,6 +157,22 @@ export default function IdentidadCliente({ cliente, promesa, onGuardado, onError
         </div>
       )}
 
+      {/* La pausa, cuando la hay. Va arriba del router porque explica por qué
+          ese abonado está sin servicio, y sin eso el estado "suspendido" no
+          dice nada. */}
+      {cliente.estado === 'suspendido' && (
+        <Dato etiqueta="Pausado">
+          <div className="text-sm text-slate-200">
+            {cliente.suspendido_motivo || 'sin motivo anotado'}
+          </div>
+          {cliente.suspendido_hasta && (
+            <div className="mt-0.5 text-[11px] text-slate-500">
+              hasta el {cliente.suspendido_hasta}
+            </div>
+          )}
+        </Dato>
+      )}
+
       {/* Router ------------------------------------------------------------ */}
       <Dato etiqueta="Conectado al router">
         <div className="flex items-center gap-1.5 text-sm text-slate-200">

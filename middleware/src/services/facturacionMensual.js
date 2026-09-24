@@ -183,7 +183,25 @@ export function decidirFacturacion(clientes = [], hoy = new Date(), { tarifa = 1
   const diaDeHoy = hoy.getDate()
 
   for (const c of clientes) {
-    if (!['activo', 'cortado', 'suspendido'].includes(c.estado)) {
+    /*
+      El cortado SÍ se factura: dejó de pagar, no dejó de ser abonado, y su
+      deuda sigue corriendo. El suspendido NO: pidió parar el servicio —se va de
+      viaje, hay una obra— y cobrarle el mes que no usó es exactamente lo que
+      vino a evitar. Al volver se lo reactiva y vuelve a facturar.
+
+      El de baja tampoco, por razones obvias.
+    */
+    if (c.estado === 'suspendido') {
+      omitidos.push({
+        ...c,
+        motivo: c.suspendido_motivo
+          ? `Pausado: ${c.suspendido_motivo}`
+          : 'Pausado a pedido del abonado',
+      })
+      continue
+    }
+
+    if (!['activo', 'cortado'].includes(c.estado)) {
       omitidos.push({ ...c, motivo: `Está de ${c.estado}` })
       continue
     }
@@ -250,7 +268,7 @@ export async function generarFacturas({ simular = false, fecha = null } = {}) {
     .from('v_clientes_ficha')
     .select(
       'id, nombre, estado, precio_mensual, plan, plan_precio, descripcion_servicio, ' +
-        'dia_facturacion, dia_generar_factura, modalidad_pago, tipo_impuesto, ' +
+        'dia_facturacion, dia_generar_factura, modalidad_pago, tipo_impuesto, suspendido_motivo, ' +
         // Del plan: el impuesto por defecto y su tarifa, para los abonados que
         // no lo tienen puesto en la ficha.
         'plan_tipo_impuesto, plan_iva_porcentaje, ' +
