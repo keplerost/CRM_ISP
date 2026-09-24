@@ -91,6 +91,7 @@ const LLAVE = {
   comisiones: 'comisiones_automatico',
   cartera: 'cartera_automatico',
   alertas: 'alertas_automaticas',
+  pausas: 'pausas_automatico',
   stock: 'stock_automatico',
   avisos_pago: 'avisos_pago_automatico',
   mora: 'mora_automatico',

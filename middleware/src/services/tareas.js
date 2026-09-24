@@ -12,6 +12,7 @@ import { programarCartera, estadoCartera } from './carteraProgramada.js'
 import { programarEsperando } from './esperandoProgramado.js'
 import { programarAlertas, estadoAlertas } from './alertasProgramadas.js'
 import { programarStock, estadoStock } from './stockProgramado.js'
+import { programarPausasVencidas } from './pausasVencidas.js'
 import { programarAvisosPago, estadoAvisosPago } from './avisosPago.js'
 import { programarCorteMora, estadoMora } from './corteMora.js'
 import { programarFirmas, estadoFirmas } from './firmasProgramadas.js'
@@ -202,6 +203,16 @@ export const TAREAS = [
       programarAvisosPago({ activo: v.avisos_pago_automatico, hora: v.avisos_pago_hora, ...extra }),
   },
   {
+    clave: 'pausas',
+    nombre: 'Pausas de servicio vencidas',
+    que: 'Revisa qué abonados tienen el servicio pausado con una fecha que ya pasó, y avisa por la campana a quién hay que llamar.',
+    cuidado:
+      'No le escribe a nadie ni toca el router: solo deja el aviso. Tampoco reactiva sola, porque la fecha es un acuerdo y no un hecho — quien estiró el viaje se quedaría cortado y además facturándose.',
+    tipo: 'diaria',
+    arrancar: (v, extra) =>
+      programarPausasVencidas({ activo: v.pausas_automatico, hora: v.pausas_hora, ...extra }),
+  },
+  {
     clave: 'stock',
     nombre: 'Aviso de material por acabarse',
     que: 'Revisa el stock de cada bodega y de cada técnico, y avisa de lo que está en el mínimo o por debajo.',
@@ -252,6 +263,12 @@ const DEL_ARCHIVO = () => ({
   // está llegando.
   alertas_automaticas: false,
   alertas_cada_minutos: 5,
+  // Encendida, a diferencia de las demás: solo LEE y deja un aviso en la
+  // campana. No le escribe a ningún abonado, no toca el router y no cambia
+  // estados. El riesgo de que corra es cero; el de que no corra es un abonado
+  // sin servicio y sin facturar durante meses.
+  pausas_automatico: true,
+  pausas_hora: '08:00',
   // Apagada hasta que los mínimos estén cargados: encendida sin mínimos no
   // avisa de nada, y con mínimos mal puestos avisa todos los días de lo mismo
   // hasta que dejan de mirarse.

@@ -37,6 +37,21 @@ const COLOR = {
   baja: 'gris',
 }
 
+/**
+ * Una fecha SIN hora, como la escribe la base: "2026-09-22".
+ *
+ * Se parsea con mediodía a propósito. `new Date('2026-09-22')` se interpreta
+ * como medianoche UTC, y en Ecuador —cinco horas atrás— eso cae el día
+ * anterior: la pausa que vence el 22 se mostraría vencida el 21. Con el
+ * mediodía, ningún huso del continente cambia el día.
+ */
+const soloDia = (f) => {
+  if (!f) return null
+  const d = new Date(`${String(f).slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 const fechaHora = (f) => {
   if (!f) return null
   const d = new Date(f)
@@ -167,7 +182,9 @@ export default function IdentidadCliente({ cliente, promesa, onGuardado, onError
           </div>
           {cliente.suspendido_hasta && (
             <div className="mt-0.5 text-[11px] text-slate-500">
-              hasta el {cliente.suspendido_hasta}
+              {/* En el formato del resto de la ficha. La fecha cruda —2026-09-22—
+                  obliga a traducir mentalmente justo donde se compara con hoy. */}
+              hasta el {soloDia(cliente.suspendido_hasta)}
             </div>
           )}
         </Dato>
