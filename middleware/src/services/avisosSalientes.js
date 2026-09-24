@@ -1,4 +1,5 @@
-import { db } from '../lib/db.js'
+import { db } from '../lib/db.js'
+import { cuandoSePuede, esperaLaFranja } from '../lib/horarioAvisos.js'
 import { canalesPara } from './avisosPago.js'
 import { enviar, seEntrego } from './mensajeria.js'
 import { correoDePago } from './correoPago.js'
@@ -35,7 +36,49 @@ const dinero = (n) => `$${Number(n ?? 0).toFixed(2)}`
  * —cortando abonados, drenando una cola— y un mensaje que no sale no puede
  * interrumpir ese trabajo.
  */
-export async function avisarAlAbonado({ cliente, tipo, variables = {}, factura_id = null }) {
+/**
+ * La franja configurada, con los valores de fábrica si falta la columna.
+ *
+ * Que no esté la migración no puede impedir que salgan los avisos: se cae al
+ * horario razonable y el sistema sigue andando.
+ */
+async function franjaConfigurada() {
+  const { data } = await db()
+    .from('config_mensajeria')
+    .select('avisos_desde, avisos_hasta')
+    .maybeSingle()
+
+  return { desde: data?.avisos_desde ?? '08:00', hasta: data?.avisos_hasta ?? '20:00' }
+}
+
+/**
+ * Deja el aviso en la cola con la hora a la que le toca salir.
+ *
+ * `upsert` sobre la clave que ya evita repetidos: si el mismo aviso se generó
+ * dos veces —un reintento, una corrida repetida— no quedan dos mensajes
+ * esperando para la misma persona sobre la misma cosa.
+ */
+async function encolarParaLuego({ clienteId, tipo, referencia_id, cuando }) {
+  await db()
+    .from('avisos_pendientes')
+    .upsert(
+      {
+        cliente_id: clienteId,
+        tipo,
+        referencia_id: referencia_id ?? null,
+        enviar_desde: cuando.toISOString(),
+      },
+      { onConflict: 'cliente_id,tipo,referencia_id', ignoreDuplicates: true },
+    )
+}
+
+export async function avisarAlAbonado({
+  cliente,
+  tipo,
+  variables = {},
+  factura_id = null,
+  desdeLaCola = false,
+}) {
   try {
     const claves = PLANTILLAS[tipo]
     if (!claves) return { enviado: false, motivo: `tipo de aviso desconocido: ${tipo}` }
@@ -53,6 +96,30 @@ export async function avisarAlAbonado({ cliente, tipo, variables = {}, factura_i
      */
     const clienteId = cliente?.id ?? cliente?.cliente_id
     if (!clienteId) return { enviado: false, motivo: 'el aviso no dice de qué abonado es' }
+
+    /**
+     * La hora.
+     *
+     * La facturación corre a la 01:30 y el corte a las 05:00, y hasta ahora el
+     * aviso salía en ese mismo momento. Una abonada pidió el retiro del
+     * servicio por un mensaje de madrugada — no por la deuda, por el susto.
+     *
+     * `desdeLaCola` evita el bucle: el drenaje ya comprobó que a este aviso le
+     * toca salir, y volver a posponerlo acá lo dejaría encolado para siempre.
+     */
+    if (!desdeLaCola && esperaLaFranja(tipo)) {
+      const franja = await franjaConfigurada()
+      const cuando = cuandoSePuede(new Date(), franja)
+      if (cuando) {
+        await encolarParaLuego({ clienteId, tipo, referencia_id: factura_id, cuando })
+        return {
+          enviado: false,
+          pospuesto: true,
+          cuando: cuando.toISOString(),
+          motivo: `fuera del horario de avisos (${franja.desde}–${franja.hasta}): sale a las ${franja.desde}`,
+        }
+      }
+    }
 
     // El que pidió que no lo molesten no recibe ni esto. Es su decisión, y vale
     // también para el aviso de que se le cortó.
@@ -173,6 +240,9 @@ export async function drenarAvisos() {
     const r = await avisarAlAbonado({
       cliente: a,
       tipo: a.tipo,
+      // Ya le tocaba: la vista solo devuelve lo que pasó su hora. Sin esto, el
+      // aviso se volvería a posponer en cada pasada y no saldría nunca.
+      desdeLaCola: true,
       /**
        * Todo lo que las plantillas de estos avisos pueden usar.
        *

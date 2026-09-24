@@ -136,6 +136,9 @@ export async function paraMostrar() {
   const origen = (enBase, enEnv) => (enBase ? 'base' : enEnv ? 'archivo' : null)
 
   return {
+    // La franja horaria: no es de ningún canal, manda sobre todos.
+    avisos_desde: f.avisos_desde ?? '08:00',
+    avisos_hasta: f.avisos_hasta ?? '20:00',
     telegram: {
       tiene_token: Boolean(c.telegram.token),
       origen: origen(f.telegram_token_encrypted, env.TELEGRAM_BOT_TOKEN),
@@ -196,6 +199,10 @@ const CAMPOS_CLAROS = [
   'twilio_desde',
   'nms_canal',
   'nms_destino',
+  // La franja en la que se le puede escribir a un abonado. Manda sobre todos
+  // los canales, así que vive acá y no en cada uno.
+  'avisos_desde',
+  'avisos_hasta',
 ]
 
 /** Los secretos: qué campo del formulario va a qué columna cifrada. */

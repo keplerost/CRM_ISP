@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Mail, MessageCircle, Send, Smartphone } from 'lucide-react'
+import { ArrowLeft, Clock, Mail, MessageCircle, Send, Smartphone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/apiNetwork'
 import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input, Select } from '../components/ui'
@@ -31,6 +31,8 @@ export default function MensajeriaPage() {
         setCfg(c)
         setCanales(ch)
         setForm({
+          avisos_desde: c.avisos_desde ?? '08:00',
+          avisos_hasta: c.avisos_hasta ?? '20:00',
           telegram_bot_usuario: c.telegram.bot_usuario ?? '',
           whatsapp_via: c.whatsapp.via ?? 'manual',
           whatsapp_phone_id: c.whatsapp.phone_id ?? '',
@@ -105,6 +107,42 @@ export default function MensajeriaPage() {
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
       <form onSubmit={guardar} className="space-y-4">
+        {/*
+          Va primero porque manda sobre todos los canales, y porque es lo que
+          más se toca: es la respuesta a un reclamo real.
+
+          La facturación corre a la 01:30 y el corte a las 05:00 —las horas en
+          que la red está tranquila— y hasta ahora el aviso salía en ese mismo
+          momento. Una abonada pidió el retiro del servicio por eso: no por la
+          deuda, por el susto de un mensaje a esa hora.
+        */}
+        <Card title="Horario de los avisos" icon={Clock}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Desde"
+              hint="Antes de esta hora no se le escribe a ningún abonado."
+            >
+              <Input
+                type="time"
+                value={form.avisos_desde ?? '08:00'}
+                onChange={(e) => setForm((f) => ({ ...f, avisos_desde: e.target.value }))}
+              />
+            </Field>
+            <Field label="Hasta" hint="Lo que se genere después sale a la mañana siguiente.">
+              <Input
+                type="time"
+                value={form.avisos_hasta ?? '20:00'}
+                onChange={(e) => setForm((f) => ({ ...f, avisos_hasta: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <p className="mt-3 text-xs leading-snug text-slate-500">
+            Vale para la factura nueva, el corte y los recordatorios de pago: lo que el sistema
+            decide por su cuenta. <b>No</b> para el comprobante de un pago ni la respuesta a un
+            ticket — quien paga a las once de la noche está esperando su confirmación.
+          </p>
+        </Card>
+
         {/* El correo no se configura acá: ya tiene su pantalla, y duplicar los
             campos garantiza que un día queden distintos. */}
         <Card title="Correo" icon={Mail}>
