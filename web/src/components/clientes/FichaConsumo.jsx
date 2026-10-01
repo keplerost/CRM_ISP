@@ -148,10 +148,21 @@ export default function FichaConsumo({ cliente, onError }) {
     setAviso(null)
     try {
       const r = await api.consumo.recolectar()
-      setAviso(
-        `Se midieron ${r.medidos} abonados.` +
-          (r.fallidos?.length ? ` ${r.fallidos.length} con error.` : ''),
-      )
+      // Se dice cada cosa por separado: "se midieron 27" sobre una gráfica vacía
+      // —porque era la primera lectura— hacía creer que la medición no andaba.
+      const partes = [`Se midieron ${r.medidos} abonados.`]
+      if (r.arranques) {
+        partes.push(
+          `${r.arranques} recién empiezan: la primera lectura solo fija el punto de partida, y el consumo aparece desde la próxima.`,
+        )
+      }
+      if (r.sin_emparejar) {
+        partes.push(
+          `${r.sin_emparejar} sin cola en su router: revisá que la IP de la ficha coincida con el target de su Simple Queue.`,
+        )
+      }
+      if (r.fallidos?.length) partes.push(`${r.fallidos.length} con error.`)
+      setAviso(partes.join(' '))
       await recargar()
     } catch (err) {
       onError?.(err)
