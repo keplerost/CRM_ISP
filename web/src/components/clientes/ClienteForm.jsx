@@ -1,3 +1,4 @@
+import { nombreDocumento, usePais } from '../../lib/pais'
 import { useEffect, useMemo, useState } from 'react'
 import { Save, Wand2 } from 'lucide-react'
 import { useTabla } from '../../lib/useTabla'
@@ -14,13 +15,12 @@ import { Aviso, Button, ErrorBanner, Field, Input, Select } from '../ui'
  * cargarlos: sin identificación no se le puede emitir un comprobante.
  */
 
-const TIPOS_ID = [
-  { codigo: '05', label: 'Cédula' },
-  { codigo: '04', label: 'RUC' },
-  { codigo: '06', label: 'Pasaporte' },
-  { codigo: '07', label: 'Consumidor final' },
-  { codigo: '08', label: 'Identificación del exterior' },
-]
+/**
+ * Los tipos de documento se guardan con los códigos del SRI —la base solo
+ * acepta esos— y se usan como roles: 05 la persona, 04 la empresa, 08 el
+ * extranjero. El nombre y el largo los pone el país del ISP.
+ */
+const ORDEN_ID = ['05', '04', '06', '07', '08']
 
 const VACIO = {
   nombre: '',
@@ -64,10 +64,10 @@ const REDES_DEL_ALTA = ['estatica', 'cgnat']
 const mbps = (kbps) => (kbps ? `${Math.round(kbps / 1000)} Mbps` : '—')
 
 /** Longitud esperada según el tipo: cédula 10, RUC 13. */
-const LARGO_ESPERADO = { '05': 10, '04': 13 }
 
 export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) {
   const editando = Boolean(cliente)
+  const pais = usePais()
   const { filas: routers } = useTabla('routers_mikrotik')
   const { filas: planes } = useTabla('planes_velocidad', { orderBy: 'nombre', ascending: true })
   const { filas: redes } = useTabla('v_subredes', { orderBy: 'numero', ascending: true })
@@ -178,7 +178,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
     form.precio_mensual !== '' &&
     Math.abs(Number(form.precio_mensual) - Number(planElegido.precio)) > 0.005
 
-  const largo = LARGO_ESPERADO[form.tipo_identificacion]
+  const largo = pais.documentos[form.tipo_identificacion]?.largo
   const idIncompleta =
     largo && form.identificacion && form.identificacion.replace(/\D/g, '').length !== largo
 
@@ -250,9 +250,9 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
 
         <Field label="Tipo de identificación">
           <Select value={form.tipo_identificacion} onChange={set('tipo_identificacion')}>
-            {TIPOS_ID.map((t) => (
-              <option key={t.codigo} value={t.codigo}>
-                {t.label}
+            {ORDEN_ID.map((codigo) => (
+              <option key={codigo} value={codigo}>
+                {nombreDocumento(pais, codigo)}
               </option>
             ))}
           </Select>
@@ -265,7 +265,7 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
           <Input
             value={form.identificacion}
             onChange={set('identificacion')}
-            placeholder={form.tipo_identificacion === '04' ? '1790012345001' : '1712345678'}
+            placeholder={pais.documentos[form.tipo_identificacion]?.ejemplo ?? ''}
           />
         </Field>
 
@@ -303,9 +303,9 @@ export default function ClienteForm({ cliente = null, onGuardado, onCancelar }) 
 
       {idIncompleta && (
         <Aviso tipo="alerta">
-          La {form.tipo_identificacion === '04' ? 'RUC' : 'cédula'} debería tener {largo} dígitos y
-          tiene {form.identificacion.replace(/\D/g, '').length}. El SRI rechaza el comprobante si no
-          coincide.
+          El {nombreDocumento(pais, form.tipo_identificacion)} debería tener {largo} dígitos y
+          tiene {form.identificacion.replace(/\D/g, '').length}.
+          {pais.modulos.facturacionElectronica && ' El SRI rechaza el comprobante si no coincide.'}
         </Aviso>
       )}
 

@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { useMarca } from '../../lib/useMarca'
+import { usePais } from '../../lib/pais'
 import { puedeEntrar } from '../../lib/rutasPermisos'
 import {
   Activity,
@@ -149,7 +150,7 @@ const SECCIONES = [
           { to: '/conciliacion', label: 'Conciliación bancaria', icon: Landmark },
           // El reporte del regulador va en Finanzas y no en Ajustes: sale de las
           // facturas, y quien lo arma es el mismo que mira la caja.
-          { to: '/arcotel', label: 'Reporte ARCOTEL', icon: ClipboardList },
+          { to: '/arcotel', label: 'Reporte ARCOTEL', icon: ClipboardList, modulo: 'reporteRegulador' },
           { to: '/estadisticas', label: 'Estadísticas', icon: BarChart3 },
           { to: '/facturacion', label: 'Facturación', icon: Receipt },
         ],
@@ -453,6 +454,8 @@ function Grupo({ item, contadores, plegado }) {
 
 export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
   const { puede, perfil, cargandoPerfil } = usePermisos()
+  // Lo que es de un solo país —el reporte de ARCOTEL— no se ofrece en otro.
+  const pais = usePais()
   const marca = useMarca()
   const contadores = useContadores(puede)
 
@@ -494,12 +497,14 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
             if (item.soloVendedor && puede('clientes.cartera')) return null
             if (item.permiso && ![item.permiso].flat().some((p) => puede(p))) return null
             if (!item.hijos) return item.permiso ? item : puedeEntrar(puede, item.to) ? item : null
-            const hijos = item.hijos.filter((h) => puedeEntrar(puede, h.to))
+            const hijos = item.hijos.filter(
+              (h) => puedeEntrar(puede, h.to) && (!h.modulo || pais.modulos[h.modulo]),
+            )
             return hijos.length ? { ...item, hijos } : null
           })
           .filter(Boolean),
       })).filter((s) => s.items.length),
-    [puede],
+    [puede, pais],
   )
 
   return (

@@ -3,6 +3,7 @@ import { asyncHandler, badRequest, notFound, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
 import { db } from '../lib/db.js'
 import { ivaGeneral, codigoDeTarifa } from '../lib/iva.js'
+import { paisDelIsp } from '../lib/paisIsp.js'
 import { encrypt, decrypt } from '../lib/crypto.js'
 import { generarClaveAcceso } from '../sri/claveAcceso.js'
 import { generarXmlFactura, calcularTotales, leerCamposAdicionales, IVA } from '../sri/facturaXml.js'
@@ -31,6 +32,27 @@ import { generarFacturas, estadoFacturacion } from '../services/facturacionMensu
 
 const router = Router()
 router.use(requireAuth)
+
+/**
+ * El SRI es de Ecuador.
+ *
+ * Fuera de Ecuador la pantalla no muestra nada de esto, pero la API se cuida
+ * sola: firmar y mandar un comprobante ecuatoriano desde un ISP de Colombia
+ * quemaría un secuencial y daría un error del SRI que nadie entendería. Leer
+ * sí se deja, para no romper pantallas viejas abiertas en otra pestaña.
+ */
+router.use(
+  asyncHandler(async (req, _res, next) => {
+    if (req.method === 'GET') return next()
+    const pais = await paisDelIsp()
+    if (!pais.modulos.facturacionElectronica) {
+      throw badRequest(`La facturación electrónica del SRI es de Ecuador, y este ISP está configurado en ${pais.nombre}.`, {
+        hint: 'Se cambia en Ajustes → General → País.',
+      })
+    }
+    next()
+  }),
+)
 
 /** Campos con secretos: nunca salen del backend. */
 const OCULTOS = ['certificado_b64', 'certificado_pass_encrypted', 'smtp_pass_encrypted']

@@ -1,3 +1,4 @@
+import { nombreDocumento, usePais } from '../../lib/pais'
 import { useState } from 'react'
 import { AlertTriangle, KeyRound, Loader2 } from 'lucide-react'
 import { portalApi } from '../../lib/portalApi'
@@ -16,6 +17,7 @@ import { Tarjeta } from './PortalApp'
  * propio portal y no hay forma de que lo resuelva solo.
  */
 export default function PortalPerfil({ cuenta, recargar }) {
+  const pais = usePais()
   const [form, setForm] = useState({ ...cuenta.contacto })
   const [cambiandoClave, setCambiandoClave] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -53,7 +55,10 @@ export default function PortalPerfil({ cuenta, recargar }) {
       <Tarjeta titulo="Tus datos">
         <div className="space-y-2.5 text-sm">
           <Fijo etiqueta="Nombre" valor={cuenta.nombre} />
-          <Fijo etiqueta="Cédula / RUC" valor={cuenta.identificacion} />
+          <Fijo
+            etiqueta={`${nombreDocumento(pais, '05')} / ${nombreDocumento(pais, '04')}`}
+            valor={cuenta.identificacion}
+          />
         </div>
         <p className="mt-3 text-xs leading-relaxed text-slate-500">
           El nombre y la cédula salen impresos en tus facturas. Si hay que corregirlos, escribinos.

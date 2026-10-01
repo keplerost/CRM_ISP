@@ -291,6 +291,11 @@ const MIGRACIONES = [
     nombre: 'El IVA en un solo lugar',
     partes: [['config_general', ['iva_porcentaje']]],
   },
+  {
+    numero: 199,
+    nombre: 'El país del ISP',
+    partes: [['config_general', ['pais']]],
+  },
 ]
 
 console.log(`\nBase: ${url}\n`)

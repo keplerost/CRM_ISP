@@ -1,3 +1,4 @@
+import { nombreDocumento, usePais } from '../../lib/pais'
 import { useState } from 'react'
 import { ArrowLeft, KeyRound, Loader2 } from 'lucide-react'
 import { portalApi, guardarToken } from '../../lib/portalApi'
@@ -20,6 +21,7 @@ import { useMarca } from '../../lib/useMarca'
  * teclado numérico, y el código se pega solo si el celular lo ofrece.
  */
 export default function PortalLogin({ onEntrar }) {
+  const pais = usePais()
   const marca = useMarca()
   const [paso, setPaso] = useState('cedula')
   const [identificacion, setIdentificacion] = useState('')
@@ -158,7 +160,9 @@ export default function PortalLogin({ onEntrar }) {
         ) : paso === 'cedula' ? (
           <form onSubmit={pedir} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm text-slate-400">Tu cédula o RUC</label>
+              <label className="mb-1.5 block text-sm text-slate-400">
+                Tu {nombreDocumento(pais, '05')} o {nombreDocumento(pais, '04')}
+              </label>
               <input
                 // inputMode numérico: en el celular abre el teclado de números
                 // directo, sin que nadie tenga que cambiarlo.

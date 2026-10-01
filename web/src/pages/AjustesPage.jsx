@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { AJUSTES } from '../lib/ajustes'
+import { usePais } from '../lib/pais'
 import { usePermisos } from '../lib/AuthContext'
 import { puedeEntrar } from '../lib/rutasPermisos'
 
@@ -43,6 +44,7 @@ const Cuadricula = ({ items }) => (
 
 export default function AjustesPage() {
   const { puede } = usePermisos()
+  const pais = usePais()
 
   /**
    * Se esconden las secciones a las que este usuario no puede entrar.
@@ -52,8 +54,13 @@ export default function AjustesPage() {
    * sería esconderle el mapa de a dónde va el sistema, que no es un secreto.
    */
   const visibles = useMemo(
-    () => AJUSTES.filter((x) => !x.a || puedeEntrar(puede, x.a)),
-    [puede],
+    () =>
+      AJUSTES.filter(
+        // Lo que es de un solo país no se le muestra a un ISP de otro: no es
+        // algo que "todavía no existe", es algo que ahí no corresponde.
+        (x) => (!x.modulo || pais.modulos[x.modulo]) && (!x.a || puedeEntrar(puede, x.a)),
+      ),
+    [puede, pais],
   )
 
   const listos = visibles.filter((x) => x.a)

@@ -1,3 +1,4 @@
+import { usePais } from '../lib/pais'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Building2, Image } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -21,6 +22,7 @@ import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input } from '../com
  * emite comprobantes.
  */
 export default function EmpresaPage() {
+  const pais = usePais()
   const [config, setConfig] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
@@ -112,7 +114,7 @@ export default function EmpresaPage() {
         <h1 className="t-titulo text-lg font-bold text-slate-100">Empresa</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
           Quién factura. Estos datos salen impresos en cada factura, en el recibo y en los
-          contratos, y son los que el SRI valida contra tu RUC.
+          contratos{pais.modulos.facturacionElectronica && ', y son los que el SRI valida contra tu RUC'}.
         </p>
       </div>
 
@@ -224,7 +226,9 @@ export default function EmpresaPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-slate-500">
-            El ambiente del SRI, el establecimiento y la numeración se configuran en{' '}
+            {pais.modulos.facturacionElectronica
+              ? 'El ambiente del SRI, el establecimiento y la numeración se configuran en '
+              : `El impuesto (${pais.impuesto.nombre}) se configura en `}
             <Link to="/facturacion?t=config" className="text-sky-400 hover:text-sky-300">
               Facturación
             </Link>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, FileSpreadsheet, FileText } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { usePais } from '../lib/pais'
 import { api } from '../lib/apiNetwork'
 import { abrirPdf, descargar } from '../lib/pdf'
 import { dineroCero as dinero } from '../lib/formato'
@@ -23,7 +24,7 @@ import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Select, Table } from
  * después de mandarlo cuesta una observación. Acá se ve antes de exportar, con el
  * nombre de a quién le falta qué.
  */
-export default function ArcotelPage() {
+function ArcotelContenido() {
   const [meses, setMeses] = useState([])
   const [prestadores, setPrestadores] = useState([])
   const [mes, setMes] = useState('')
@@ -328,3 +329,24 @@ const FORMAS = {
 
 /** Una celda que va a salir vacía en el archivo. Se marca, no se disimula. */
 const Vacio = () => <span className="text-amber-500">falta</span>
+
+/**
+ * El reporte de ARCOTEL es de Ecuador. El menú ya no lo ofrece en otro país,
+ * pero alguien puede llegar por la dirección o por un enlace guardado.
+ */
+export default function ArcotelPage() {
+  const pais = usePais()
+  if (!pais.modulos.reporteRegulador) {
+    return (
+      <div className="space-y-4">
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Reporte del regulador</h1>
+        <p className="max-w-2xl text-sm text-slate-400">
+          Este es el reporte que pide ARCOTEL, el regulador de Ecuador. Este ISP está configurado en{' '}
+          {pais.nombre}, donde el regulador es {pais.regulador.sigla} ({pais.regulador.nombre}), y su
+          reporte todavía no está disponible.
+        </p>
+      </div>
+    )
+  }
+  return <ArcotelContenido />
+}

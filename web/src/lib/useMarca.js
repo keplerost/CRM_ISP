@@ -31,7 +31,7 @@ const POR_DEFECTO = {
 let cache = null
 let pedido = null
 
-function traer() {
+export function traerMarca() {
   if (cache) return Promise.resolve(cache)
   pedido ??= fetch(`${BASE}/api/general`)
     .then((r) => (r.ok ? r.json() : POR_DEFECTO))
@@ -52,7 +52,7 @@ export function useMarca() {
 
   useEffect(() => {
     let vivo = true
-    traer().then((m) => vivo && setMarca(m))
+    traerMarca().then((m) => vivo && setMarca(m))
     return () => {
       vivo = false
     }

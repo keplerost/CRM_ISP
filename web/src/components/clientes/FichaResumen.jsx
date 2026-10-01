@@ -1,3 +1,4 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import {
@@ -49,6 +50,8 @@ const EDITABLES = [
 ]
 
 export default function FichaResumen({ cliente, onGuardado, onError }) {
+  // La factura electrónica es la del SRI: fuera de Ecuador no hay cola a la que entrar.
+  const pais = usePais()
   const [form, setForm] = useState(() =>
     Object.fromEntries(EDITABLES.map((c) => [c, cliente[c] ?? ''])),
   )
@@ -299,6 +302,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
             {/* Decide si sus cobros entran a la cola de facturación
                 electrónica. Hay abonados que no quieren factura y se llevan
                 solo el recibo. */}
+            {pais.modulos.facturacionElectronica && (
             <div className="sm:col-span-2 t-panel p-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
                 <input
@@ -323,6 +327,7 @@ export default function FichaResumen({ cliente, onGuardado, onError }) {
                 </p>
               )}
             </div>
+            )}
 
             <Field label="Notas" className="sm:col-span-2">
               <Textarea rows={3} value={form.notas} onChange={set('notas')} />

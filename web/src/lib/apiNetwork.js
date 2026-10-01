@@ -515,6 +515,8 @@ export const api = {
     reloj: () => get('/api/general/reloj'),
     guardarZona: (zona_horaria) => put('/api/general/reloj', { zona_horaria }),
     iva: () => get('/api/general/iva'),
+    paises: () => get('/api/general/paises'),
+    guardarPais: (datos) => put('/api/general/pais', datos),
     guardarIva: (iva_porcentaje) => put('/api/general/iva', { iva_porcentaje }),
   },
 

@@ -16,6 +16,7 @@ import {
 import { useTabla } from '../lib/useTabla'
 import { api } from '../lib/apiNetwork'
 import { CODIGO_SRI, TARIFA_DE_CODIGO, fijarIvaGeneral, useIvaGeneral } from '../lib/iva'
+import { usePais } from '../lib/pais'
 import CertificadoFirma from '../components/sri/CertificadoFirma'
 import CuentasPago from '../components/pagos/CuentasPago'
 import PorFacturar from '../components/sri/PorFacturar'
@@ -51,12 +52,12 @@ const COLOR_ESTADO = {
 // certificado de firma ni el ambiente del SRI: son la misma pantalla para el
 // dueño del ISP y dos trabajos distintos para quien atiende el mostrador.
 const PESTANAS = [
-  { id: 'comprobantes', label: 'Comprobantes', icon: Receipt, permiso: 'facturacion.ver' },
+  { id: 'comprobantes', label: 'Comprobantes', icon: Receipt, permiso: 'facturacion.ver', modulo: 'facturacionElectronica' },
   // La bandeja del cierre: cobros del día que todavía no tienen comprobante.
-  { id: 'porfacturar', label: 'Por facturar', icon: Send, permiso: 'facturacion.emitir' },
+  { id: 'porfacturar', label: 'Por facturar', icon: Send, permiso: 'facturacion.emitir', modulo: 'facturacionElectronica' },
   // Las facturas del sistema que se crean solas cada mes.
   { id: 'mes', label: 'Facturas del mes', icon: Plus, permiso: 'facturacion.ver' },
-  { id: 'emitir', label: 'Nueva factura', icon: Plus, permiso: 'facturacion.emitir' },
+  { id: 'emitir', label: 'Nueva factura', icon: Plus, permiso: 'facturacion.emitir', modulo: 'facturacionElectronica' },
   { id: 'config', label: 'Configuración', icon: Settings, permiso: 'config.facturacion' },
 ]
 
@@ -70,7 +71,9 @@ export default function FacturacionPage() {
   // Solo las pestañas que este usuario puede abrir. La primera visible es la de
   // arranque: mandarlo siempre a "Comprobantes" dejaría al cajero que solo
   // emite mirando una pantalla vacía cada vez que entra.
-  const visibles = PESTANAS.filter((p) => puede(p.permiso))
+  const pais = usePais()
+  const sri = pais.modulos.facturacionElectronica
+  const visibles = PESTANAS.filter((p) => puede(p.permiso) && (!p.modulo || pais.modulos[p.modulo]))
   const inicial = visibles[0]?.id ?? 'comprobantes'
   const pestana = visibles.some((p) => p.id === pedida) ? pedida : inicial
   const setPestana = (id) => setParams(id === inicial ? {} : { t: id }, { replace: true })
@@ -79,8 +82,14 @@ export default function FacturacionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="t-titulo text-lg font-bold text-slate-100">Facturación electrónica</h1>
-        <p className="text-xs text-slate-500">Comprobantes del SRI — Ecuador</p>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">
+          {sri ? 'Facturación electrónica' : 'Facturación'}
+        </h1>
+        <p className="text-xs text-slate-500">
+          {sri
+            ? 'Comprobantes del SRI — Ecuador'
+            : `Las facturas del sistema. La facturación electrónica de ${pais.nombre} (${pais.ente.sigla}) todavía no está disponible.`}
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-1 border-b border-slate-800 pb-3">
@@ -863,6 +872,9 @@ function Emitir({ onError, onEmitida }) {
  */
 function IvaGeneral({ onError }) {
   const actual = useIvaGeneral()
+  const pais = usePais()
+  const sri = pais.modulos.facturacionElectronica
+  const imp = pais.impuesto.nombre
   const confirmar = useConfirmar()
   const [elegido, setElegido] = useState(null)
   const [guardando, setGuardando] = useState(false)
@@ -872,11 +884,12 @@ function IvaGeneral({ onError }) {
   const numero = Number(valor)
   const valido = valor !== '' && Number.isFinite(numero) && numero >= 0 && numero <= 100
   // Sin código del SRI se factura igual, pero no se puede emitir en Ecuador.
-  const delSri = CODIGO_SRI[numero] != null && numero !== 0
+  // Fuera de Ecuador no hay nada que avisar: no se emite al SRI.
+  const delSri = !sri || (CODIGO_SRI[numero] != null && numero !== 0)
 
   async function guardar() {
     const ok = await confirmar(
-      `El IVA general pasa de ${actual} % a ${numero} %.\n\n` +
+      `El ${imp} general pasa de ${actual} % a ${numero} %.\n\n` +
         `Se actualizan los planes que tienen ${actual} %, y desde ahora las facturas nuevas salen con ${numero} %. ` +
         'Las facturas ya hechas no cambian.' +
         (delSri ? '' : `\n\nOjo: ${numero} % no es una tarifa del SRI de Ecuador. Se factura igual, pero no se van a poder emitir comprobantes electrónicos ecuatorianos.`) +
@@ -899,9 +912,9 @@ function IvaGeneral({ onError }) {
   }
 
   return (
-    <Card title="Impuesto (IVA)">
+    <Card title={`Impuesto (${imp})`}>
       <div className="flex flex-wrap items-end gap-4">
-        <Field label="IVA general (%)" hint="Escribí el número, o elegí uno de la lista">
+        <Field label={`${imp} general (%)`} hint="Escribí el número, o elegí uno de la lista">
           {/* Libre, con las del SRI como sugerencia: el sistema se vende también
               fuera de Ecuador, donde el IVA es otro. */}
           <Input
@@ -918,9 +931,9 @@ function IvaGeneral({ onError }) {
             className="w-32"
           />
           <datalist id="tarifas-sri">
-            {[15, 14, 13, 12, 8, 5].map((t) => (
+            {(sri ? [15, 14, 13, 12, 8, 5] : [pais.impuesto.tarifa]).map((t) => (
               <option key={t} value={t}>
-                {t} % (SRI Ecuador)
+                {sri ? `${t} % (SRI Ecuador)` : `${t} % (${pais.nombre})`}
               </option>
             ))}
           </datalist>
@@ -931,7 +944,7 @@ function IvaGeneral({ onError }) {
           cargando={guardando}
           disabled={!valido || numero === Number(actual)}
         >
-          Guardar IVA
+          Guardar
         </Button>
       </div>
       {valido && !delSri && (
@@ -943,14 +956,15 @@ function IvaGeneral({ onError }) {
         </div>
       )}
       <p className="mt-3 text-xs leading-snug text-slate-500">
-        Es el que usan los planes, la facturación de cada mes, la edición de facturas y la emisión al
-        SRI. Al cambiarlo se actualizan los planes que tenían el anterior; uno con otro porcentaje
-        puesto a propósito no se toca. Si un abonado no paga IVA, eso se marca en su ficha como exento.
+        Es el que usan los planes, la facturación de cada mes y la edición de facturas
+        {sri ? ', y la emisión al SRI' : ''}. Al cambiarlo se actualizan los planes que tenían el
+        anterior; uno con otro porcentaje puesto a propósito no se toca. Si un abonado no paga {imp},
+        eso se marca en su ficha como exento.
       </p>
       {resultado && (
         <div className="mt-3">
           <Aviso tipo="exito">
-            IVA general en {resultado.iva_porcentaje} %.{' '}
+            {imp} general en {resultado.iva_porcentaje} %.{' '}
             {resultado.planes_actualizados
               ? `Se actualizaron ${resultado.planes_actualizados} plan(es) que tenían ${resultado.anterior} %.`
               : 'No había planes con el porcentaje anterior.'}
@@ -961,7 +975,18 @@ function IvaGeneral({ onError }) {
   )
 }
 
+/**
+ * Fuera de Ecuador la configuración es solo el impuesto: el emisor, el
+ * certificado y la numeración son del SRI. Va en un componente aparte para no
+ * pedirle nada a la API del SRI donde no hay SRI.
+ */
 function Configuracion({ onError }) {
+  const pais = usePais()
+  if (!pais.modulos.facturacionElectronica) return <IvaGeneral onError={onError} />
+  return <ConfiguracionSri onError={onError} />
+}
+
+function ConfiguracionSri({ onError }) {
   const [config, setConfig] = useState(null)
   const [plantilla, setPlantilla] = useState(null)
   const [cargando, setCargando] = useState(true)

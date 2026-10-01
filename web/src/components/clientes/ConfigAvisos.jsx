@@ -1,3 +1,4 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, BellOff, Save, Send } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
@@ -53,6 +54,7 @@ const AVISOS = [
 ]
 
 export default function ConfigAvisos({ cliente, onGuardado, onError }) {
+  const pais = usePais()
   const [form, setForm] = useState(() => ({
     avisos_activos: cliente.avisos_activos !== false,
     avisos_pantalla: cliente.avisos_pantalla !== false,
@@ -236,7 +238,7 @@ export default function ConfigAvisos({ cliente, onGuardado, onError }) {
                 que lo pide. */}
             <Field
               label="Aviso de nueva factura"
-              hint="Se manda a todos cuando se crea la factura. No tiene que ver con la factura electrónica del SRI."
+              hint={`Se manda a todos cuando se crea la factura.${pais.modulos.facturacionElectronica ? ' No tiene que ver con la factura electrónica del SRI.' : ''}`}
             >
               <Select
                 value={form.aviso_factura ?? ''}

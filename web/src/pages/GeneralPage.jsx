@@ -4,6 +4,7 @@ import { ArrowLeft, Image, Settings } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/apiNetwork'
 import { configurarMoneda } from '../lib/formato'
+import PaisIsp from '../components/ajustes/PaisIsp'
 import { Aviso, Button, Card, Cargando, ErrorBanner, Field, Input } from '../components/ui'
 
 /**
@@ -104,12 +105,16 @@ export default function GeneralPage() {
       <div>
         <h1 className="t-titulo text-lg font-bold text-slate-100">General</h1>
         <p className="mt-0.5 max-w-3xl text-xs leading-snug text-slate-500">
-          Cómo se ve el sistema por dentro: el nombre y el logo que ven quienes lo usan todos los
-          días.
+          El país donde opera el ISP, y cómo se ve el sistema por dentro: el nombre y el logo que
+          ven quienes lo usan todos los días.
         </p>
       </div>
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
+
+      {/* Fuera del formulario de la marca: se guarda aparte, y cambiar de país
+          no tiene por qué esperar a que alguien toque el logo. */}
+      <PaisIsp onError={setError} />
 
       <form onSubmit={guardar} className="space-y-4">
         <Card title="Identidad" icon={Settings}>

@@ -1,3 +1,4 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useMemo, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import { AlertTriangle, Check } from 'lucide-react'
@@ -136,6 +137,7 @@ function diasHasta(iso) {
 
 export default function FormPago({ cliente, onRegistrado, onCancelar, onError }) {
   const { puede } = usePermisos()
+  const pais = usePais()
   /**
    * Las formas que puede usar, resueltas una vez.
    *
@@ -904,7 +906,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
 
           {/* Un cobro contra una factura ya emitida no genera otra. Solo los
               cobros sin comprobante entran a la cola del cierre. */}
-          {!esPromesa && !form.document_id && (
+          {pais.modulos.facturacionElectronica && !esPromesa && !form.document_id && (
             <div className="t-panel p-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
                 <input
@@ -947,7 +949,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
               {/* Al SRI se le emite una sola factura por el mes, el día que
                   termina de pagarlo. Emitir por cada abono le daría dos
                   comprobantes del mismo mes. */}
-              {cliente.factura_electronica !== false && (
+              {pais.modulos.facturacionElectronica && cliente.factura_electronica !== false && (
                 <p className="text-xs text-amber-200/80">
                   No entra a la cola del SRI todavía: el comprobante se emite por el mes
                   completo cuando termine de cancelarlo.

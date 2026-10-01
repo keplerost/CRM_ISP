@@ -1,3 +1,4 @@
+import { usePais } from '../../lib/pais'
 import { useEffect, useState } from 'react'
 import { dineroCero as dinero } from '../../lib/formato'
 import { Link } from 'react-router-dom'
@@ -20,17 +21,19 @@ import ConfigAvisos from './ConfigAvisos'
 
 const SECCIONES = [
   { id: 'facturas', label: 'Facturas', icon: Wallet },
-  { id: 'sri', label: 'Facturas SRI', icon: Receipt },
+  { id: 'sri', label: 'Facturas SRI', icon: Receipt, modulo: 'facturacionElectronica' },
   { id: 'config', label: 'Configuración', icon: Settings },
 ]
 
 export default function FichaFacturacion({ cliente, onError, onGuardado }) {
   const [seccion, setSeccion] = useState('facturas')
+  const pais = usePais()
+  const secciones = SECCIONES.filter((s) => !s.modulo || pais.modulos[s.modulo])
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1">
-        {SECCIONES.map(({ id, label, icon: Icon }) => (
+        {secciones.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setSeccion(id)}
@@ -49,7 +52,7 @@ export default function FichaFacturacion({ cliente, onError, onGuardado }) {
       {seccion === 'facturas' && (
         <FacturasCliente cliente={cliente} onError={onError} onGuardado={onGuardado} />
       )}
-      {seccion === 'sri' && <FacturasSri cliente={cliente} onError={onError} />}
+      {seccion === 'sri' && pais.modulos.facturacionElectronica && <FacturasSri cliente={cliente} onError={onError} />}
       {seccion === 'config' && (
         <div className="space-y-4">
           <ConfigFacturacion cliente={cliente} onError={onError} onGuardado={onGuardado} />

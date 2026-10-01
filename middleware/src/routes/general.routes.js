@@ -5,6 +5,7 @@ import { db } from '../lib/db.js'
 import { aplicarZona, esZonaValida, relojDelServidor, ZONA_POR_DEFECTO } from '../lib/zonaHoraria.js'
 import { rearrancar as rearrancarTareas } from '../services/tareas.js'
 import { codigoDeTarifa, ivaGeneral, ivaValido, TARIFAS_GENERALES } from '../lib/iva.js'
+import { PAISES, PAIS_POR_DEFECTO, perfilDe } from '../lib/paises.js'
 
 /**
  * La marca del sistema: lo que se ve en pantalla.
@@ -36,7 +37,7 @@ router.get(
     // valores por defecto, que es exactamente lo que había antes.
     if (error) {
       console.warn('[general] no se pudo leer la configuración:', error.message)
-      return res.json(POR_DEFECTO)
+      return res.json({ ...POR_DEFECTO, pais: perfilDe(PAIS_POR_DEFECTO) })
     }
 
     res.json({
@@ -45,7 +46,90 @@ router.get(
       logo_b64: data?.logo_b64 ?? null,
       moneda_simbolo: data?.moneda_simbolo || POR_DEFECTO.moneda_simbolo,
       moneda_codigo: data?.moneda_codigo || POR_DEFECTO.moneda_codigo,
+      // El perfil completo y no solo el código: la pantalla lo necesita para
+      // nombrar las cosas —el impuesto, el ente, los documentos— y saber qué
+      // módulos mostrar. No hay nada secreto en él.
+      pais: perfilDe(data?.pais ?? PAIS_POR_DEFECTO),
     })
+  }),
+)
+
+/** Los países que se pueden elegir. */
+router.get(
+  '/paises',
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    res.json(PAISES)
+  }),
+)
+
+/**
+ * Cambiar el país del ISP.
+ *
+ * Guarda el país y, si se pide, aplica lo que el país trae por defecto: el
+ * impuesto (arrastrando a los planes, como el cambio de IVA), la moneda y la
+ * zona horaria. Se pide por separado porque un ISP puede querer el país pero
+ * no su moneda —en Ecuador y Panamá se usa el dólar, en otros también—.
+ */
+router.put(
+  '/pais',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const codigo = String(req.body?.pais ?? '').toUpperCase()
+    const perfil = PAISES.find((p) => p.codigo === codigo)
+    if (!perfil) throw badRequest(`"${codigo}" no es un país de la lista.`)
+
+    const aplicar = req.body?.aplicar ?? {}
+    const hecho = { pais: perfil.nombre }
+
+    const { error } = await db()
+      .from('config_general')
+      .update({ pais: codigo, actualizado_en: new Date().toISOString() })
+      .eq('id', 1)
+    if (error) {
+      throw new AppError(`No se pudo guardar el país: ${error.message}`, {
+        status: 502,
+        hint: 'Si dice que no existe la columna pais, falta correr la migración 199.',
+      })
+    }
+
+    if (aplicar.impuesto) {
+      const r = await cambiarIva(perfil.impuesto.tarifa)
+      hecho.impuesto = { tarifa: perfil.impuesto.tarifa, planes: r.planes }
+    }
+
+    if (aplicar.moneda) {
+      const { error: errMoneda } = await db()
+        .from('config_general')
+        .update({ moneda_simbolo: perfil.moneda.simbolo, moneda_codigo: perfil.moneda.codigo })
+        .eq('id', 1)
+      if (errMoneda) throw new AppError(`No se pudo cambiar la moneda: ${errMoneda.message}`, { status: 502 })
+      hecho.moneda = perfil.moneda
+    }
+
+    if (aplicar.zona && esZonaValida(perfil.zona)) {
+      const { error: errZona } = await db()
+        .from('config_general')
+        .update({ zona_horaria: perfil.zona })
+        .eq('id', 1)
+      if (errZona) {
+        throw new AppError(`No se pudo cambiar la zona horaria: ${errZona.message}`, {
+          status: 502,
+          hint: 'Si dice que no existe la columna zona_horaria, falta la migración 196.',
+        })
+      }
+      // Igual que desde Ajustes → Sistema: se aplica en el acto y se rearman
+      // las tareas para que corran a la hora del país nuevo.
+      const antes = process.env.TZ
+      if (aplicarZona(perfil.zona) !== antes) {
+        await rearrancarTareas().catch((err) =>
+          console.error(`[país] no se pudieron rearmar las tareas: ${err.message}`),
+        )
+      }
+      hecho.zona = perfil.zona
+    }
+
+    res.json({ perfil, hecho })
   }),
 )
 
@@ -125,6 +209,45 @@ router.get(
 )
 
 /**
+ * Guarda el IVA general y arrastra a los planes que tenían el anterior.
+ *
+ * La usan el PUT de /iva y el cambio de país, que propone el impuesto del país
+ * nuevo: tienen que hacer exactamente lo mismo.
+ */
+async function cambiarIva(nuevo) {
+  const anterior = await ivaGeneral()
+
+  const { error } = await db()
+    .from('config_general')
+    .update({ iva_porcentaje: nuevo, actualizado_en: new Date().toISOString() })
+    .eq('id', 1)
+  if (error) {
+    throw new AppError(`No se pudo guardar el impuesto: ${error.message}`, {
+      status: 502,
+      hint:
+        'Si dice que no existe la columna iva_porcentaje, falta la migración 197; si dice "violates check constraint", la 198.',
+    })
+  }
+
+  let planes = 0
+  if (anterior !== nuevo) {
+    const { data, error: errPlanes } = await db()
+      .from('planes_velocidad')
+      .update({ iva_porcentaje: nuevo })
+      .eq('iva_porcentaje', anterior)
+      .select('id')
+    if (errPlanes) {
+      throw new AppError(
+        `El impuesto general quedó en ${nuevo} %, pero no se pudieron actualizar los planes: ${errPlanes.message}`,
+        { status: 502 },
+      )
+    }
+    planes = data?.length ?? 0
+  }
+  return { anterior, planes }
+}
+
+/**
  * Cambiar el IVA general.
  *
  * Arrastra a los planes que tenían el anterior: es lo que hace que cambiar en un
@@ -140,35 +263,7 @@ router.put(
       throw badRequest('El IVA tiene que ser un número de 0 a 100, con hasta dos decimales. Ej: 15 o 16.5')
     }
 
-    const anterior = await ivaGeneral()
-
-    const { error } = await db()
-      .from('config_general')
-      .update({ iva_porcentaje: nuevo, actualizado_en: new Date().toISOString() })
-      .eq('id', 1)
-    if (error) {
-      throw new AppError(`No se pudo guardar: ${error.message}`, {
-        status: 502,
-        hint:
-          'Si dice que no existe la columna iva_porcentaje, falta la migración 197; si dice "violates check constraint", la 198.',
-      })
-    }
-
-    let planes = 0
-    if (anterior !== nuevo) {
-      const { data, error: errPlanes } = await db()
-        .from('planes_velocidad')
-        .update({ iva_porcentaje: nuevo })
-        .eq('iva_porcentaje', anterior)
-        .select('id')
-      if (errPlanes) {
-        throw new AppError(
-          `El IVA general quedó en ${nuevo} %, pero no se pudieron actualizar los planes: ${errPlanes.message}`,
-          { status: 502 },
-        )
-      }
-      planes = data?.length ?? 0
-    }
+    const { anterior, planes } = await cambiarIva(nuevo)
 
     res.json({
       iva_porcentaje: nuevo,
