@@ -478,8 +478,21 @@ depender de quien administra.
 
 ## Actualizar
 
+Cualquiera de las dos hace lo mismo:
+
 ```bash
-/opt/smartolt/deploy/actualizar.sh
+actualizar                                  # el comando corto, desde cualquier carpeta
+bash /opt/smartolt/deploy/actualizar.sh     # la ruta completa: funciona siempre
+```
+
+El comando corto lo crea la propia actualización. En un servidor que todavía
+no lo tiene, usá la ruta completa, y si después de correrla `actualizar` sigue
+diciendo *command not found*, corréla **una vez más**: la primera vez arranca la
+versión vieja del script, que todavía no sabe crearlo. Si igual falta, se crea
+a mano:
+
+```bash
+ln -sf /opt/smartolt/deploy/actualizar.sh /usr/local/bin/actualizar
 ```
 
 Trae los cambios, reinstala dependencias **solo si cambiaron**, compila,
@@ -494,6 +507,40 @@ dice si quedó utilizable.
 ---
 
 ## Comandos útiles
+
+### Los dos de todos los días
+
+Cada uno se puede escribir corto o con su ruta completa. La ruta completa
+funciona siempre, aunque el comando corto todavía no exista:
+
+| Para qué | Corto | Con la ruta completa |
+|---|---|---|
+| Actualizar el sistema | `actualizar` | `bash /opt/smartolt/deploy/actualizar.sh` |
+| El menú del túnel VPN (MikroTik, redes, puerto del cortado) | `menu-vpn` | `bash /opt/smartolt/deploy/menu-vpn.sh` |
+
+Si un comando corto dice *command not found*, se crea así (una sola vez):
+
+```bash
+ln -sf /opt/smartolt/deploy/actualizar.sh /usr/local/bin/actualizar
+ln -sf /opt/smartolt/deploy/menu-vpn.sh   /usr/local/bin/menu-vpn
+```
+
+### Los scripts del túnel, sin menú
+
+Lo mismo que hace `menu-vpn`, escribiendo los datos a mano. Se corren desde
+`/opt/smartolt/deploy` (`cd /opt/smartolt/deploy` primero):
+
+```bash
+bash agregar-cliente-vpn.sh LOS_RIOS 10.66.0.11      # un MikroTik nuevo
+bash agregar-red-cliente.sh LOS_RIOS 10.10.7.0/24    # una red detrás de él
+bash quitar-red-cliente.sh  LOS_RIOS 10.10.7.0/24    # quitar una cargada por error
+bash cambiar-red-vpn.sh preparar 10.67.0.0/24        # cambiar la red del túnel (paso 1)
+bash cambiar-red-vpn.sh aplicar  10.67.0.0/24        # (paso 2)
+```
+
+Sin datos, cada uno muestra cómo se usa y lo que ya está cargado.
+
+### Diagnóstico
 
 ```bash
 systemctl status smartolt-middleware      # estado
