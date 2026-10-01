@@ -4,7 +4,7 @@ import { requireAuth } from '../lib/auth.js'
 import { db } from '../lib/db.js'
 import { aplicarZona, esZonaValida, relojDelServidor, ZONA_POR_DEFECTO } from '../lib/zonaHoraria.js'
 import { rearrancar as rearrancarTareas } from '../services/tareas.js'
-import { ivaGeneral, TARIFAS_GENERALES } from '../lib/iva.js'
+import { codigoDeTarifa, ivaGeneral, ivaValido, TARIFAS_GENERALES } from '../lib/iva.js'
 
 /**
  * La marca del sistema: lo que se ve en pantalla.
@@ -119,7 +119,8 @@ router.get(
   '/iva',
   requireAuth,
   asyncHandler(async (_req, res) => {
-    res.json({ iva_porcentaje: await ivaGeneral(), tarifas: TARIFAS_GENERALES })
+    const iva = await ivaGeneral()
+    res.json({ iva_porcentaje: iva, tarifas: TARIFAS_GENERALES, emitible_sri: Boolean(codigoDeTarifa(iva)) })
   }),
 )
 
@@ -135,8 +136,8 @@ router.put(
   requireAuth,
   asyncHandler(async (req, res) => {
     const nuevo = Number(req.body?.iva_porcentaje)
-    if (!TARIFAS_GENERALES.includes(nuevo)) {
-      throw badRequest(`El IVA tiene que ser una de las tarifas del SRI: ${TARIFAS_GENERALES.join(', ')} %.`)
+    if (!ivaValido(req.body?.iva_porcentaje) || req.body?.iva_porcentaje === '') {
+      throw badRequest('El IVA tiene que ser un número de 0 a 100, con hasta dos decimales. Ej: 15 o 16.5')
     }
 
     const anterior = await ivaGeneral()
@@ -148,7 +149,8 @@ router.put(
     if (error) {
       throw new AppError(`No se pudo guardar: ${error.message}`, {
         status: 502,
-        hint: 'Si dice que no existe la columna iva_porcentaje, falta correr la migración 197.',
+        hint:
+          'Si dice que no existe la columna iva_porcentaje, falta la migración 197; si dice "violates check constraint", la 198.',
       })
     }
 
@@ -168,7 +170,13 @@ router.put(
       planes = data?.length ?? 0
     }
 
-    res.json({ iva_porcentaje: nuevo, anterior, planes_actualizados: planes, tarifas: TARIFAS_GENERALES })
+    res.json({
+      iva_porcentaje: nuevo,
+      anterior,
+      planes_actualizados: planes,
+      tarifas: TARIFAS_GENERALES,
+      emitible_sri: Boolean(codigoDeTarifa(nuevo)),
+    })
   }),
 )
 

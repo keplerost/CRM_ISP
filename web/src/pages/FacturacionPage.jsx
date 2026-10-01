@@ -869,19 +869,25 @@ function IvaGeneral({ onError }) {
   const [resultado, setResultado] = useState(null)
 
   const valor = elegido ?? actual
+  const numero = Number(valor)
+  const valido = valor !== '' && Number.isFinite(numero) && numero >= 0 && numero <= 100
+  // Sin código del SRI se factura igual, pero no se puede emitir en Ecuador.
+  const delSri = CODIGO_SRI[numero] != null && numero !== 0
 
   async function guardar() {
     const ok = await confirmar(
-      `El IVA general pasa de ${actual} % a ${valor} %.\n\n` +
-        `Se actualizan los planes que tienen ${actual} %, y desde ahora las facturas nuevas salen con ${valor} %. ` +
-        'Las facturas ya hechas no cambian.\n\n¿Continuar?',
+      `El IVA general pasa de ${actual} % a ${numero} %.\n\n` +
+        `Se actualizan los planes que tienen ${actual} %, y desde ahora las facturas nuevas salen con ${numero} %. ` +
+        'Las facturas ya hechas no cambian.' +
+        (delSri ? '' : `\n\nOjo: ${numero} % no es una tarifa del SRI de Ecuador. Se factura igual, pero no se van a poder emitir comprobantes electrónicos ecuatorianos.`) +
+        '\n\n¿Continuar?',
     )
     if (!ok) return
     setGuardando(true)
     setResultado(null)
     onError(null)
     try {
-      const r = await api.general.guardarIva(valor)
+      const r = await api.general.guardarIva(numero)
       fijarIvaGeneral(r.iva_porcentaje)
       setElegido(null)
       setResultado(r)
@@ -895,26 +901,47 @@ function IvaGeneral({ onError }) {
   return (
     <Card title="Impuesto (IVA)">
       <div className="flex flex-wrap items-end gap-4">
-        <Field label="IVA general" hint="Una de las tarifas del SRI">
-          <Select
+        <Field label="IVA general (%)" hint="Escribí el número, o elegí uno de la lista">
+          {/* Libre, con las del SRI como sugerencia: el sistema se vende también
+              fuera de Ecuador, donde el IVA es otro. */}
+          <Input
+            type="number"
+            step="0.01"
+            min={0}
+            max={100}
+            list="tarifas-sri"
             value={valor}
             onChange={(e) => {
-              setElegido(Number(e.target.value))
+              setElegido(e.target.value)
               setResultado(null)
             }}
             className="w-32"
-          >
+          />
+          <datalist id="tarifas-sri">
             {[15, 14, 13, 12, 8, 5].map((t) => (
               <option key={t} value={t}>
-                {t} %
+                {t} % (SRI Ecuador)
               </option>
             ))}
-          </Select>
+          </datalist>
         </Field>
-        <Button variante="primario" onClick={guardar} cargando={guardando} disabled={valor === actual}>
+        <Button
+          variante="primario"
+          onClick={guardar}
+          cargando={guardando}
+          disabled={!valido || numero === Number(actual)}
+        >
           Guardar IVA
         </Button>
       </div>
+      {valido && !delSri && (
+        <div className="mt-3">
+          <Aviso tipo="alerta">
+            {numero} % no es una tarifa del SRI de Ecuador. La facturación del sistema funciona igual,
+            pero no se van a poder emitir comprobantes electrónicos ecuatorianos con esa tarifa.
+          </Aviso>
+        </div>
+      )}
       <p className="mt-3 text-xs leading-snug text-slate-500">
         Es el que usan los planes, la facturación de cada mes, la edición de facturas y la emisión al
         SRI. Al cambiarlo se actualizan los planes que tenían el anterior; uno con otro porcentaje

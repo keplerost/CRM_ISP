@@ -25,8 +25,20 @@ export const IVA_POR_DEFECTO = 15
  */
 export const CODIGO_SRI = { 15: '4', 14: '3', 13: '10', 12: '2', 8: '8', 5: '5', 0: '0' }
 
-/** Las que tiene sentido elegir como general. 0 no: eso se hace por abonado (exento). */
+/**
+ * Las que se SUGIEREN como general: las del SRI. Se puede poner cualquier otra
+ * —el sistema se vende fuera de Ecuador, donde el IVA es 16, 18, 21 %—, pero
+ * una tarifa sin código del SRI no se puede emitir en un comprobante
+ * ecuatoriano.
+ */
 export const TARIFAS_GENERALES = [15, 14, 13, 12, 8, 5]
+
+/** ¿Vale como IVA general? Cualquier número de 0 a 100, con hasta dos decimales. */
+export function ivaValido(valor) {
+  const n = Number(valor)
+  // Con tolerancia: 0.07 * 100 da 7.000000000000001 en coma flotante.
+  return Number.isFinite(n) && n >= 0 && n <= 100 && Math.abs(Math.round(n * 100) - n * 100) < 1e-9
+}
 
 export const codigoDeTarifa = (tarifa) => CODIGO_SRI[Number(tarifa)] ?? null
 

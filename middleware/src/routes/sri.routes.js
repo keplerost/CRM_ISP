@@ -416,7 +416,12 @@ router.post(
     // Sin tarifa explícita, la general; y el código del SRI sale de la tarifa.
     // Un 12 % con el código del 15 % ('4') lo rechaza el SRI.
     const tarifa_iva = req.body?.tarifa_iva ?? (await ivaGeneral())
-    const codigo_porcentaje = req.body?.codigo_porcentaje ?? codigoDeTarifa(tarifa_iva) ?? '4'
+    const codigo_porcentaje = req.body?.codigo_porcentaje ?? codigoDeTarifa(tarifa_iva)
+    if (!codigo_porcentaje) {
+      throw badRequest(`El IVA general es ${tarifa_iva} %, y esa tarifa no existe en el SRI de Ecuador.`, {
+        hint: 'Para emitir comprobantes ecuatorianos el IVA tiene que ser una de sus tarifas (15, 14, 13, 12, 8 o 5 %). Se cambia en Facturación → Configuración.',
+      })
+    }
     const { pagos, enviar = true } = req.body ?? {}
 
     if (!Array.isArray(pagos) || pagos.length === 0) {
