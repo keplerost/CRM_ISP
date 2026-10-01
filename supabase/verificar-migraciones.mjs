@@ -296,6 +296,11 @@ const MIGRACIONES = [
     nombre: 'El país del ISP',
     partes: [['config_general', ['pais']]],
   },
+  {
+    numero: 200,
+    nombre: 'Los proveedores de factura electrónica',
+    partes: [['factura_proveedores', ['pais', 'proveedor', 'activo', 'datos', 'secretos_cifrados']]],
+  },
 ]
 
 console.log(`\nBase: ${url}\n`)

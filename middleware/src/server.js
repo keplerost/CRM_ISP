@@ -13,6 +13,7 @@ import tr069Routes from './routes/tr069.routes.js'
 import tiposOnuRoutes from './routes/tiposOnu.routes.js'
 import migracionRoutes from './routes/migracion.routes.js'
 import sriRoutes from './routes/sri.routes.js'
+import facturacionElectronicaRoutes from './routes/facturacionElectronica.routes.js'
 import pagosRoutes from './routes/pagos.routes.js'
 import herramientasRoutes from './routes/herramientas.routes.js'
 import instalacionesRoutes from './routes/instalaciones.routes.js'
@@ -158,6 +159,7 @@ app.use('/api/tr069', tr069Routes)
 app.use('/api/tipos-onu', tiposOnuRoutes)
 app.use('/api/migracion', migracionRoutes)
 app.use('/api/sri', sriRoutes)
+app.use('/api/facturacion-electronica', facturacionElectronicaRoutes)
 app.use('/api/pagos', pagosRoutes)
 app.use('/api/herramientas', herramientasRoutes)
 app.use('/api/instalaciones', instalacionesRoutes)

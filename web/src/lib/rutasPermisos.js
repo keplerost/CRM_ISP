@@ -227,6 +227,7 @@ const RUTAS = [
   // por qué poder abrirle la puerta al proveedor del CRM.
   ['/ajustes/integraciones', 'config.integraciones'],
   ['/ajustes/crontab', 'config.tareas'],
+  ['/ajustes/facturacion-electronica', 'config.facturacion'],
   // Va ANTES de '/ajustes' por el prefijo más largo. Mismo permiso que la
   // mensajería: una plantilla sin aprobar no manda un mensaje feo, no manda
   // nada, y el abonado no se entera de que le van a cortar.

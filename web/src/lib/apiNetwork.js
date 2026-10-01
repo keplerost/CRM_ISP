@@ -509,6 +509,11 @@ export const api = {
   },
 
   /** La marca del sistema. Se lee sin sesión: el login la necesita. */
+  facturacionElectronica: {
+    listar: () => get('/api/facturacion-electronica'),
+    guardar: (proveedor, datos) => put(`/api/facturacion-electronica/${proveedor}`, datos),
+    probar: (proveedor) => post(`/api/facturacion-electronica/${proveedor}/probar`, {}),
+  },
   general: {
     config: () => get('/api/general'),
     guardar: (datos) => put('/api/general', datos),

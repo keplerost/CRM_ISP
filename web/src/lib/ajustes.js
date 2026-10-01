@@ -229,9 +229,8 @@ export const AJUSTES = [
     slug: 'facturacion-electronica',
     nombre: 'Facturación electrónica',
     icono: FileText,
-    modulo: 'facturacionElectronica',
-    para: 'El certificado de firma, el ambiente —pruebas o producción— y los puntos de emisión ante el SRI.',
-    mientras: 'La emisión ya funciona; lo que falta es poder configurarla desde acá.',
+    a: '/ajustes/facturacion-electronica',
+    para: 'Con qué proveedor se emiten los comprobantes en el país del ISP, y sus datos de conexión: la API key, el emisor y el modo prueba. En Ecuador, el SRI directo.',
   },
   {
     slug: 'pasarelas',
