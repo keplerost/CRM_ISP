@@ -25,24 +25,33 @@ ENV=/etc/openvpn/smartolt.env
 ESTADO=/var/log/openvpn/status.log
 SALIDA=/root/clientes-vpn
 PUERTO_CORTE=8090
-TITULO="ZenithCore — Túnel VPN"
+TITULO="ZenithCore - Túnel VPN"
 
 [[ $EUID -eq 0 ]] || { echo "Correr como root (sudo menu-vpn)"; exit 1; }
 
-if ! command -v whiptail >/dev/null; then
-    echo "Instalando whiptail, que es lo que dibuja el menú…"
-    apt-get install -y whiptail >/dev/null || { echo "No se pudo instalar whiptail"; exit 1; }
+if ! command -v dialog >/dev/null; then
+    echo "Instalando dialog, que es lo que dibuja el menú..."
+    apt-get install -y dialog >/dev/null || { echo "No se pudo instalar dialog"; exit 1; }
 fi
+
+# Bordes en ASCII (+ - |) y no con los caracteres de dibujo de líneas.
+#
+# La consola web de DigitalOcean no los muestra: cada borde salía como una fila
+# de "â" —se ve igual en el menú de MikroWisp—. Con ASCII se ve bien en esa
+# consola, en PuTTY y en cualquier terminal, sin depender de cómo esté
+# configurada. NCURSES_NO_UTF8_ACS cubre lo que dialog no dibuja por su cuenta.
+export NCURSES_NO_UTF8_ACS=1
+dlg() { dialog --ascii-lines --backtitle "ZenithCore" "$@"; }
 
 # ── Ayudantes ────────────────────────────────────────────────────────────────
 
-mensaje() { whiptail --title "$TITULO" --msgbox "$1" "${2:-12}" 72; }
+mensaje() { dlg --title "$TITULO" --msgbox "$1" "${2:-12}" 72; }
 
-pedir() { # pedir "pregunta" "valor sugerido" → imprime lo escrito; falla si cancela
-    whiptail --title "$TITULO" --inputbox "$1" 12 72 "${2:-}" 3>&1 1>&2 2>&3
+pedir() { # pedir "pregunta" "valor sugerido" -> imprime lo escrito; falla si cancela
+    dlg --title "$TITULO" --inputbox "$1" 12 72 "${2:-}" 3>&1 1>&2 2>&3
 }
 
-confirmar() { whiptail --title "$TITULO" --yesno "$1" "${2:-12}" 72; }
+confirmar() { dlg --title "$TITULO" --yesno "$1" "${2:-12}" 72; }
 
 instalado() { [[ -f "$CONF" ]]; }
 
@@ -55,7 +64,7 @@ correr() {
     "$@"
     local rc=$?
     echo
-    read -rp "  Enter para volver al menú… " _
+    read -rp "  Enter para volver al menú... " _
     return $rc
 }
 
@@ -115,7 +124,7 @@ agregar_usuario() {
     local rsc="$SALIDA/$nombre/mikrotik-$nombre.rsc"
     if [[ -f "$rsc" ]]; then
         mensaje "Listo. Lo que va al MikroTik quedó en:\n\n  $SALIDA/$nombre/\n\nEn la pantalla siguiente está el script para pegar en su terminal. En el sistema, cargá el router con la IP $ip." 14
-        whiptail --title "Pegar en la terminal de $nombre" --scrolltext --textbox "$rsc" 30 100
+        dlg --title "Pegar en la terminal de $nombre" --textbox "$rsc" 30 100
     fi
 }
 
@@ -128,11 +137,11 @@ redes_de() {
     done
 }
 
-elegir_cliente() { # elegir_cliente "pregunta" → imprime el nombre elegido
+elegir_cliente() { # elegir_cliente "pregunta" -> imprime el nombre elegido
     local lista=() c
     while read -r c; do [[ -n "$c" ]] && lista+=("$c" ""); done < <(clientes)
     (( ${#lista[@]} )) || { mensaje "Todavía no hay ningún MikroTik dado de alta (opción 2)."; return 1; }
-    whiptail --title "$TITULO" --menu "$1" 18 72 8 "${lista[@]}" 3>&1 1>&2 2>&3
+    dlg --title "$TITULO" --menu "$1" 18 72 8 "${lista[@]}" 3>&1 1>&2 2>&3
 }
 
 reiniciar_openvpn() {
@@ -142,7 +151,7 @@ reiniciar_openvpn() {
         && echo "  ✓ OpenVPN reiniciado. Los túneles se reconectan solos en unos segundos." \
         || echo "  ! OpenVPN no reinició. Mirá: journalctl -u openvpn-server@server -n 40"
     echo
-    read -rp "  Enter para volver al menú… " _
+    read -rp "  Enter para volver al menú... " _
 }
 
 agregar_red() {
@@ -151,12 +160,7 @@ agregar_red() {
     local cliente
     cliente=$(elegir_cliente "¿Detrás de qué MikroTik están las redes?") || return
 
-    # Un formulario de diez casilleros, como el de MikroWisp. whiptail no tiene
-    # formularios; dialog sí, y ocupa menos de 1 MB.
-    if ! command -v dialog >/dev/null; then
-        clear; echo "Instalando dialog, que dibuja el formulario…"
-        apt-get install -y dialog >/dev/null || { mensaje "No se pudo instalar dialog."; return; }
-    fi
+    # Un formulario de diez casilleros, como el de MikroWisp.
 
     local ya
     ya=$(redes_de "$cliente" | tr '\n' ' ')
@@ -164,7 +168,7 @@ agregar_red() {
     for i in $(seq 1 10); do campos+=("Red $i:" "$i" 2 "" "$i" 12 22 22); done
 
     local salida
-    salida=$(dialog --title "Agregar redes de $cliente" --ok-label "Agregar" --cancel-label "Volver" \
+    salida=$(dlg --title "Agregar redes de $cliente" --ok-label "Agregar" --cancel-label "Volver" \
         --form "Como están en el router, ej: 10.10.7.254/24 o 10.10.7.0/24.\nLas vacías se ignoran.\nYa publicadas: ${ya:-(ninguna)}" \
         20 60 10 "${campos[@]}" 3>&1 1>&2 2>&3) || { clear; return; }
     clear
@@ -189,7 +193,7 @@ agregar_red() {
         SIN_REINICIO=1 bash "$DIR/agregar-red-cliente.sh" "$cliente" "$red"
     done
     echo
-    read -rp "  Enter para reiniciar OpenVPN y aplicarlas… " _
+    read -rp "  Enter para reiniciar OpenVPN y aplicarlas... " _
     reiniciar_openvpn
 }
 
@@ -204,7 +208,7 @@ quitar_red() {
     (( ${#opciones[@]} )) || { mensaje "$cliente no tiene redes publicadas."; return; }
 
     local elegidas
-    elegidas=$(whiptail --title "$TITULO" --checklist "Marcá con la barra espaciadora las que querés quitar de $cliente:" 18 72 10 \
+    elegidas=$(dlg --separate-output --title "$TITULO" --checklist "Marcá con la barra espaciadora las que querés quitar de $cliente:" 18 72 10 \
         "${opciones[@]}" 3>&1 1>&2 2>&3) || return
     elegidas=${elegidas//\"/}
     [[ -n "$elegidas" ]] || { mensaje "No marcaste ninguna."; return; }
@@ -214,7 +218,7 @@ quitar_red() {
     clear
     for r in $elegidas; do SIN_REINICIO=1 bash "$DIR/quitar-red-cliente.sh" "$cliente" "$r"; done
     echo
-    read -rp "  Enter para reiniciar OpenVPN y aplicar… " _
+    read -rp "  Enter para reiniciar OpenVPN y aplicar... " _
     reiniciar_openvpn
 }
 
@@ -226,7 +230,7 @@ cambiar_red_tunel() {
     mensaje "La red del túnel hoy es $RED_VPN/$PREFIJO.\n\nCambiarla es para cuando choca con una red que ya existe dentro de algún MikroTik. Va en dos pasos:\n\n  1. Preparar: arma, para cada MikroTik, los comandos que le habilitan la red nueva. Se pegan en cada router.\n  2. Aplicar: recién ahí se cambia el servidor.\n\nSaltear el paso 1 deja a los routers inalcanzables para el sistema." 18
 
     local paso
-    paso=$(whiptail --title "$TITULO" --menu "¿Qué paso?" 14 72 3 \
+    paso=$(dlg --title "$TITULO" --menu "¿Qué paso?" 14 72 3 \
         preparar "1. Armar los comandos para cada MikroTik (no cambia nada)" \
         aplicar  "2. Cambiar el servidor (ya pegué los comandos)" \
         3>&1 1>&2 2>&3) || return
@@ -242,20 +246,25 @@ cambiar_red_tunel() {
 }
 
 donde_esta() {
-    whiptail --title "Dónde está cada cosa" --scrolltext --msgbox "\
+    # En un archivo y con --textbox: un msgbox de dialog no se desplaza, y esto
+    # no entra en una pantalla de la consola web.
+    local tmp
+    tmp=$(mktemp)
+    cat > "$tmp" <<'TEXTO'
+\
 Para corregir a mano, por SSH (nano) o con WinSCP (usuario root).
 Después de editar cualquiera, reiniciar:  systemctl restart openvpn-server@server
 
 /etc/openvpn/ccd/<NOMBRE>
    Un archivo por MikroTik. Adentro:
-     ifconfig-push 10.66.0.11 255.255.255.0   → su IP fija en el túnel
-     iroute 10.10.7.0 255.255.255.0           → una línea por red detrás de él
+     ifconfig-push 10.66.0.11 255.255.255.0   -> su IP fija en el túnel
+     iroute 10.10.7.0 255.255.255.0           -> una línea por red detrás de él
 
 /etc/openvpn/server/server.conf
    La configuración del servidor.
-     server 10.66.0.0 255.255.255.0           → la red del túnel
+     server 10.66.0.0 255.255.255.0           -> la red del túnel
    Al final, debajo de '# --- redes de clientes ---':
-     route 10.10.7.0 255.255.255.0            → una por red (la misma del iroute)
+     route 10.10.7.0 255.255.255.0            -> una por red (la misma del iroute)
    Una red necesita SIEMPRE las dos: route acá e iroute en su cliente.
 
 /etc/openvpn/smartolt.env
@@ -269,7 +278,9 @@ Después de editar cualquiera, reiniciar:  systemctl restart openvpn-server@serv
 /var/log/openvpn/openvpn.log   el registro del servidor, para errores
 
 Respaldos de un cambio de red: /root/respaldo-openvpn-<fecha>.tar.gz
-" 30 80
+TEXTO
+    dlg --title "Dónde está cada cosa" --exit-label "Volver" --textbox "$tmp" 30 84
+    rm -f "$tmp"
 }
 
 ver_estado() {
@@ -277,7 +288,7 @@ ver_estado() {
 
     local txt c ip redes conectado
     txt="MIKROTIK            IP TÚNEL        CONECTADO   REDES\n"
-    txt+="──────────────────────────────────────────────────────────────────\n"
+    txt+="------------------------------------------------------------------\n"
     while read -r c; do
         [[ -n "$c" ]] || continue
         ip=$(awk '/^ifconfig-push/ {print $2}' "$DIR_CCD/$c")
@@ -310,7 +321,7 @@ abrir_puerto_corte() {
 # ── El menú ──────────────────────────────────────────────────────────────────
 
 while true; do
-    opcion=$(whiptail --title "$TITULO" --menu "Elegí una opción (flechas y Enter)" 20 74 8 \
+    opcion=$(dlg --title "$TITULO" --menu "Elegí una opción (flechas y Enter)" 20 74 8 \
         1 "Instalar y configurar el servidor OpenVPN" \
         2 "Agregar un MikroTik (un usuario VPN por router)" \
         3 "Agregar redes de los clientes detrás de un MikroTik" \
