@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useIvaGeneral } from '../../lib/iva'
 import { Save } from 'lucide-react'
 import {
   CATEGORIAS,
@@ -90,6 +91,18 @@ export default function PlanForm({
       else nuevo.add(id)
       return nuevo
     })
+
+  const ivaGeneral = useIvaGeneral()
+
+  /**
+   * Un plan nuevo nace con el IVA general de Facturación, no con un 15 fijo.
+   * Llega un instante después de abrir el formulario (se pide al servidor), así
+   * que se ajusta solo mientras nadie haya tocado el campo.
+   */
+  useEffect(() => {
+    if (plan) return
+    setForm((f) => (f.ivaTocado ? f : { ...f, iva_porcentaje: ivaGeneral }))
+  }, [ivaGeneral, plan])
 
   const [form, setForm] = useState(() =>
     plan
@@ -238,7 +251,7 @@ export default function PlanForm({
                 min={0}
                 max={100}
                 value={form.iva_porcentaje}
-                onChange={set('iva_porcentaje')}
+                onChange={(e) => setForm((f) => ({ ...f, iva_porcentaje: e.target.value, ivaTocado: true }))}
               />
             </Field>
           )}

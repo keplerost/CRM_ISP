@@ -45,9 +45,21 @@ export const FORMAS_PAGO = {
 const dinero = (n) => `$${(Number(n) || 0).toFixed(2)}`
 
 /** Los códigos de porcentaje del SRI, con el nombre que va en los subtotales. */
+/**
+ * Las tarifas por código del SRI. Las de 12, 13 y 14 % estaban fuera: con el
+ * IVA general en 12 %, la base salía sin fila y el impuesto rotulado "15%".
+ */
+const TARIFAS = [
+  { codigo: '4', pct: 15 },
+  { codigo: '3', pct: 14 },
+  { codigo: '10', pct: 13 },
+  { codigo: '2', pct: 12 },
+  { codigo: '8', pct: 8 },
+  { codigo: '5', pct: 5 },
+]
+
 const SUBTOTALES = [
-  { codigo: '4', label: 'Subtotal 15%' },
-  { codigo: '5', label: 'Subtotal 5%' },
+  ...TARIFAS.map((t) => ({ codigo: t.codigo, label: `Subtotal ${t.pct}%` })),
   { codigo: '0', label: 'Subtotal 0%' },
   { codigo: '6', label: 'Subtotal No Objeto IVA' },
   { codigo: '7', label: 'Subtotal Exento IVA' },
@@ -410,8 +422,11 @@ function totales(doc, { documento, items, x, y, ancho }) {
   filas.push(
     ['Descuento', documento.total_descuento],
     ['ICE', 0],
-    ['IVA 15%', ivas.get('4') ?? 0],
-    ['IVA 5%', ivas.get('5') ?? 0],
+    // Una fila por tarifa con impuesto. Si no hay ninguna —todo exento—, la
+    // del 15 % en cero, que es lo que se espera ver en una factura.
+    ...(TARIFAS.some((t) => ivas.get(t.codigo))
+      ? TARIFAS.filter((t) => ivas.get(t.codigo)).map((t) => [`IVA ${t.pct}%`, ivas.get(t.codigo)])
+      : [['IVA 15%', 0]]),
     ['Propina', documento.propina ?? 0],
   )
 

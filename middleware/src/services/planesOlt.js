@@ -1,4 +1,5 @@
 import { db } from '../lib/db.js'
+import { ivaGeneral } from '../lib/iva.js'
 import { badRequest, AppError } from '../lib/errors.js'
 import * as olts from './oltService.js'
 
@@ -483,7 +484,7 @@ export async function crearPlanDesdeTablas(oltId, datos) {
     categoria,
     precio: Number(precio) || 0,
     tipo_impuesto: datos.tipo_impuesto ?? 'incluido',
-    iva_porcentaje: datos.iva_porcentaje ?? 15,
+    iva_porcentaje: datos.iva_porcentaje ?? (await ivaGeneral()),
     bajada_kbps: tB.pir_kbps,
     subida_kbps: tS.pir_kbps,
     traffic_table_bajada: tB.index,

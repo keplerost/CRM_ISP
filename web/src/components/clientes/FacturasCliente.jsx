@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../../lib/confirmar'
 import { dineroCero as dinero } from '../../lib/formato'
+import { useIvaGeneral } from '../../lib/iva'
 import {
   Check,
   ChevronDown,
@@ -108,6 +109,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
   const confirmar = useConfirmar()
   const { filas: cuentas } = useTabla('cuentas_pago', { orderBy: 'nombre', ascending: true })
 
+  const ivaGeneral = useIvaGeneral()
   const [facturas, setFacturas] = useState([])
   const [pagosPorFactura, setPagosPorFactura] = useState({})
   const [cerradas, setCerradas] = useState(() => new Set())
@@ -538,7 +540,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
    * Reparte un total entre base e impuesto según cómo se le factura al abonado.
    * Es la misma regla que usa la generación mensual.
    */
-  function repartir(valor, tarifa = 15) {
+  function repartir(valor, tarifa = Number(cliente.plan_iva_porcentaje) || ivaGeneral) {
     const n = Number(valor) || 0
     const tipo = cliente.tipo_impuesto ?? 'incluido'
 
@@ -552,8 +554,8 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     return { subtotal: base, impuesto: Math.round((n - base) * 100) / 100, total: n }
   }
 
-  /** La tarifa del abonado: la de su plan, o el 15 % de siempre. */
-  const tarifa = Number(cliente.plan_iva_porcentaje) || 15
+  /** La tarifa del abonado: la de su plan, o la general de Facturación. */
+  const tarifa = Number(cliente.plan_iva_porcentaje) || ivaGeneral
   const exento = (cliente.tipo_impuesto ?? 'incluido') === 'ninguno'
   const r2 = (x) => Math.round(x * 100) / 100
 

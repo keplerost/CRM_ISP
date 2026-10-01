@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { asyncHandler, badRequest, notFound, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
 import { db } from '../lib/db.js'
+import { ivaGeneral, codigoDeTarifa } from '../lib/iva.js'
 import { encrypt, decrypt } from '../lib/crypto.js'
 import { generarClaveAcceso } from '../sri/claveAcceso.js'
 import { generarXmlFactura, calcularTotales, leerCamposAdicionales, IVA } from '../sri/facturaXml.js'
@@ -412,7 +413,11 @@ router.post(
 router.post(
   '/facturar-lote',
   asyncHandler(async (req, res) => {
-    const { pagos, enviar = true, tarifa_iva = 15, codigo_porcentaje = '4' } = req.body ?? {}
+    // Sin tarifa explícita, la general; y el código del SRI sale de la tarifa.
+    // Un 12 % con el código del 15 % ('4') lo rechaza el SRI.
+    const tarifa_iva = req.body?.tarifa_iva ?? (await ivaGeneral())
+    const codigo_porcentaje = req.body?.codigo_porcentaje ?? codigoDeTarifa(tarifa_iva) ?? '4'
+    const { pagos, enviar = true } = req.body ?? {}
 
     if (!Array.isArray(pagos) || pagos.length === 0) {
       throw badRequest('Mandá los ids de los cobros a facturar')

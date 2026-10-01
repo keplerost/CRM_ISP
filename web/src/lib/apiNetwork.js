@@ -514,6 +514,8 @@ export const api = {
     guardar: (datos) => put('/api/general', datos),
     reloj: () => get('/api/general/reloj'),
     guardarZona: (zona_horaria) => put('/api/general/reloj', { zona_horaria }),
+    iva: () => get('/api/general/iva'),
+    guardarIva: (iva_porcentaje) => put('/api/general/iva', { iva_porcentaje }),
   },
 
   /** Los automatismos. Guardar reprograma: no hace falta reiniciar. */

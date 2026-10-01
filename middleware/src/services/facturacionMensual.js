@@ -15,6 +15,7 @@
  */
 
 import { db } from '../lib/db.js'
+import { ivaGeneral } from '../lib/iva.js'
 import { avisarFacturaNueva } from './avisoFactura.js'
 import { config } from '../config.js'
 
@@ -306,7 +307,8 @@ export async function generarFacturas({ simular = false, fecha = null } = {}) {
     }
   }
 
-  const { facturar, omitidos } = decidirFacturacion(clientes ?? [], hoy)
+  // La tarifa general es la que se usa si el plan del abonado no trae la suya.
+  const { facturar, omitidos } = decidirFacturacion(clientes ?? [], hoy, { tarifa: await ivaGeneral() })
 
   if (simular) {
     return { simulado: true, fecha: fechaLocal(hoy), pendientes: facturar, omitidos, creadas: [] }

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useTabla } from '../lib/useTabla'
 import { api } from '../lib/apiNetwork'
+import { CODIGO_SRI, TARIFA_DE_CODIGO, fijarIvaGeneral, useIvaGeneral } from '../lib/iva'
 import CertificadoFirma from '../components/sri/CertificadoFirma'
 import CuentasPago from '../components/pagos/CuentasPago'
 import PorFacturar from '../components/sri/PorFacturar'
@@ -604,8 +605,28 @@ function Emitir({ onError, onEmitida }) {
   const { filas: clientes } = useTabla('clientes', { orderBy: 'nombre', ascending: true })
   const { filas: planes } = useTabla('planes_velocidad', { orderBy: 'nombre', ascending: true })
 
+  const ivaGeneral = useIvaGeneral()
+  // Un detalle nuevo lleva la tarifa general, con su código del SRI.
+  const detalleVacio = () => ({
+    ...DETALLE_VACIO,
+    tarifaIva: ivaGeneral,
+    codigoPorcentaje: CODIGO_SRI[ivaGeneral] ?? DETALLE_VACIO.codigoPorcentaje,
+  })
+
   const [clienteId, setClienteId] = useState('')
   const [detalles, setDetalles] = useState([{ ...DETALLE_VACIO }])
+
+  // La general llega del servidor un instante después: se aplica a los
+  // detalles que todavía están en blanco, no a los que alguien ya cargó.
+  useEffect(() => {
+    setDetalles((ds) =>
+      ds.map((d) =>
+        d.descripcion || d.precioUnitario !== ''
+          ? d
+          : { ...d, tarifaIva: ivaGeneral, codigoPorcentaje: CODIGO_SRI[ivaGeneral] ?? d.codigoPorcentaje },
+      ),
+    )
+  }, [ivaGeneral])
   const [totales, setTotales] = useState(null)
   const [emitiendo, setEmitiendo] = useState(false)
   const [resultado, setResultado] = useState(null)
@@ -641,7 +662,7 @@ function Emitir({ onError, onEmitida }) {
         detalles: detalles.filter((d) => d.descripcion && d.precioUnitario),
       })
       setResultado(r)
-      setDetalles([{ ...DETALLE_VACIO }])
+      setDetalles([detalleVacio()])
       onEmitida?.()
     } catch (err) {
       onError(err)
@@ -665,7 +686,11 @@ function Emitir({ onError, onEmitida }) {
 
     setDetalles([
       {
-        ...DETALLE_VACIO,
+        ...detalleVacio(),
+        // La del plan si tiene una propia; si no, la general.
+        ...(plan?.iva_porcentaje != null && CODIGO_SRI[Number(plan.iva_porcentaje)]
+          ? { tarifaIva: Number(plan.iva_porcentaje), codigoPorcentaje: CODIGO_SRI[Number(plan.iva_porcentaje)] }
+          : {}),
         // Sin código propio queda 'INTERNET': es preferible un código genérico
         // a uno vacío, que deja el detalle sin nada que lo identifique.
         codigoPrincipal: plan?.codigo_facturacion || 'INTERNET',
@@ -719,7 +744,7 @@ function Emitir({ onError, onEmitida }) {
           <Button
             type="button"
             icon={Plus}
-            onClick={() => setDetalles((d) => [...d, { ...DETALLE_VACIO }])}
+            onClick={() => setDetalles((d) => [...d, detalleVacio()])}
           >
             Agregar línea
           </Button>
@@ -751,7 +776,7 @@ function Emitir({ onError, onEmitida }) {
                   value={d.codigoPorcentaje}
                   onChange={(e) => {
                     const codigo = e.target.value
-                    const tarifa = codigo === '4' ? 15 : codigo === '2' ? 12 : 0
+                    const tarifa = TARIFA_DE_CODIGO[codigo] ?? 0
                     setDetalles((ds) =>
                       ds.map((x, j) =>
                         j === i ? { ...x, codigoPorcentaje: codigo, tarifaIva: tarifa } : x,
@@ -759,9 +784,11 @@ function Emitir({ onError, onEmitida }) {
                     )
                   }}
                 >
-                  <option value="4">15%</option>
-                  <option value="2">12%</option>
-                  <option value="0">0%</option>
+                  {[15, 14, 13, 12, 8, 5, 0].map((t) => (
+                    <option key={t} value={CODIGO_SRI[t]}>
+                      {t}%
+                    </option>
+                  ))}
                   <option value="7">Exento</option>
                   <option value="6">No objeto</option>
                 </Select>
@@ -826,6 +853,87 @@ function Emitir({ onError, onEmitida }) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * El IVA general: un número, y cambia todo.
+ *
+ * Lo usan los planes nuevos, la facturación mensual, la edición de facturas y
+ * la emisión al SRI. Al guardarlo se actualizan los planes que tenían el
+ * anterior; los que tienen otro porcentaje a propósito no se tocan, y las
+ * facturas ya hechas tampoco.
+ */
+function IvaGeneral({ onError }) {
+  const actual = useIvaGeneral()
+  const confirmar = useConfirmar()
+  const [elegido, setElegido] = useState(null)
+  const [guardando, setGuardando] = useState(false)
+  const [resultado, setResultado] = useState(null)
+
+  const valor = elegido ?? actual
+
+  async function guardar() {
+    const ok = await confirmar(
+      `El IVA general pasa de ${actual} % a ${valor} %.\n\n` +
+        `Se actualizan los planes que tienen ${actual} %, y desde ahora las facturas nuevas salen con ${valor} %. ` +
+        'Las facturas ya hechas no cambian.\n\n¿Continuar?',
+    )
+    if (!ok) return
+    setGuardando(true)
+    setResultado(null)
+    onError(null)
+    try {
+      const r = await api.general.guardarIva(valor)
+      fijarIvaGeneral(r.iva_porcentaje)
+      setElegido(null)
+      setResultado(r)
+    } catch (err) {
+      onError(err)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Card title="Impuesto (IVA)">
+      <div className="flex flex-wrap items-end gap-4">
+        <Field label="IVA general" hint="Una de las tarifas del SRI">
+          <Select
+            value={valor}
+            onChange={(e) => {
+              setElegido(Number(e.target.value))
+              setResultado(null)
+            }}
+            className="w-32"
+          >
+            {[15, 14, 13, 12, 8, 5].map((t) => (
+              <option key={t} value={t}>
+                {t} %
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Button variante="primario" onClick={guardar} cargando={guardando} disabled={valor === actual}>
+          Guardar IVA
+        </Button>
+      </div>
+      <p className="mt-3 text-xs leading-snug text-slate-500">
+        Es el que usan los planes, la facturación de cada mes, la edición de facturas y la emisión al
+        SRI. Al cambiarlo se actualizan los planes que tenían el anterior; uno con otro porcentaje
+        puesto a propósito no se toca. Si un abonado no paga IVA, eso se marca en su ficha como exento.
+      </p>
+      {resultado && (
+        <div className="mt-3">
+          <Aviso tipo="exito">
+            IVA general en {resultado.iva_porcentaje} %.{' '}
+            {resultado.planes_actualizados
+              ? `Se actualizaron ${resultado.planes_actualizados} plan(es) que tenían ${resultado.anterior} %.`
+              : 'No había planes con el porcentaje anterior.'}
+          </Aviso>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 function Configuracion({ onError }) {
   const [config, setConfig] = useState(null)
   const [plantilla, setPlantilla] = useState(null)
@@ -869,6 +977,10 @@ function Configuracion({ onError }) {
   const enPruebas = (config?.ambiente ?? '1') === '1'
 
   return (
+    <div className="space-y-4">
+    {/* Fuera del formulario del emisor a propósito: el IVA vale aunque no se
+        emita al SRI, y ese formulario no se puede guardar sin RUC. */}
+    <IvaGeneral onError={onError} />
     <form onSubmit={guardar} className="space-y-4">
       <Aviso tipo={enPruebas ? 'info' : 'alerta'}>
         {enPruebas ? (
@@ -1027,5 +1139,6 @@ function Configuracion({ onError }) {
         </Button>
       </div>
     </form>
+    </div>
   )
 }

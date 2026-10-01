@@ -4,6 +4,7 @@ import { requireAuth } from '../lib/auth.js'
 import { db } from '../lib/db.js'
 import { aplicarZona, esZonaValida, relojDelServidor, ZONA_POR_DEFECTO } from '../lib/zonaHoraria.js'
 import { rearrancar as rearrancarTareas } from '../services/tareas.js'
+import { ivaGeneral, TARIFAS_GENERALES } from '../lib/iva.js'
 
 /**
  * La marca del sistema: lo que se ve en pantalla.
@@ -110,6 +111,64 @@ router.put(
     }
 
     res.json(relojDelServidor())
+  }),
+)
+
+/** El IVA general, y las tarifas que se pueden elegir. */
+router.get(
+  '/iva',
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    res.json({ iva_porcentaje: await ivaGeneral(), tarifas: TARIFAS_GENERALES })
+  }),
+)
+
+/**
+ * Cambiar el IVA general.
+ *
+ * Arrastra a los planes que tenían el anterior: es lo que hace que cambiar en un
+ * lugar cambie todo. Un plan con otro porcentaje —puesto a propósito— no se
+ * toca. Las facturas ya hechas tampoco: llevan el impuesto con que se emitieron.
+ */
+router.put(
+  '/iva',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const nuevo = Number(req.body?.iva_porcentaje)
+    if (!TARIFAS_GENERALES.includes(nuevo)) {
+      throw badRequest(`El IVA tiene que ser una de las tarifas del SRI: ${TARIFAS_GENERALES.join(', ')} %.`)
+    }
+
+    const anterior = await ivaGeneral()
+
+    const { error } = await db()
+      .from('config_general')
+      .update({ iva_porcentaje: nuevo, actualizado_en: new Date().toISOString() })
+      .eq('id', 1)
+    if (error) {
+      throw new AppError(`No se pudo guardar: ${error.message}`, {
+        status: 502,
+        hint: 'Si dice que no existe la columna iva_porcentaje, falta correr la migración 197.',
+      })
+    }
+
+    let planes = 0
+    if (anterior !== nuevo) {
+      const { data, error: errPlanes } = await db()
+        .from('planes_velocidad')
+        .update({ iva_porcentaje: nuevo })
+        .eq('iva_porcentaje', anterior)
+        .select('id')
+      if (errPlanes) {
+        throw new AppError(
+          `El IVA general quedó en ${nuevo} %, pero no se pudieron actualizar los planes: ${errPlanes.message}`,
+          { status: 502 },
+        )
+      }
+      planes = data?.length ?? 0
+    }
+
+    res.json({ iva_porcentaje: nuevo, anterior, planes_actualizados: planes, tarifas: TARIFAS_GENERALES })
   }),
 )
 

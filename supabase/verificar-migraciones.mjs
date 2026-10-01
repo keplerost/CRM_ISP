@@ -286,6 +286,11 @@ const MIGRACIONES = [
     nombre: 'La hora del lugar donde está el ISP',
     partes: [['config_general', ['zona_horaria']]],
   },
+  {
+    numero: 197,
+    nombre: 'El IVA en un solo lugar',
+    partes: [['config_general', ['iva_porcentaje']]],
+  },
 ]
 
 console.log(`\nBase: ${url}\n`)
