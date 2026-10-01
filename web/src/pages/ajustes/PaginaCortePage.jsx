@@ -45,7 +45,7 @@ export default function PaginaCortePage() {
       const [c, q, r, e] = await Promise.all([
         supabase.from('config_corte').select('*').eq('id', 1).maybeSingle(),
         supabase.from('cuentas_pago').select('*').order('nombre'),
-        supabase.from('routers_mikrotik').select('id, nombre, lista_morosos').order('nombre'),
+        supabase.from('routers_mikrotik').select('id, nombre, lista_morosos, ip_host').order('nombre'),
         // Para poder mostrar de dónde sale cada dato que se completa solo.
         supabase.from('sri_config').select('ruc, razon_social, telefono').limit(1).maybeSingle(),
       ])
@@ -314,6 +314,16 @@ function EnviarAlRouter({ routers }) {
 
   const equipo = routers.find((r) => r.id === routerId)
 
+  /**
+   * La del servidor vista desde el túnel: si el router es 10.66.0.11, el
+   * servidor es 10.66.0.1. Es lo que arma `openvpn-server.sh`. Para un router
+   * con IP pública no se adivina.
+   */
+  const sugerido = /^10\.66\.(\d+)\.(\d+)$/.test(equipo?.ip_host ?? '')
+    ? equipo.ip_host.replace(/\.\d+$/, '.1')
+    : null
+  const esDelRouter = Boolean(equipo && destino.trim() === equipo.ip_host)
+
   const instalar = async () => {
     setTrabajando(true)
     setError(null)
@@ -353,8 +363,17 @@ function EnviarAlRouter({ routers }) {
             <Input
               value={destino}
               onChange={(e) => setDestino(e.target.value)}
-              placeholder="192.168.1.50"
+              placeholder={sugerido ?? '192.168.1.50'}
             />
+            {sugerido && !destino && (
+              <button
+                type="button"
+                onClick={() => setDestino(sugerido)}
+                className="mt-1 text-xs text-sky-400 hover:text-sky-300"
+              >
+                Usar {sugerido} (el servidor, visto desde este router)
+              </button>
+            )}
           </Field>
 
           <Field label="Puerto" hint="el de PORTAL_CORTE_PORT">
@@ -370,10 +389,18 @@ function EnviarAlRouter({ routers }) {
           </p>
         )}
 
+        {esDelRouter && (
+          <Aviso tipo="alerta">
+            <AlertTriangle size={13} className="mr-1 inline" />
+            {destino} es la IP del router, no la del servidor: el router se mandaría el cortado a sí
+            mismo y la página no cargaría.{sugerido ? ` La del servidor es ${sugerido}.` : ''}
+          </Aviso>
+        )}
+
         <Button
           icon={Wifi}
           cargando={trabajando}
-          disabled={!routerId || !destino}
+          disabled={!routerId || !destino || esDelRouter}
           onClick={instalar}
         >
           Crear la regla en el router

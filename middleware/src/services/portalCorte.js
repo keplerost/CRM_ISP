@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 import { config } from '../config.js'
+import { badRequest } from '../lib/errors.js'
 import { comentario, esNuestra } from '../lib/marcaReglas.js'
 import * as mt from './mikrotikService.js'
 
@@ -250,6 +251,18 @@ export function resumir(acciones) {
 
 /** Lee el router, planea y aplica. Devuelve qué se hizo. */
 export async function aplicar(equipo, { destino, puerto = config.portalCorte, lista }) {
+  // La confusión más natural: en el campo "IP del servidor" se pone la del
+  // router, que es la que uno tiene a mano. El router se redirige a sí mismo y
+  // el cortado ve una página que no carga, sin ningún error en ningún lado.
+  if (String(destino).trim() === String(equipo?.ip_host ?? '').trim()) {
+    const sugerido = destinoSugerido(equipo)
+    throw badRequest(`${destino} es la IP del propio router, no la del servidor.`, {
+      hint: sugerido
+        ? `La del servidor, vista desde este router, es ${sugerido}.`
+        : 'Va la dirección donde este router alcanza al servidor del sistema.',
+    })
+  }
+
   const [filter, nat] = await Promise.all([mt.listarReglasFilter(equipo), mt.listarReglasNat(equipo)])
   const acciones = planear({ filter: filter ?? [], nat: nat ?? [], destino, puerto, lista })
 

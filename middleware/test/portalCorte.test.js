@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { destinoSugerido, leerTunel, planear, reglaDelCorte, resumir } from '../src/services/portalCorte.js'
+import { aplicar, destinoSugerido, leerTunel, planear, reglaDelCorte, resumir } from '../src/services/portalCorte.js'
 import { comentario } from '../src/lib/marcaReglas.js'
 
 /**
@@ -122,4 +122,13 @@ test('con el archivo del túnel, el destino sigue a la red real aunque se haya c
   // Instalaciones viejas, sin PREFIJO ni IP_VPS en el archivo.
   const viejo = leerTunel('RED_VPN=10.8.0.0\n')
   assert.equal(destinoSugerido({ ip_host: '10.8.0.12' }, null, viejo), '10.8.0.1')
+})
+
+test('la IP del propio router como destino se rechaza antes de tocar el equipo', async () => {
+  // El error del piloto: en "IP del servidor" se puso la del MikroTik. El router
+  // se redirigía a sí mismo y la página no cargaba, sin error en ningún lado.
+  await assert.rejects(
+    aplicar({ ip_host: '10.66.0.11' }, { destino: '10.66.0.11', lista: LISTA }),
+    (err) => /propio router/.test(err.message) && /10\.66\.0\.1/.test(err.hint ?? ''),
+  )
 })
