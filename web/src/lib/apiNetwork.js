@@ -26,6 +26,30 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Qué decir cuando no llega JSON.
+ *
+ * Casi siempre es una página de error de Cloudflare o de nginx, no del
+ * middleware: el pedido ni llegó o no volvió a tiempo. Antes se mostraban los
+ * primeros 200 caracteres del HTML, que son comentarios para Internet Explorer,
+ * y el código —lo único que dice qué pasó— quedaba cortado.
+ */
+const PISTA_SIN_JSON = {
+  502: 'El servidor web no pudo hablar con el middleware: estaba caído o reiniciándose. Revisá journalctl -u smartolt-middleware.',
+  504: 'El middleware tardó demasiado en contestar.',
+  520: 'El middleware cortó la conexión sin contestar. Revisá journalctl -u smartolt-middleware.',
+  521: 'Cloudflare no pudo conectarse al servidor: nginx no está escuchando.',
+  522: 'Cloudflare no pudo conectarse al servidor: no contesta.',
+  524: 'El middleware tardó más de 100 segundos y Cloudflare cortó. Lo pedido puede haberse hecho igual: recargá antes de reintentar.',
+}
+
+function sinJson(status, texto) {
+  const titulo = /<title>([^<]*)<\/title>/i.exec(texto)?.[1]?.replace(/\s+/g, ' ').trim()
+  return titulo
+    ? `El servidor contestó una página de error (${status}): ${titulo}`
+    : `El middleware devolvió una respuesta que no es JSON (${status})`
+}
+
 async function request(metodo, ruta, body) {
   if (modoDemo) {
     const respuesta = await demoApi(metodo, ruta, body)
@@ -61,8 +85,9 @@ async function request(metodo, ruta, body) {
   try {
     json = texto ? JSON.parse(texto) : null
   } catch {
-    throw new ApiError('El middleware devolvió una respuesta que no es JSON', {
+    throw new ApiError(sinJson(res.status, texto), {
       status: res.status,
+      hint: PISTA_SIN_JSON[res.status],
       detalle: texto.slice(0, 200),
     })
   }
