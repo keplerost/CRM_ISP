@@ -2,6 +2,7 @@ import { cargarRouter } from '../lib/db.js'
 import { badRequest } from '../lib/errors.js'
 import * as mt from './mikrotikService.js'
 import { esNuestra } from '../lib/marcaReglas.js'
+import * as portal from './portalCorte.js'
 
 /**
  * Dejar un router recién dado de alta listo para operar.
@@ -81,7 +82,7 @@ const paso = (clave, titulo, estado, detalle, extra = {}) => ({
 })
 
 /** Qué le falta a este router, sin tocar nada. */
-export async function revisar(routerId, { red } = {}) {
+export async function revisar(routerId, { red, destino } = {}) {
   const equipo = await cargarRouter(routerId)
   const redGestion = redDeGestion(equipo, red)
 
@@ -194,19 +195,35 @@ export async function revisar(routerId, { red } = {}) {
 
   // ── La página que ve el cortado ──
   const nats = nat.status === 'fulfilled' ? (nat.value ?? []) : []
-  pasos.push(
-    nats.some((r) => esNuestra(r.comment, 'redireccion'))
-      ? paso('redireccion', 'Página de aviso al cortado', 'ok', 'La redirección ya existe')
-      : paso(
-          'redireccion',
-          'Página de aviso al cortado',
-          'falta',
-          'Sin esto, el abonado cortado ve páginas que no cargan y llama por teléfono. Hace falta indicar a qué dirección se lo manda.',
-          { requiereDestino: true },
-        ),
-  )
+  const sugerido = destino || portal.destinoSugerido(equipo)
+  if (!sugerido) {
+    pasos.push(
+      paso(
+        'redireccion',
+        'Página de aviso al cortado',
+        nats.some((r) => esNuestra(r.comment, 'redireccion')) ? 'atencion' : 'falta',
+        'Sin esto, el abonado cortado ve páginas que no cargan y llama por teléfono. Hace falta indicar a qué dirección se lo manda.',
+        { requiereDestino: true },
+      ),
+    )
+  } else {
+    const acciones = portal.planear({ filter: reglas, nat: nats, destino: sugerido, lista })
+    const falta = portal.resumir(acciones)
+    pasos.push(
+      falta
+        ? paso('redireccion', 'Página de aviso al cortado', 'falta', `Hacia ${sugerido}: ${falta}.`, {
+            requiereDestino: true,
+          })
+        : paso('redireccion', 'Página de aviso al cortado', 'ok', `Todo en su lugar, hacia ${sugerido}`),
+    )
+  }
 
-  return { router: { id: equipo.id, nombre: equipo.nombre, ip: equipo.ip_host }, redGestion, pasos }
+  return {
+    router: { id: equipo.id, nombre: equipo.nombre, ip: equipo.ip_host },
+    redGestion,
+    destinoSugerido: sugerido,
+    pasos,
+  }
 }
 
 /**
@@ -272,13 +289,16 @@ export async function configurar(routerId, { red, pasos, destinoAviso, forzarApi
     })
   }
 
-  if (destinoAviso) {
+  // Va después del corte a propósito: los permisos se ubican delante del drop,
+  // y en un equipo nuevo el drop recién existe cuando terminó el paso anterior.
+  const destino = destinoAviso || portal.destinoSugerido(equipo)
+  if (destino) {
     await registrar('redireccion', 'Página de aviso al cortado', async () => {
-      const r = await mt.asegurarRedireccionPago(equipo, {
-        destino: destinoAviso,
-        lista: equipo.lista_morosos || undefined,
+      const r = await portal.aplicar(equipo, {
+        destino,
+        lista: equipo.lista_morosos || mt.LISTA_MOROSOS,
       })
-      return { mensaje: r.mensaje, cambio: r.creada }
+      return { mensaje: r.mensaje, cambio: r.cambio }
     })
   }
 

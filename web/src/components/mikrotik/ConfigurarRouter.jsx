@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Badge, Button, Card, ErrorBanner, Input } from '../ui'
@@ -23,7 +23,12 @@ const SEMAFORO = {
   'no-aplica': { color: 'gris', texto: 'no aplica' },
 }
 
-export default function ConfigurarRouter({ router }) {
+/**
+ * `automatico`: recién dado de alta. Revisa y aplica lo que falta sin esperar
+ * a que alguien apriete los botones — salvo lo que pide confirmación (restringir
+ * la API), que nunca se hace solo.
+ */
+export default function ConfigurarRouter({ router, automatico = false }) {
   const [plan, setPlan] = useState(null)
   const [hecho, setHecho] = useState(null)
   const [error, setError] = useState(null)
@@ -36,28 +41,34 @@ export default function ConfigurarRouter({ router }) {
     setError(null)
     try {
       setHecho(null)
-      setPlan(await api.mikrotik.revisarConfiguracion(router.id))
+      const r = await api.mikrotik.revisarConfiguracion(router.id)
+      setPlan(r)
+      // La dirección que el sistema deduce o tiene configurada. Se puede
+      // cambiar; vacío obligaba a saberla de memoria.
+      setDestino((d) => d || r.destinoSugerido || '')
+      return r
     } catch (err) {
       setError(err)
+      return null
     } finally {
       setTrabajando(false)
     }
   }
 
-  const aplicar = async () => {
+  const aplicar = async (planActual = plan, destinoActual = destino) => {
     setTrabajando(true)
     setError(null)
     try {
       // Solo lo que falta. Los pasos en 'ok' son idempotentes igual, pero
       // mandarlos sería pedirle al router trabajo que no hace falta.
-      const pasos = plan.pasos
+      const pasos = planActual.pasos
         .filter((p) => p.estado === 'falta' || (p.estado === 'atencion' && forzarApi))
         .map((p) => p.clave)
 
       setHecho(
         await api.mikrotik.configurar(router.id, {
           pasos,
-          destinoAviso: destino.trim() || undefined,
+          destinoAviso: destinoActual.trim() || undefined,
           forzarApi,
         }),
       )
@@ -67,6 +78,19 @@ export default function ConfigurarRouter({ router }) {
       setTrabajando(false)
     }
   }
+
+  // Una sola vez por montaje: StrictMode monta dos veces en desarrollo, y
+  // aplicar dos veces seguidas sería pedirle al router el doble de trabajo.
+  const yaAutomatico = useRef(false)
+  useEffect(() => {
+    if (!automatico || yaAutomatico.current) return
+    yaAutomatico.current = true
+    ;(async () => {
+      const r = await revisar()
+      if (r?.pasos.some((p) => p.estado === 'falta')) await aplicar(r, r.destinoSugerido || '')
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [automatico])
 
   const faltantes = plan?.pasos.filter((p) => p.estado === 'falta') ?? []
   const pideDestino = faltantes.some((p) => p.requiereDestino)
@@ -143,8 +167,11 @@ export default function ConfigurarRouter({ router }) {
                   placeholder="10.66.0.1"
                 />
                 <span className="mt-1 block leading-snug">
-                  Es la dirección donde este router alcanza al servidor. Si se deja vacío, ese paso
-                  se salta y el resto se aplica igual.
+                  Es la dirección donde este router alcanza al servidor; el puerto de la página se
+                  pone solo. Además de la redirección se crean los permisos que la dejan funcionar:
+                  llegar a la página y al DNS aunque esté cortado, y sin masquerade, para que la
+                  página sepa quién es. Si se deja vacío, ese paso se salta y el resto se aplica
+                  igual.
                 </span>
               </label>
             )}
@@ -174,7 +201,7 @@ export default function ConfigurarRouter({ router }) {
                 icon={ShieldCheck}
                 cargando={trabajando}
                 disabled={!hayQueHacer}
-                onClick={aplicar}
+                onClick={() => aplicar()}
               >
                 {hayQueHacer ? `Aplicar lo que falta (${faltantes.length})` : 'No hay nada que hacer'}
               </Button>

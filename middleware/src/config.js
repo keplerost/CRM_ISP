@@ -25,6 +25,12 @@ export const config = {
    * día que un abonado cortado vea la página de otra cosa.
    */
   portalCorte: int('PORTAL_CORTE_PORT', 8090),
+  /**
+   * A qué dirección manda el router al cortado: donde ESE router alcanza a este
+   * servidor. Vacío se deduce para los routers del túnel (10.66.x.y → 10.66.x.1),
+   * que es la dirección del servidor en la red que arma `openvpn-server.sh`.
+   */
+  portalCorteDestino: process.env.PORTAL_CORTE_DESTINO || null,
   corsOrigin: (process.env.CORS_ORIGIN || 'http://localhost:5173')
     .split(',')
     .map((o) => o.trim())

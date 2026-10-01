@@ -1,4 +1,5 @@
-import { AppError } from '../lib/errors.js'
+import { AppError } from '../lib/errors.js'
+
 import { comentario, esNuestra, hayQueRenombrar, MARCA } from '../lib/marcaReglas.js'
 
 /**
@@ -302,6 +303,24 @@ export async function asegurarRedireccionPago(router, { destino, puerto = 80, li
     comment: comentario('redireccion'),
   })
   return { creada: true, mensaje: 'Regla de redirección de pago creada' }
+}
+
+const RUTA_REGLA = { filter: '/ip/firewall/filter', nat: '/ip/firewall/nat' }
+
+/** Ver el driver binario: las piezas con las que `portalCorte` arma sus reglas. */
+export async function agregarRegla(router, { tipo, campos }) {
+  const creada = await request(router, 'PUT', RUTA_REGLA[tipo], campos)
+  return { id: creada?.['.id'] ?? null }
+}
+
+export async function editarRegla(router, { tipo, id, campos }) {
+  await request(router, 'PATCH', `${RUTA_REGLA[tipo]}/${encodeURIComponent(id)}`, campos)
+  return { id }
+}
+
+export async function moverRegla(router, { tipo, id, antesDe }) {
+  await request(router, 'POST', `${RUTA_REGLA[tipo]}/move`, { numbers: id, destination: antesDe })
+  return { id }
 }
 
 /**

@@ -48,6 +48,9 @@ export const listarReglasFilter = (r) => driver(r).listarReglasFilter(r)
 export const listarReglasNat = (r) => driver(r).listarReglasNat(r)
 export const asegurarReglaCorte = (r, lista) => driver(r).asegurarReglaCorte(r, lista)
 export const asegurarRedireccionPago = (r, datos) => driver(r).asegurarRedireccionPago(r, datos)
+export const agregarRegla = (r, datos) => driver(r).agregarRegla(r, datos)
+export const editarRegla = (r, datos) => driver(r).editarRegla(r, datos)
+export const moverRegla = (r, datos) => driver(r).moverRegla(r, datos)
 
 // El servicio de API y desde qué redes contesta. Ver el comentario del driver:
 // el firewall y `/ip/service` son dos capas distintas, y la segunda rechaza sin

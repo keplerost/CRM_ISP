@@ -83,6 +83,8 @@ export default function MikrotikPage() {
   // null = cerrado | {} = alta | {id,…} = edición de ese router
   const [enFormulario, setEnFormulario] = useState(null)
   const [routerId, setRouterId] = useState('')
+  // El que se acaba de registrar: se configura solo apenas aparece.
+  const [recienCreado, setRecienCreado] = useState(null)
   const [salud, setSalud] = useState({})
   const [consultando, setConsultando] = useState(false)
 
@@ -273,7 +275,13 @@ export default function MikrotikPage() {
         Antes que Reparar, a propósito: configurar es lo primero que se hace con
         un equipo nuevo, y reparar solo tiene sentido cuando ya tiene abonados.
       */}
-      {router && <ConfigurarRouter key={`configurar-${router.id}`} router={router} />}
+      {router && (
+        <ConfigurarRouter
+          key={`configurar-${router.id}`}
+          router={router}
+          automatico={recienCreado === router.id}
+        />
+      )}
       {router && <RepararRouter key={`reparar-${router.id}`} router={router} />}
 
       {/* Va al final: es opcional y la mayoría de los ISP todavía no lo usa. */}
@@ -303,7 +311,17 @@ export default function MikrotikPage() {
                 return resto
               })
             } else {
-              await insertar(datos)
+              /**
+               * Recién registrado, se lo deja elegido y se lo configura solo:
+               * la regla de corte, la página del cortado y sus permisos. Antes
+               * había que acordarse de bajar hasta "Configurar el equipo", y un
+               * router sin eso corta a los morosos sin explicarles nada.
+               */
+              const nuevo = await insertar(datos)
+              if (nuevo?.id) {
+                setRecienCreado(nuevo.id)
+                setRouterId(nuevo.id)
+              }
             }
             setEnFormulario(null)
           }}

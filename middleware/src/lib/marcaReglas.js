@@ -44,6 +44,11 @@ const SUFIJOS = {
   redireccion: 'RedireccionPago',
   corteV6Salida: 'CorteMorosos-v6-salida',
   corteV6Entrada: 'CorteMorosos-v6-entrada',
+  // Lo que deja al cortado llegar a la página que le explica el corte. Sin
+  // estas tres, la redirección existe pero el drop del corte se la come.
+  portalPagina: 'PortalCorte-pagina',
+  portalDns: 'PortalCorte-dns',
+  portalSinNat: 'PortalCorte-sin-nat',
 }
 
 /** Con qué comentario se escribe una regla nueva. */

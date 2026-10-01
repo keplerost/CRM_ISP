@@ -911,6 +911,34 @@ export const clonarReglaCorte = (router, { tipo = 'nat', id, lista, marca }) =>
     return { tipo, original: id, creada: creada?.[0]?.ret ?? null, comment: campos.comment }
   })
 
+const RUTA_REGLA = { filter: '/ip/firewall/filter', nat: '/ip/firewall/nat' }
+
+/**
+ * Agregar, corregir y mover reglas sueltas.
+ *
+ * Son las piezas con las que `portalCorte` arma lo que necesita el cortado para
+ * ver su página. La lógica —qué regla, en qué lugar— vive allá, una sola vez;
+ * acá solo se traduce a la API de cada driver.
+ */
+export const agregarRegla = (router, { tipo, campos }) =>
+  conConexion(router, async (conn) => {
+    const creada = await conn.write(`${RUTA_REGLA[tipo]}/add`, params(campos))
+    return { id: creada?.[0]?.ret ?? null }
+  })
+
+export const editarRegla = (router, { tipo, id, campos }) =>
+  conConexion(router, async (conn) => {
+    await conn.write(`${RUTA_REGLA[tipo]}/set`, params({ '.id': id, ...campos }))
+    return { id }
+  })
+
+/** La deja justo antes de `antesDe`. En el firewall el orden es la lógica. */
+export const moverRegla = (router, { tipo, id, antesDe }) =>
+  conConexion(router, async (conn) => {
+    await conn.write(`${RUTA_REGLA[tipo]}/move`, params({ numbers: id, destination: antesDe }))
+    return { id }
+  })
+
 /** Apaga o enciende una regla, sin borrarla: es lo que permite volver atrás. */
 export const cambiarReglaHabilitada = (router, { tipo = 'nat', id, apagar = true }) =>
   conConexion(router, async (conn) => {

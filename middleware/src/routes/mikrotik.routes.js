@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import * as reparar from '../services/repararRouter.js'
 import * as configurar from '../services/configurarRouter.js'
+import * as portal from '../services/portalCorte.js'
 import * as ipv6 from '../services/ipv6Router.js'
 import { asyncHandler, badRequest } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
@@ -158,7 +159,8 @@ router.post(
   '/:id/redireccion-pago',
   conRouter,
   asyncHandler(async (req, res) => {
-    const { destino, puerto, lista } = req.body ?? {}
+    const { puerto, lista } = req.body ?? {}
+    const destino = req.body?.destino || portal.destinoSugerido(req.equipo)
     if (!destino) throw badRequest('Falta la IP destino de la página de aviso de pago')
 
     /**
@@ -169,11 +171,16 @@ router.post(
      * crearía apuntando a una lista vacía: el cortado no vería la página y nadie
      * entendería por qué, porque la regla se creó sin error.
      */
+    /**
+     * No solo la redirección: también los permisos que la dejan funcionar
+     * (ver `portalCorte`). Antes se creaba la regla sola, al puerto 80 si no se
+     * decía otro, y el drop del corte se comía el pedido igual.
+     */
     res.json(
-      await mt.asegurarRedireccionPago(req.equipo, {
+      await portal.aplicar(req.equipo, {
         destino,
-        puerto,
-        lista: lista || req.equipo.lista_morosos || undefined,
+        puerto: Number(puerto) || undefined,
+        lista: lista || req.equipo.lista_morosos || mt.LISTA_MOROSOS,
       }),
     )
   }),
@@ -507,7 +514,7 @@ router.delete(
 router.get(
   '/:id/configurar',
   asyncHandler(async (req, res) => {
-    res.json(await configurar.revisar(req.params.id, { red: req.query?.red }))
+    res.json(await configurar.revisar(req.params.id, { red: req.query?.red, destino: req.query?.destino }))
   }),
 )
 
