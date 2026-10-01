@@ -143,6 +143,11 @@ fi
 # redirigir.
 azul "Estado"
 
+# El menú del túnel queda como comando: `menu-vpn` desde cualquier carpeta.
+# Se rehace en cada actualización, así un servidor viejo lo gana sin pasos extra.
+chmod +x "$RAIZ/deploy/menu-vpn.sh" 2>/dev/null || true
+ln -sf "$RAIZ/deploy/menu-vpn.sh" /usr/local/bin/menu-vpn 2>/dev/null || true
+
 # Se reintenta, en vez de preguntar una sola vez.
 #
 # `systemctl is-active` da positivo apenas el proceso existe, pero Node todavía

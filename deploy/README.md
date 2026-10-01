@@ -338,6 +338,17 @@ Escribe las dos directivas que hacen falta —`route` en la configuración del
 servidor y `iroute` en la del cliente— y reinicia OpenVPN. Con una sola de las
 dos no funciona, y el síntoma es idéntico al de no haber hecho nada.
 
+Hacen falta también las redes de los **abonados**, no solo la de la OLT: la
+página que ve el cortado le contesta por el túnel, y sin la ruta OpenVPN
+descarta esos paquetes.
+
+> **Con menú.** Los pasos 5 a 7 se pueden hacer desde `menu-vpn` (queda como
+> comando después de la primera actualización; antes,
+> `bash /opt/smartolt/deploy/menu-vpn.sh`). Llama a estos mismos scripts, propone
+> la próxima IP libre del túnel, acepta la red como está en el router
+> (`10.10.7.254/24`) y muestra qué MikroTik está conectado. También abre en ufw
+> el puerto de la página del cortado, solo para los túneles.
+
 Del lado del MikroTik, si tenés filtro en `forward`, dejá pasar lo que llega
 por la interfaz del túnel:
 
