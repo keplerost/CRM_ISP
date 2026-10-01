@@ -126,6 +126,11 @@ fi
 
 # ── Aplicar ──────────────────────────────────────────────────────────────────
 
+# Con SIN_REINICIO=1 no se reinicia ni se imprime la ayuda del final: es lo que
+# usa `menu-vpn` para cargar varias redes de una vez y reiniciar una sola, en vez
+# de cortar todos los túneles diez veces seguidas.
+[[ "${SIN_REINICIO:-}" == 1 ]] && exit 0
+
 # El `route` del servidor solo se lee al arrancar: recargar no alcanza. El
 # `iroute` sí se aplica cuando el cliente se reconecta — y reiniciar el servidor
 # los reconecta a todos, así que un solo reinicio cubre las dos cosas.

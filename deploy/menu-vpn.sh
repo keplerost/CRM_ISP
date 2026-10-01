@@ -119,22 +119,157 @@ agregar_usuario() {
     fi
 }
 
+# Las redes publicadas de un cliente, ya como red/prefijo.
+redes_de() {
+    awk '/^iroute/ {print $2, $3}' "$DIR_CCD/$1" 2>/dev/null | while read -r r m; do
+        local bits=0 o
+        for o in ${m//./ }; do while (( o )); do bits=$(( bits + (o & 1) )); o=$(( o >> 1 )); done; done
+        echo "$r/$bits"
+    done
+}
+
+elegir_cliente() { # elegir_cliente "pregunta" → imprime el nombre elegido
+    local lista=() c
+    while read -r c; do [[ -n "$c" ]] && lista+=("$c" ""); done < <(clientes)
+    (( ${#lista[@]} )) || { mensaje "Todavía no hay ningún MikroTik dado de alta (opción 2)."; return 1; }
+    whiptail --title "$TITULO" --menu "$1" 18 72 8 "${lista[@]}" 3>&1 1>&2 2>&3
+}
+
+reiniciar_openvpn() {
+    clear
+    echo
+    systemctl restart openvpn-server@server \
+        && echo "  ✓ OpenVPN reiniciado. Los túneles se reconectan solos en unos segundos." \
+        || echo "  ! OpenVPN no reinició. Mirá: journalctl -u openvpn-server@server -n 40"
+    echo
+    read -rp "  Enter para volver al menú… " _
+}
+
 agregar_red() {
     instalado || { mensaje "Primero instalá el servidor (opción 1)."; return; }
 
-    local lista=() c
-    while read -r c; do [[ -n "$c" ]] && lista+=("$c" ""); done < <(clientes)
-    (( ${#lista[@]} )) || { mensaje "Todavía no hay ningún MikroTik dado de alta (opción 2)."; return; }
+    local cliente
+    cliente=$(elegir_cliente "¿Detrás de qué MikroTik están las redes?") || return
+
+    # Un formulario de diez casilleros, como el de MikroWisp. whiptail no tiene
+    # formularios; dialog sí, y ocupa menos de 1 MB.
+    if ! command -v dialog >/dev/null; then
+        clear; echo "Instalando dialog, que dibuja el formulario…"
+        apt-get install -y dialog >/dev/null || { mensaje "No se pudo instalar dialog."; return; }
+    fi
+
+    local ya
+    ya=$(redes_de "$cliente" | tr '\n' ' ')
+    local campos=() i
+    for i in $(seq 1 10); do campos+=("Red $i:" "$i" 2 "" "$i" 12 22 22); done
+
+    local salida
+    salida=$(dialog --title "Agregar redes de $cliente" --ok-label "Agregar" --cancel-label "Volver" \
+        --form "Como están en el router, ej: 10.10.7.254/24 o 10.10.7.0/24.\nLas vacías se ignoran.\nYa publicadas: ${ya:-(ninguna)}" \
+        20 60 10 "${campos[@]}" 3>&1 1>&2 2>&3) || { clear; return; }
+    clear
+
+    local validas=() malas=() linea red
+    while IFS= read -r linea; do
+        [[ -n "${linea// /}" ]] || continue
+        if red=$(normalizar_red "$linea"); then
+            [[ " ${validas[*]} " == *" $red "* ]] || validas+=("$red")
+        else
+            malas+=("$linea")
+        fi
+    done <<< "$salida"
+
+    (( ${#malas[@]} )) && { mensaje "Estas no son redes válidas, corregilas:\n\n  ${malas[*]}\n\nEj: 10.10.7.254/24 o 10.10.7.0/24"; return; }
+    (( ${#validas[@]} )) || { mensaje "No se escribió ninguna red."; return; }
+
+    confirmar "Se van a publicar a través de $cliente:\n\n  ${validas[*]}\n\nAl terminar se reinicia OpenVPN UNA vez: los túneles se cortan unos segundos y se reconectan solos.\n\n¿Seguir?" 16 || return
+
+    clear
+    for red in "${validas[@]}"; do
+        SIN_REINICIO=1 bash "$DIR/agregar-red-cliente.sh" "$cliente" "$red"
+    done
+    echo
+    read -rp "  Enter para reiniciar OpenVPN y aplicarlas… " _
+    reiniciar_openvpn
+}
+
+quitar_red() {
+    instalado || { mensaje "El servidor OpenVPN no está instalado."; return; }
 
     local cliente
-    cliente=$(whiptail --title "$TITULO" --menu "¿Detrás de qué MikroTik está la red?" 18 72 8 "${lista[@]}" 3>&1 1>&2 2>&3) || return
+    cliente=$(elegir_cliente "¿De qué MikroTik querés quitar redes?") || return
 
-    local escrita red
-    escrita=$(pedir "Red de los abonados (o de la OLT) detrás de $cliente.\n\nSe puede poner como está en el router, ej: 10.10.7.254/24.\nSi son varias, se agregan de a una." "") || return
-    red=$(normalizar_red "$escrita") || { mensaje "\"$escrita\" no es una red válida. Ej: 10.10.7.254/24 o 10.10.7.0/24"; return; }
+    local opciones=() r
+    while read -r r; do [[ -n "$r" ]] && opciones+=("$r" "" OFF); done < <(redes_de "$cliente")
+    (( ${#opciones[@]} )) || { mensaje "$cliente no tiene redes publicadas."; return; }
 
-    confirmar "Se va a publicar la red $red a través de $cliente.\n\nAl terminar se reinicia OpenVPN: todos los túneles se cortan unos segundos y se reconectan solos.\n\n¿Seguir?" 14 || return
-    correr bash "$DIR/agregar-red-cliente.sh" "$cliente" "$red"
+    local elegidas
+    elegidas=$(whiptail --title "$TITULO" --checklist "Marcá con la barra espaciadora las que querés quitar de $cliente:" 18 72 10 \
+        "${opciones[@]}" 3>&1 1>&2 2>&3) || return
+    elegidas=${elegidas//\"/}
+    [[ -n "$elegidas" ]] || { mensaje "No marcaste ninguna."; return; }
+
+    confirmar "Se van a quitar de $cliente:\n\n  $elegidas\n\nEl servidor deja de llegar a esas redes. Se reinicia OpenVPN una vez.\n\n¿Seguir?" 15 || return
+
+    clear
+    for r in $elegidas; do SIN_REINICIO=1 bash "$DIR/quitar-red-cliente.sh" "$cliente" "$r"; done
+    echo
+    read -rp "  Enter para reiniciar OpenVPN y aplicar… " _
+    reiniciar_openvpn
+}
+
+cambiar_red_tunel() {
+    instalado || { mensaje "El servidor OpenVPN no está instalado."; return; }
+    # shellcheck source=/dev/null
+    local RED_VPN="" PREFIJO=24; source "$ENV"
+
+    mensaje "La red del túnel hoy es $RED_VPN/$PREFIJO.\n\nCambiarla es para cuando choca con una red que ya existe dentro de algún MikroTik. Va en dos pasos:\n\n  1. Preparar: arma, para cada MikroTik, los comandos que le habilitan la red nueva. Se pegan en cada router.\n  2. Aplicar: recién ahí se cambia el servidor.\n\nSaltear el paso 1 deja a los routers inalcanzables para el sistema." 18
+
+    local paso
+    paso=$(whiptail --title "$TITULO" --menu "¿Qué paso?" 14 72 3 \
+        preparar "1. Armar los comandos para cada MikroTik (no cambia nada)" \
+        aplicar  "2. Cambiar el servidor (ya pegué los comandos)" \
+        3>&1 1>&2 2>&3) || return
+
+    local nueva
+    nueva=$(pedir "Red nueva del túnel, ej: 10.67.0.0/24.\n\nTiene que ser la MISMA en los dos pasos." "") || return
+    nueva=$(normalizar_red "$nueva") || { mensaje "No es una red válida. Ej: 10.67.0.0/24"; return; }
+
+    if [[ "$paso" == aplicar ]]; then
+        confirmar "Se va a cambiar el túnel de $RED_VPN/$PREFIJO a $nueva.\n\n¿Pegaste en TODOS los MikroTik los comandos del paso 1?" 12 || return
+    fi
+    correr bash "$DIR/cambiar-red-vpn.sh" "$paso" "$nueva"
+}
+
+donde_esta() {
+    whiptail --title "Dónde está cada cosa" --scrolltext --msgbox "\
+Para corregir a mano, por SSH (nano) o con WinSCP (usuario root).
+Después de editar cualquiera, reiniciar:  systemctl restart openvpn-server@server
+
+/etc/openvpn/ccd/<NOMBRE>
+   Un archivo por MikroTik. Adentro:
+     ifconfig-push 10.66.0.11 255.255.255.0   → su IP fija en el túnel
+     iroute 10.10.7.0 255.255.255.0           → una línea por red detrás de él
+
+/etc/openvpn/server/server.conf
+   La configuración del servidor.
+     server 10.66.0.0 255.255.255.0           → la red del túnel
+   Al final, debajo de '# --- redes de clientes ---':
+     route 10.10.7.0 255.255.255.0            → una por red (la misma del iroute)
+   Una red necesita SIEMPRE las dos: route acá e iroute en su cliente.
+
+/etc/openvpn/smartolt.env
+   Lo que eligió el instalador: IP pública, puerto, RED_VPN, PREFIJO, IP_VPS.
+   Lo leen los scripts y el sistema (para la página del cortado).
+
+/root/clientes-vpn/<NOMBRE>/
+   Certificados y el script .rsc para pegar en cada MikroTik.
+
+/var/log/openvpn/status.log    quién está conectado ahora
+/var/log/openvpn/openvpn.log   el registro del servidor, para errores
+
+Respaldos de un cambio de red: /root/respaldo-openvpn-<fecha>.tar.gz
+" 30 80
 }
 
 ver_estado() {
@@ -175,19 +310,25 @@ abrir_puerto_corte() {
 # ── El menú ──────────────────────────────────────────────────────────────────
 
 while true; do
-    opcion=$(whiptail --title "$TITULO" --menu "Elegí una opción (flechas y Enter)" 18 72 6 \
+    opcion=$(whiptail --title "$TITULO" --menu "Elegí una opción (flechas y Enter)" 20 74 8 \
         1 "Instalar y configurar el servidor OpenVPN" \
         2 "Agregar un MikroTik (un usuario VPN por router)" \
         3 "Agregar redes de los clientes detrás de un MikroTik" \
-        4 "Ver MikroTiks, si están conectados y sus redes" \
-        5 "Abrir el puerto de la página del cortado" \
+        4 "Quitar redes de un MikroTik (corregir un error)" \
+        5 "Ver MikroTiks, si están conectados y sus redes" \
+        6 "Abrir el puerto de la página del cortado" \
+        7 "Cambiar la red del túnel (si choca con otra)" \
+        8 "Dónde está cada cosa (para corregir a mano)" \
         3>&1 1>&2 2>&3) || { clear; exit 0; }
 
     case $opcion in
         1) instalar_servidor ;;
         2) agregar_usuario ;;
         3) agregar_red ;;
-        4) ver_estado ;;
-        5) abrir_puerto_corte ;;
+        4) quitar_red ;;
+        5) ver_estado ;;
+        6) abrir_puerto_corte ;;
+        7) cambiar_red_tunel ;;
+        8) donde_esta ;;
     esac
 done

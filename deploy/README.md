@@ -345,9 +345,11 @@ descarta esos paquetes.
 > **Con menú.** Los pasos 5 a 7 se pueden hacer desde `menu-vpn` (queda como
 > comando después de la primera actualización; antes,
 > `bash /opt/smartolt/deploy/menu-vpn.sh`). Llama a estos mismos scripts, propone
-> la próxima IP libre del túnel, acepta la red como está en el router
-> (`10.10.7.254/24`) y muestra qué MikroTik está conectado. También abre en ufw
-> el puerto de la página del cortado, solo para los túneles.
+> la próxima IP libre del túnel y acepta las redes como están en el router
+> (`10.10.7.254/24`), hasta diez de una vez con un solo reinicio. También quita
+> redes cargadas por error, muestra qué MikroTik está conectado, abre en ufw el
+> puerto de la página del cortado y cambia la red del túnel (ver
+> [Corregir a mano](#corregir-a-mano)).
 
 Del lado del MikroTik, si tenés filtro en `forward`, dejá pasar lo que llega
 por la interfaz del túnel:
@@ -366,6 +368,56 @@ ping 10.11.105.2
 
 Sin argumentos, el script lista los clientes dados de alta y las redes ya
 publicadas.
+
+### Corregir a mano
+
+Todo lo que hacen los scripts y el menú queda en archivos de texto. Se pueden
+editar por SSH (`nano`) o con **WinSCP** (protocolo SFTP, usuario `root`, la IP
+del VPS). Después de tocar cualquiera:
+
+```bash
+systemctl restart openvpn-server@server
+```
+
+| Archivo | Qué tiene |
+|---|---|
+| `/etc/openvpn/ccd/<NOMBRE>` | Uno por MikroTik. `ifconfig-push 10.66.0.11 255.255.255.0` es su IP fija en el túnel; cada `iroute 10.10.7.0 255.255.255.0` es una red detrás de él. |
+| `/etc/openvpn/server/server.conf` | `server 10.66.0.0 255.255.255.0` es la red del túnel. Al final, bajo `# --- redes de clientes ---`, un `route` por cada red publicada. |
+| `/etc/openvpn/smartolt.env` | Lo que eligió el instalador: `PUBLICO`, `PUERTO`, `RED_VPN`, `PREFIJO`, `IP_VPS`. Lo leen los scripts, y el sistema para saber a dónde mandar al cortado. |
+| `/root/clientes-vpn/<NOMBRE>/` | Certificados y los `.rsc` para pegar en cada MikroTik. |
+| `/var/log/openvpn/status.log` | Quién está conectado ahora. |
+| `/var/log/openvpn/openvpn.log` | El registro del servidor, para errores. |
+
+Una red publicada lleva **siempre las dos líneas**: el `route` en
+`server.conf` y el `iroute` en el archivo de su MikroTik. Con una sola no
+funciona, y el síntoma es el mismo que no tener ninguna. Para quitar una red
+mal cargada, mejor que a mano:
+
+```bash
+./quitar-red-cliente.sh LOS_RIOS 10.10.7.0/24
+```
+
+### Cambiar la red del túnel
+
+Si la red elegida al instalar choca con una que existe dentro de algún
+MikroTik, se cambia en **dos pasos**, en este orden:
+
+```bash
+./cambiar-red-vpn.sh preparar 10.67.0.0/24   # no cambia nada
+./cambiar-red-vpn.sh aplicar  10.67.0.0/24   # recién acá
+```
+
+`preparar` deja en `/root/clientes-vpn/<NOMBRE>/cambio-red-<NOMBRE>.rsc` los
+comandos que le habilitan la red nueva a cada router, **además** de la vieja.
+Hay que pegarlos en todos antes de aplicar: cada MikroTik solo acepta su API
+desde la red del túnel, y si el servidor cambia primero, quedan inalcanzables
+para el sistema.
+
+`aplicar` respalda `/etc/openvpn` en `/root/respaldo-openvpn-<fecha>.tar.gz`,
+cambia la red y la IP de cada router (conserva el último número: `.11` sigue
+siendo `.11`) y reinicia OpenVPN. Al terminar lista las IP nuevas: hay que
+cambiarlas en el sistema (MikroTik → editar) y en cada router apretar
+**Revisar el equipo → aplicar**, que corrige la página del cortado.
 
 ---
 

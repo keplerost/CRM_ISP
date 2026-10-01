@@ -58,7 +58,11 @@ ok "certificado firmado"
 
 # La IP fija hace que el router sea siempre alcanzable en la misma dirección,
 # que es la que se carga en la aplicación.
-echo "ifconfig-push $IP_FIJA 255.255.255.0" > "$DIR_CCD/$NOMBRE"
+# La máscara sale del prefijo de la red: fija en 255.255.255.0, un túnel /23 o
+# /25 le daba al router una máscara que no coincide con la del servidor.
+MASCARA_VPN=$(( 0xFFFFFFFF ^ ((1 << (32 - PREFIJO)) - 1) ))
+MASCARA_VPN="$(( (MASCARA_VPN >> 24) & 255 )).$(( (MASCARA_VPN >> 16) & 255 )).$(( (MASCARA_VPN >> 8) & 255 )).$(( MASCARA_VPN & 255 ))"
+echo "ifconfig-push $IP_FIJA $MASCARA_VPN" > "$DIR_CCD/$NOMBRE"
 ok "IP fija $IP_FIJA"
 
 mkdir -p "$SALIDA/$NOMBRE"

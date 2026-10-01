@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { config } from '../config.js'
 import { comentario, esNuestra } from '../lib/marcaReglas.js'
 import * as mt from './mikrotikService.js'
@@ -33,18 +35,67 @@ import * as mt from './mikrotikService.js'
  */
 
 const PRIVADA_TUNEL = /^10\.66\.(\d{1,3})\.(\d{1,3})$/
+const ENV_TUNEL = '/etc/openvpn/smartolt.env'
+
+const aEntero = (ip) => {
+  const o = String(ip).split('.').map(Number)
+  if (o.length !== 4 || o.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null
+  return ((o[0] << 24) >>> 0) + (o[1] << 16) + (o[2] << 8) + o[3]
+}
+
+/**
+ * La red del túnel, como la dejó `openvpn-server.sh` en este mismo VPS.
+ *
+ * Se lee en cada consulta y no una vez al arrancar: `cambiar-red-vpn.sh` la
+ * puede cambiar con el middleware andando. Si el archivo no está —desarrollo,
+ * u otro servidor—, null.
+ */
+export function leerTunel(texto) {
+  let contenido = texto
+  if (contenido == null) {
+    try {
+      contenido = readFileSync(ENV_TUNEL, 'utf8')
+    } catch {
+      return null
+    }
+  }
+  const v = Object.fromEntries(
+    contenido
+      .split(/\r?\n/)
+      .map((l) => /^([A-Z_]+)=(.*)$/.exec(l.trim()))
+      .filter(Boolean)
+      .map((m) => [m[1], m[2].trim()]),
+  )
+  if (!v.RED_VPN) return null
+  const prefijo = Number(v.PREFIJO) || 24
+  const red = aEntero(v.RED_VPN)
+  if (red == null) return null
+  const ipVps = v.IP_VPS || v.RED_VPN.replace(/\.\d+$/, (x) => `.${Number(x.slice(1)) + 1}`)
+  return { red, prefijo, ipVps }
+}
 
 /**
  * A qué dirección mandar al cortado de este router.
  *
- * Lo configurado gana. Si no hay nada, se deduce solo para los routers del
- * túnel de `openvpn-server.sh` (10.66.x.y), donde el servidor es siempre el .1:
- * deducir en cualquier otra red privada sería adivinar, y una redirección a una
- * IP equivocada falla sin que nadie se entere hasta que llama un abonado.
+ * Lo configurado gana. Si no hay nada y el router está en la red del túnel de
+ * este VPS, es la IP del VPS en ese túnel. Sin el archivo del túnel, se cae a
+ * la regla de siempre (10.66.x.y → 10.66.x.1). Deducir en cualquier otra red
+ * sería adivinar, y una redirección a una IP equivocada falla sin que nadie se
+ * entere hasta que llama un abonado.
  */
-export function destinoSugerido(router, configurado = config.portalCorteDestino) {
+export function destinoSugerido(router, configurado = config.portalCorteDestino, tunel = leerTunel()) {
   if (configurado) return configurado
-  const m = PRIVADA_TUNEL.exec(String(router?.ip_host ?? '').trim())
+  const ip = String(router?.ip_host ?? '').trim()
+
+  if (tunel) {
+    const n = aEntero(ip)
+    const mascara = (0xffffffff << (32 - tunel.prefijo)) >>> 0
+    if (n != null && ((n & mascara) >>> 0) === ((tunel.red & mascara) >>> 0) && ip !== tunel.ipVps) {
+      return tunel.ipVps
+    }
+  }
+
+  const m = PRIVADA_TUNEL.exec(ip)
   if (!m || m[2] === '1') return null
   return `10.66.${m[1]}.1`
 }

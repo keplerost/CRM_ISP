@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { destinoSugerido, planear, reglaDelCorte, resumir } from '../src/services/portalCorte.js'
+import { destinoSugerido, leerTunel, planear, reglaDelCorte, resumir } from '../src/services/portalCorte.js'
 import { comentario } from '../src/lib/marcaReglas.js'
 
 /**
@@ -100,13 +100,26 @@ test('una regla de corte apagada no es el ancla', () => {
   assert.equal(reglaDelCorte([{ ...drop, disabled: 'true' }], LISTA), null)
 })
 
-test('el destino se deduce solo en el túnel, y lo configurado gana', () => {
-  assert.equal(destinoSugerido({ ip_host: '10.66.0.11' }, null), '10.66.0.1')
-  assert.equal(destinoSugerido({ ip_host: '10.66.3.20' }, null), '10.66.3.1')
+test('sin archivo del túnel, el destino se deduce solo en 10.66, y lo configurado gana', () => {
+  assert.equal(destinoSugerido({ ip_host: '10.66.0.11' }, null, null), '10.66.0.1')
+  assert.equal(destinoSugerido({ ip_host: '10.66.3.20' }, null, null), '10.66.3.1')
   // El .1 es el propio servidor: un router ahí no tiene a quién apuntar.
-  assert.equal(destinoSugerido({ ip_host: '10.66.0.1' }, null), null)
+  assert.equal(destinoSugerido({ ip_host: '10.66.0.1' }, null, null), null)
   // Fuera del túnel, adivinar sería peor que preguntar.
-  assert.equal(destinoSugerido({ ip_host: '192.168.88.5' }, null), null)
-  assert.equal(destinoSugerido({ ip_host: '181.119.227.177' }, null), null)
-  assert.equal(destinoSugerido({ ip_host: '10.66.0.11' }, '67.205.175.106'), '67.205.175.106')
+  assert.equal(destinoSugerido({ ip_host: '192.168.88.5' }, null, null), null)
+  assert.equal(destinoSugerido({ ip_host: '181.119.227.177' }, null, null), null)
+  assert.equal(destinoSugerido({ ip_host: '10.66.0.11' }, '67.205.175.106', null), '67.205.175.106')
+})
+
+test('con el archivo del túnel, el destino sigue a la red real aunque se haya cambiado', () => {
+  // Lo que deja `cambiar-red-vpn.sh` después de mover el túnel a 10.67.
+  const tunel = leerTunel('PUBLICO=1.2.3.4\nPUERTO=1194\nRED_VPN=10.67.0.0\nPREFIJO=24\nIP_VPS=10.67.0.1\n')
+  assert.equal(destinoSugerido({ ip_host: '10.67.0.11' }, null, tunel), '10.67.0.1')
+  // Un router que todavía figura con la IP vieja no está en el túnel nuevo.
+  assert.equal(destinoSugerido({ ip_host: '10.66.0.11' }, null, tunel), '10.66.0.1')
+  assert.equal(destinoSugerido({ ip_host: '192.168.1.5' }, null, tunel), null)
+
+  // Instalaciones viejas, sin PREFIJO ni IP_VPS en el archivo.
+  const viejo = leerTunel('RED_VPN=10.8.0.0\n')
+  assert.equal(destinoSugerido({ ip_host: '10.8.0.12' }, null, viejo), '10.8.0.1')
 })
