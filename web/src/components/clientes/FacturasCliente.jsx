@@ -552,6 +552,28 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
     return { subtotal: base, impuesto: Math.round((n - base) * 100) / 100, total: n }
   }
 
+  /** La tarifa del abonado: la de su plan, o el 15 % de siempre. */
+  const tarifa = Number(cliente.plan_iva_porcentaje) || 15
+  const exento = (cliente.tipo_impuesto ?? 'incluido') === 'ninguno'
+  const r2 = (x) => Math.round(x * 100) / 100
+
+  /**
+   * Al corregir el subtotal, el impuesto y el total se calculan solos.
+   *
+   * Es para el error más común al cargar abonados: el precio quedó como "IVA
+   * incluido" cuando en realidad era "más IVA", y la factura salió con una base
+   * de 17.39 en vez de 20. Antes había que sacar la cuenta del impuesto y del
+   * total a mano, y un centavo mal redondeado deja la factura sin cerrar.
+   *
+   * El subtotal es la base COMPLETA y el descuento se resta aparte, igual que en
+   * la generación mensual: subtotal - descuento + impuesto = total.
+   */
+  const desdeSubtotal = (subtotal, descuento = 0) => {
+    const gravado = Math.max(0, r2((Number(subtotal) || 0) - (Number(descuento) || 0)))
+    const impuesto = exento ? 0 : r2(gravado * (tarifa / 100))
+    return { impuesto, total: r2(gravado + impuesto) }
+  }
+
   if (cargando) return <Cargando />
 
   const pendientes = facturas.filter((f) => ['pendiente', 'vencida'].includes(f.estado))
@@ -802,6 +824,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                               fecha_emision: String(f.fecha_emision).slice(0, 10),
                               fecha_vencimiento: String(f.fecha_vencimiento).slice(0, 10),
                               subtotal: f.subtotal,
+                              descuento: Number(f.descuento) || 0,
                               impuesto: f.impuesto,
                               total: f.total,
                               notas: f.notas ?? '',
@@ -1010,20 +1033,50 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                 />
               </Field>
 
-              <Field label="Subtotal">
+              <Field
+                label="Subtotal"
+                hint={
+                  exento
+                    ? 'Abonado exento: el total es el subtotal'
+                    : `El IVA ${tarifa} % y el total se calculan solos`
+                }
+              >
                 <Input
                   type="number"
                   step="0.01"
                   value={editando.subtotal}
-                  onChange={(e) => setEditando((f) => ({ ...f, subtotal: e.target.value }))}
+                  onChange={(e) =>
+                    setEditando((f) => ({
+                      ...f,
+                      subtotal: e.target.value,
+                      ...desdeSubtotal(e.target.value, f.descuento),
+                    }))
+                  }
                 />
               </Field>
-              <Field label="Impuesto">
+              <Field
+                label={exento ? 'Impuesto' : `Impuesto (IVA ${tarifa} %)`}
+                hint={
+                  editando.descuento > 0
+                    ? `Sobre el subtotal menos el descuento de ${dinero(editando.descuento)}`
+                    : undefined
+                }
+              >
                 <Input
                   type="number"
                   step="0.01"
                   value={editando.impuesto}
-                  onChange={(e) => setEditando((f) => ({ ...f, impuesto: e.target.value }))}
+                  // Si se corrige a mano -un centavo de redondeo-, el total lo sigue.
+                  onChange={(e) =>
+                    setEditando((f) => ({
+                      ...f,
+                      impuesto: e.target.value,
+                      total: r2(
+                        Math.max(0, (Number(f.subtotal) || 0) - (Number(f.descuento) || 0)) +
+                          (Number(e.target.value) || 0),
+                      ),
+                    }))
+                  }
                 />
               </Field>
               <Field label="Total" className="sm:col-span-2">
