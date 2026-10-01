@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { asyncHandler, badRequest, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
 import { db } from '../lib/db.js'
+import { aplicarZona, esZonaValida, relojDelServidor, ZONA_POR_DEFECTO } from '../lib/zonaHoraria.js'
+import { rearrancar as rearrancarTareas } from '../services/tareas.js'
 
 /**
  * La marca del sistema: lo que se ve en pantalla.
@@ -43,6 +45,71 @@ router.get(
       moneda_simbolo: data?.moneda_simbolo || POR_DEFECTO.moneda_simbolo,
       moneda_codigo: data?.moneda_codigo || POR_DEFECTO.moneda_codigo,
     })
+  }),
+)
+
+/**
+ * Qué hora cree el servidor que es.
+ *
+ * Es la pregunta que hay que poder contestar sin entrar por SSH: si la
+ * facturación salió a las 20:00 en vez de a la 01:00, acá se ve por qué.
+ */
+router.get(
+  '/reloj',
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    res.json(relojDelServidor())
+  }),
+)
+
+/**
+ * Cambiar la zona.
+ *
+ * Va aparte del PUT de la marca a propósito: la pantalla General manda el
+ * formulario entero, y si la zona viajara ahí, guardar el logo sin la
+ * migración 196 corrida fallaría por una columna que esa pantalla ni muestra.
+ */
+router.put(
+  '/reloj',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const zona = String(req.body?.zona_horaria ?? '').trim()
+
+    // Una zona mal escrita no da error en Node: da UTC en silencio, que es
+    // justamente lo que se quiere evitar.
+    if (!esZonaValida(zona)) {
+      throw badRequest(`"${zona}" no es una zona horaria. Elegila de la lista: por ejemplo, ${ZONA_POR_DEFECTO}.`)
+    }
+
+    const { error } = await db()
+      .from('config_general')
+      .update({ zona_horaria: zona, actualizado_en: new Date().toISOString() })
+      .eq('id', 1)
+    if (error) {
+      throw new AppError(`No se pudo guardar: ${error.message}`, {
+        status: 502,
+        hint: 'Si dice que no existe la columna zona_horaria, falta correr la migración 196.',
+      })
+    }
+
+    /**
+     * Se aplica en el acto y se rearman las tareas.
+     *
+     * Los temporizadores preguntan "¿ya es la hora?" cada pocos minutos, así
+     * que con la zona nueva la próxima pregunta ya se contesta bien. Se rearman
+     * igual para que la corrida de recuperación que hace cada tarea al armarse
+     * use la hora nueva y no espere a la siguiente vuelta.
+     */
+    const antes = process.env.TZ
+    const ahora = aplicarZona(zona)
+    if (ahora !== antes) {
+      console.log(`[zona horaria] ${antes} → ${ahora}`)
+      await rearrancarTareas().catch((err) =>
+        console.error(`[zona horaria] no se pudieron rearmar las tareas: ${err.message}`),
+      )
+    }
+
+    res.json(relojDelServidor())
   }),
 )
 

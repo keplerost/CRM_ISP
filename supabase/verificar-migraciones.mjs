@@ -281,6 +281,10 @@ const MIGRACIONES = [
       ['mantenimientos', ['vehiculo_id', 'tipo_id', 'odometro']],
       ['v_mantenimiento', ['km_restantes', 'dias_restantes', 'sin_registro']],
     ],
+  },  {
+    numero: 196,
+    nombre: 'La hora del lugar donde está el ISP',
+    partes: [['config_general', ['zona_horaria']]],
   },
 ]
 

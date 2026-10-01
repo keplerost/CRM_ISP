@@ -28,6 +28,7 @@ const LicenciaPage = lazy(() => import('./pages/LicenciaPage'))
 const MensajeriaPage = lazy(() => import('./pages/MensajeriaPage'))
 const TareasPage = lazy(() => import('./pages/TareasPage'))
 const GeneralPage = lazy(() => import('./pages/GeneralPage'))
+const SistemaPage = lazy(() => import('./pages/SistemaPage'))
 const EmpresaPage = lazy(() => import('./pages/EmpresaPage'))
 const PortalClientePage = lazy(() => import('./pages/PortalClientePage'))
 const PersonalPage = lazy(() => import('./pages/PersonalPage'))
@@ -289,6 +290,7 @@ export default function App() {
         <Route path="ajustes/mensajeria" element={<MensajeriaPage />} />
         <Route path="ajustes/crontab" element={<TareasPage />} />
         <Route path="ajustes/general" element={<GeneralPage />} />
+        <Route path="ajustes/sistema" element={<SistemaPage />} />
         <Route path="ajustes/empresa" element={<EmpresaPage />} />
         <Route path="ajustes/portal-cliente" element={<PortalClientePage />} />
         <Route path="ajustes/personal" element={<PersonalPage />} />

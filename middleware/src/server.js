@@ -1,3 +1,5 @@
+// Primero que todo: desde acá, cada `Date` del proceso habla en la hora del ISP.
+import { cargarZona } from './lib/zonaHoraria.js'
 import express from 'express'
 import cors from 'cors'
 import { config, checkConfig } from './config.js'
@@ -330,7 +332,12 @@ app.listen(config.port, () => {
      * apagar el corte automático desde Ajustes no apagaría el que ya está
      * corriendo — quedarían dos verdades distintas sobre lo mismo.
      */
-    rearrancarTareas()
+    // La zona va antes que las tareas: armarlas con la hora de UTC y corregir
+    // después dejaría una corrida a destiempo justo al arrancar.
+    cargarZona()
+      .catch((err) => console.warn('  No se pudo leer la zona horaria:', err.message))
+      .then(() => console.log(`  Zona horaria: ${process.env.TZ}.`))
+      .then(() => rearrancarTareas())
       .then(({ encendidas }) => {
         console.log(
           encendidas.length

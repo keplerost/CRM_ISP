@@ -350,7 +350,8 @@ export const AJUSTES = [
     slug: 'sistema',
     nombre: 'Sistema',
     icono: HardDrive,
-    para: 'Versión, actualizaciones y estado general.',
+    a: '/ajustes/sistema',
+    para: 'La zona horaria con la que corren las tareas programadas, y qué hora cree el servidor que es.',
   },
   {
     slug: 'servidor',

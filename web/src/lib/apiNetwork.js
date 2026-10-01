@@ -487,6 +487,8 @@ export const api = {
   general: {
     config: () => get('/api/general'),
     guardar: (datos) => put('/api/general', datos),
+    reloj: () => get('/api/general/reloj'),
+    guardarZona: (zona_horaria) => put('/api/general/reloj', { zona_horaria }),
   },
 
   /** Los automatismos. Guardar reprograma: no hace falta reiniciar. */
