@@ -381,10 +381,16 @@ export async function aplicar(equipo, { destino, puerto = config.portalCorte, li
     hechas.push(a)
   }
 
+  // Dicho siempre: "ya estaba todo" sin esto se lee como que el aviso también
+  // quedó puesto, cuando ni se miró.
+  const sobreAviso = listaAviso
+    ? ` Aviso previo con la lista ${listaAviso}.`
+    : ' Sin lista de aviso previo: ese aviso no se configuró.'
+
   return {
     cambio: hechas.length > 0,
     mensaje: hechas.length
-      ? `Hecho: ${hechas.map((a) => `${a.accion} ${TITULOS[a.clave]}`).join(' · ')}. Destino ${destino}:${puerto}.`
-      : `Ya estaba todo, apuntando a ${destino}:${puerto}.`,
+      ? `Hecho: ${hechas.map((a) => `${a.accion} ${TITULOS[a.clave]}`).join(' · ')}. Destino ${destino}:${puerto}.${sobreAviso}`
+      : `Ya estaba todo, apuntando a ${destino}:${puerto}.${sobreAviso}`,
   }
 }

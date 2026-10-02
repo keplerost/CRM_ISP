@@ -9,11 +9,14 @@ export default function BloqueosPage() {
   const { filas: routers, cargando } = useTabla('routers_mikrotik')
   const [routerId, setRouterId] = useState('')
   const [destino, setDestino] = useState('')
+  // null = no se tocó: vale lo que tiene la ficha del router.
+  const [listaAviso, setListaAviso] = useState(null)
   const [error, setError] = useState(null)
   const [resultado, setResultado] = useState(null)
   const [enviando, setEnviando] = useState(false)
 
   const router = routers.find((r) => r.id === routerId)
+  const listaAvisoEfectiva = listaAviso ?? router?.lista_aviso ?? ''
 
   async function crearRedireccion(e) {
     e.preventDefault()
@@ -21,7 +24,16 @@ export default function BloqueosPage() {
     setError(null)
     setResultado(null)
     try {
-      setResultado(await api.mikrotik.redireccionPago(routerId, { destino }))
+      /**
+       * La lista del aviso va siempre, aunque no se haya tocado.
+       *
+       * Sin ella, el router queda sin aviso previo y el botón contesta "ya
+       * estaba todo" mirando solo las reglas del corte — que es lo que pasó en
+       * el piloto: se tocó el botón y en el NAT no apareció nada nuevo.
+       */
+      setResultado(
+        await api.mikrotik.redireccionPago(routerId, { destino, listaAviso: listaAvisoEfectiva.trim() }),
+      )
     } catch (err) {
       setError(err)
     } finally {
@@ -47,7 +59,14 @@ export default function BloqueosPage() {
           </Aviso>
         ) : (
           <Field label="Router">
-            <Select value={routerId} onChange={(e) => setRouterId(e.target.value)}>
+            <Select
+              value={routerId}
+              onChange={(e) => {
+                setRouterId(e.target.value)
+                setListaAviso(null)
+                setResultado(null)
+              }}
+            >
               <option value="">— elegí un router —</option>
               {routers.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -80,8 +99,20 @@ export default function BloqueosPage() {
                   <Input
                     value={destino}
                     onChange={(e) => setDestino(e.target.value)}
-                    placeholder="10.0.0.2"
+                    placeholder="10.66.0.1"
                     required
+                  />
+                </Field>
+                <Field
+                  label="Lista del aviso previo"
+                  hint="vacía = sin aviso previo"
+                  className="sm:col-span-2"
+                >
+                  <Input
+                    value={listaAvisoEfectiva}
+                    onChange={(e) => setListaAviso(e.target.value)}
+                    placeholder="AVISO_PAGO"
+                    className="font-mono"
                   />
                 </Field>
                 <div className="pb-2">
@@ -93,7 +124,7 @@ export default function BloqueosPage() {
 
               {resultado && (
                 <Aviso>
-                  {resultado.mensaje}. Solo afecta el HTTP en claro (puerto 80): el tráfico HTTPS no
+                  {resultado.mensaje} Solo afecta el HTTP en claro (puerto 80): el tráfico HTTPS no
                   se puede redirigir sin romper el certificado, así que el cliente verá un error de
                   conexión en los sitios HTTPS.
                 </Aviso>
