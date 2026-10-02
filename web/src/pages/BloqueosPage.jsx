@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Globe } from 'lucide-react'
 import { useTabla } from '../lib/useTabla'
 import { api } from '../lib/apiNetwork'
@@ -9,14 +9,31 @@ export default function BloqueosPage() {
   const { filas: routers, cargando } = useTabla('routers_mikrotik')
   const [routerId, setRouterId] = useState('')
   const [destino, setDestino] = useState('')
-  // null = no se tocó: vale lo que tiene la ficha del router.
-  const [listaAviso, setListaAviso] = useState(null)
+  const [listaAviso, setListaAviso] = useState('')
   const [error, setError] = useState(null)
   const [resultado, setResultado] = useState(null)
   const [enviando, setEnviando] = useState(false)
 
   const router = routers.find((r) => r.id === routerId)
-  const listaAvisoEfectiva = listaAviso ?? router?.lista_aviso ?? ''
+  const listaAvisoEfectiva = listaAviso
+
+  // El formulario llega lleno con lo que el sistema ya sabe de este router: la
+  // IP del servidor vista desde él y la lista del aviso. Solo se edita si hace falta.
+  useEffect(() => {
+    if (!routerId) return
+    let vigente = true
+    api.mikrotik
+      .datosRedireccion(routerId)
+      .then((d) => {
+        if (!vigente) return
+        setDestino(d.destino ?? '')
+        setListaAviso(d.listaAviso ?? '')
+      })
+      .catch((e) => vigente && setError(e))
+    return () => {
+      vigente = false
+    }
+  }, [routerId])
 
   async function crearRedireccion(e) {
     e.preventDefault()
@@ -63,7 +80,8 @@ export default function BloqueosPage() {
               value={routerId}
               onChange={(e) => {
                 setRouterId(e.target.value)
-                setListaAviso(null)
+                setDestino('')
+                setListaAviso('')
                 setResultado(null)
               }}
             >

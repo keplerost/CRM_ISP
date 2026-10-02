@@ -243,6 +243,8 @@ export const api = {
     bloquear: (id, datos) => post(`/api/mikrotik/${id}/bloqueos`, datos),
     desbloquear: (id, entradaId) =>
       del(`/api/mikrotik/${id}/bloqueos/${encodeURIComponent(entradaId)}`),
+    /** La IP del servidor vista desde el router, el puerto y las listas: para llenar el formulario. */
+    datosRedireccion: (id) => get(`/api/mikrotik/${id}/redireccion-pago`),
     redireccionPago: (id, datos) => post(`/api/mikrotik/${id}/redireccion-pago`, datos),
 
     filter: (id) => get(`/api/mikrotik/${id}/firewall/filter`),

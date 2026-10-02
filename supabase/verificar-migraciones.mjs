@@ -306,6 +306,13 @@ const MIGRACIONES = [
     nombre: 'Cada cuánto vuelve el aviso previo',
     partes: [['config_corte', ['aviso_pausa_horas']]],
   },
+  {
+    numero: 202,
+    nombre: 'El aviso previo, encendido de fábrica',
+    // Solo cambia el WHERE de una vista: por HTTP se ve igual antes y después.
+    partes: [],
+    sinVerificar: 'cambia el filtro de v_aviso_pantalla_a_poner; PostgREST no lo distingue. Se comprueba con lista_aviso vacía.',
+  },
 ]
 
 console.log(`\nBase: ${url}\n`)

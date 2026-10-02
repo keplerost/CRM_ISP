@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import * as reparar from '../services/repararRouter.js'
+import { config } from '../config.js'
 import * as configurar from '../services/configurarRouter.js'
 import * as portal from '../services/portalCorte.js'
 import * as ipv6 from '../services/ipv6Router.js'
@@ -155,6 +156,26 @@ router.delete(
   }),
 )
 
+/**
+ * Con qué se llenan las tarjetas de la página del cortado.
+ *
+ * La IP del servidor vista desde este router la sabe el sistema —sale del
+ * túnel que armó `openvpn-server.sh`—, así que no se le pide a nadie que la
+ * escriba de memoria: llega puesta y solo se edita si hace falta.
+ */
+router.get(
+  '/:id/redireccion-pago',
+  conRouter,
+  asyncHandler(async (req, res) => {
+    res.json({
+      destino: portal.destinoSugerido(req.equipo),
+      puerto: config.portalCorte ?? null,
+      lista: req.equipo.lista_morosos || mt.LISTA_MOROSOS,
+      listaAviso: portal.listaAvisoDe(req.equipo),
+    })
+  }),
+)
+
 router.post(
   '/:id/redireccion-pago',
   conRouter,
@@ -180,10 +201,12 @@ router.post(
       }
       const { error } = await db()
         .from('routers_mikrotik')
-        .update({ lista_aviso: listaAviso || null })
+        // Vacía y no NULL: NULL es "sin decidir" y al configurar se volvería a
+        // encender sola. Vacía es "lo apagaron", y se respeta.
+        .update({ lista_aviso: listaAviso })
         .eq('id', req.equipo.id)
       if (error) throw error
-      req.equipo.lista_aviso = listaAviso || null
+      req.equipo.lista_aviso = listaAviso
     }
 
     /**
@@ -206,7 +229,7 @@ router.post(
         lista: lista || req.equipo.lista_morosos || mt.LISTA_MOROSOS,
         // Sin lista de aviso en la ficha, el router no muestra aviso previo y
         // no se le escribe nada de eso.
-        listaAviso: req.equipo.lista_aviso || null,
+        listaAviso: await portal.fijarListaAviso(req.equipo),
       }),
     )
   }),

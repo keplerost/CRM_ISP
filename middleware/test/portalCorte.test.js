@@ -219,3 +219,12 @@ test('las dos excepciones al masquerade no se disputan el primer lugar', () => {
     simular({ filter: [drop], nat: [masq], destino: DESTINO, puerto: 8090, lista: LISTA, listaAviso: 'AVISO_PAGO' }),
   )
 })
+
+test('la lista del aviso: sin decidir toma la de fábrica, apagada se respeta', async () => {
+  const { listaAvisoDe, LISTA_AVISO } = await import('../src/services/portalCorte.js')
+  assert.equal(listaAvisoDe({ lista_aviso: null }), LISTA_AVISO)
+  assert.equal(listaAvisoDe({}), LISTA_AVISO)
+  assert.equal(listaAvisoDe({ lista_aviso: '' }), null, 'la apagaron: no se vuelve a encender sola')
+  assert.equal(listaAvisoDe({ lista_aviso: ' Aviso ' }), 'Aviso')
+  assert.notEqual(LISTA_AVISO, 'Aviso', 'no la de WispHub: se pisarían')
+})

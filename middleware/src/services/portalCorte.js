@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 import { config } from '../config.js'
+import { db } from '../lib/db.js'
 import { badRequest } from '../lib/errors.js'
 import { MARCA, comentario, esNuestra } from '../lib/marcaReglas.js'
 import * as mt from './mikrotikService.js'
@@ -54,6 +55,41 @@ import * as mt from './mikrotikService.js'
  * escribe en ella, y cada entrada se borra sola con su timeout.
  */
 export const LISTA_AVISO_VISTO = `${MARCA}-aviso-visto`
+
+/**
+ * La lista del aviso previo cuando nadie eligió otra.
+ *
+ * No es la `Aviso` de WispHub a propósito: mientras ese sistema siga encendido
+ * mete y saca abonados de la suya, y compartirla sería pisarse.
+ */
+export const LISTA_AVISO = 'AVISO_PAGO'
+
+/**
+ * Con qué lista avisa este router. NULL es "nadie lo decidió todavía" y toma la
+ * de fábrica; vacía es "lo apagaron", y se respeta: devuelve null.
+ */
+export function listaAvisoDe(equipo) {
+  const v = equipo?.lista_aviso
+  if (v == null) return LISTA_AVISO
+  return String(v).trim() || null
+}
+
+/**
+ * Deja escrita en la ficha la lista que se va a usar.
+ *
+ * Hace falta porque la sincronización de cada día lee la ficha, no esta
+ * función: con las reglas puestas y la ficha en NULL, nadie entraría nunca a la
+ * lista.
+ */
+export async function fijarListaAviso(equipo) {
+  const lista = listaAvisoDe(equipo)
+  if (equipo?.lista_aviso == null && lista && equipo?.id) {
+    const { error } = await db().from('routers_mikrotik').update({ lista_aviso: lista }).eq('id', equipo.id)
+    if (error) throw error
+    equipo.lista_aviso = lista
+  }
+  return lista
+}
 
 const PRIVADA_TUNEL =/^10\.66\.(\d{1,3})\.(\d{1,3})$/
 const ENV_TUNEL = '/etc/openvpn/smartolt.env'

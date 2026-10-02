@@ -212,7 +212,8 @@ export async function revisar(routerId, { red, destino } = {}) {
       nat: nats,
       destino: sugerido,
       lista,
-      listaAviso: equipo.lista_aviso || null,
+      // Lo que se instalaría: la de fábrica si nadie eligió, nada si la apagaron.
+      listaAviso: portal.listaAvisoDe(equipo),
     })
     const falta = portal.resumir(acciones)
     pasos.push(
@@ -303,7 +304,9 @@ export async function configurar(routerId, { red, pasos, destinoAviso, forzarApi
       const r = await portal.aplicar(equipo, {
         destino,
         lista: equipo.lista_morosos || mt.LISTA_MOROSOS,
-        listaAviso: equipo.lista_aviso || null,
+        // El aviso previo viene incluido: un router recién dado de alta queda
+        // con AVISO_PAGO y sus reglas, sin que nadie tenga que acordarse.
+        listaAviso: await portal.fijarListaAviso(equipo),
       })
       return { mensaje: r.mensaje, cambio: r.cambio }
     })

@@ -325,26 +325,44 @@ function EnviarAlRouter({ routers }) {
   const [routerId, setRouterId] = useState('')
   const [destino, setDestino] = useState('')
   const [puerto, setPuerto] = useState(8090)
-  // null = todavía no se tocó: se muestra lo que tiene la ficha del router.
-  const [listaAviso, setListaAviso] = useState(null)
+  const [listaAviso, setListaAviso] = useState('')
+  // Lo que el sistema ya sabe de este router: con eso llega lleno el formulario.
+  const [sugerido, setSugerido] = useState(null)
   const [hecho, setHecho] = useState(null)
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState(null)
 
   const equipo = routers.find((r) => r.id === routerId)
-  const listaAvisoEfectiva = listaAviso ?? equipo?.lista_aviso ?? ''
+  const listaAvisoEfectiva = listaAviso
   const avisoIgualAlCorte =
     Boolean(listaAvisoEfectiva) &&
     listaAvisoEfectiva.trim().toLowerCase() === String(equipo?.lista_morosos ?? '').toLowerCase()
 
   /**
-   * La del servidor vista desde el túnel: si el router es 10.66.0.11, el
-   * servidor es 10.66.0.1. Es lo que arma `openvpn-server.sh`. Para un router
-   * con IP pública no se adivina.
+   * Al elegir el router, el formulario se llena con lo que el sistema sabe: la
+   * IP del servidor vista desde ese router (sale del túnel que armó
+   * `openvpn-server.sh`), el puerto de la página y la lista del aviso. Se puede
+   * editar; lo que no tiene sentido es pedir que se escriba de memoria.
    */
-  const sugerido = /^10\.66\.(\d+)\.(\d+)$/.test(equipo?.ip_host ?? '')
-    ? equipo.ip_host.replace(/\.\d+$/, '.1')
-    : null
+  useEffect(() => {
+    setHecho(null)
+    setSugerido(null)
+    if (!routerId) return
+    let vigente = true
+    api.mikrotik
+      .datosRedireccion(routerId)
+      .then((d) => {
+        if (!vigente) return
+        setSugerido(d.destino ?? null)
+        setDestino(d.destino ?? '')
+        if (d.puerto) setPuerto(d.puerto)
+        setListaAviso(d.listaAviso ?? '')
+      })
+      .catch((e) => vigente && setError(e))
+    return () => {
+      vigente = false
+    }
+  }, [routerId])
   const esDelRouter = Boolean(equipo && destino.trim() === equipo.ip_host)
 
   const instalar = async () => {
@@ -358,7 +376,6 @@ function EnviarAlRouter({ routers }) {
           listaAviso: listaAvisoEfectiva.trim(),
         }),
       )
-      if (equipo) equipo.lista_aviso = listaAvisoEfectiva.trim() || null
     } catch (e) {
       setError(e)
     } finally {
@@ -380,7 +397,8 @@ function EnviarAlRouter({ routers }) {
               value={routerId}
               onChange={(e) => {
                 setRouterId(e.target.value)
-                setListaAviso(null)
+                setDestino('')
+                setListaAviso('')
               }}
             >
               <option value="">Elegí el router…</option>
