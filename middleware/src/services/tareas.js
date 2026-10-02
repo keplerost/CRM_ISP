@@ -515,6 +515,7 @@ function llaveActiva(t) {
 export const _llaveActiva = llaveActiva
 export const _TAREAS = TAREAS
 export const _COLUMNAS = () => Object.keys(DEL_ARCHIVO())
+export const _DEL_ARCHIVO = () => DEL_ARCHIVO()
 
 const COLUMNAS = Object.keys(DEL_ARCHIVO())
 
@@ -579,6 +580,16 @@ export async function guardar(datos = {}) {
       || campo === 'nms_paquetes'
       || campo === 'cortes_limite'
       || CERO_ES_SIN_TOPE.includes(campo)
+      /**
+       * Y cualquier otro cuyo valor de fábrica sea un número.
+       *
+       * La lista de arriba se armaba a mano y se olvidaba de los nuevos:
+       * `incidencias_lote` caía en el caso de los interruptores, se guardaba
+       * como `true` y la base contestaba "invalid input syntax for type
+       * integer". Como la pantalla manda todos los campos juntos, eso no dejaba
+       * guardar NINGUNA tarea — tampoco encender la medición de consumo.
+       */
+      || typeof DEL_ARCHIVO()[campo] === 'number'
     ) {
       if (v === '' || v == null) {
         fila[campo] = null

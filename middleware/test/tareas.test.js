@@ -213,12 +213,13 @@ test('la columna que la pantalla muestra encendida es la que enciende de verdad'
  * nada.
  */
 test('todo campo numérico cae en la rama numérica, no en la de interruptores', async () => {
-  const { _COLUMNAS } = await import('../src/services/tareas.js')
+  const { _COLUMNAS, _DEL_ARCHIVO } = await import('../src/services/tareas.js')
 
-  // Los que son números por su naturaleza, no por su nombre.
-  const NUMERICOS = _COLUMNAS().filter(
-    (c) => /_(limite|minutos|segundos|paquetes)$/.test(c) || c === 'nms_paquetes',
-  )
+  // Los que son números por su valor de fábrica, no por su nombre: por el nombre
+  // se escapó `incidencias_lote`, y no dejaba guardar ninguna tarea.
+  const fabrica = _DEL_ARCHIVO()
+  const NUMERICOS = _COLUMNAS().filter((c) => typeof fabrica[c] === 'number')
+  assert.ok(NUMERICOS.includes('incidencias_lote'))
 
   assert.ok(NUMERICOS.length >= 5, `esperaba varios numéricos, encontré ${NUMERICOS.length}`)
 
@@ -235,6 +236,7 @@ test('todo campo numérico cae en la rama numérica, no en la de interruptores',
     || campo === 'nms_paquetes'
     || campo === 'cortes_limite'
     || CERO_ES_SIN_TOPE.includes(campo)
+    || typeof fabrica[campo] === 'number'
 
   for (const campo of NUMERICOS) {
     assert.ok(

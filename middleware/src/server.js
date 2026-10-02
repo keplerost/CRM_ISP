@@ -242,9 +242,24 @@ app.use((req, res) => {
 })
 
 // eslint-disable-next-line no-unused-vars -- Express identifica el error handler por tener 4 argumentos
-app.use((err, _req, res, _next) => {
-  const status = err instanceof AppError ? err.status : 500
-  if (status >= 500) console.error(err)
+app.use((err, req, res, _next) => {
+  const original = err instanceof AppError ? err.status : 500
+  if (original >= 500) console.error(err)
+
+  /**
+   * Un 502 o un 504 nuestro sale como 500.
+   *
+   * Cloudflare reemplaza cualquier 502 o 504 del origen por su propia página de
+   * "Bad gateway", y el mensaje que explicaba el problema no llega a la
+   * pantalla. Se vio al guardar las tareas: la base rechazó un valor y la
+   * persona leyó "el middleware está caído", que era falso.
+   *
+   * La API para integraciones queda como está documentada
+   * (docs/api-integracion.md promete el 502 a quien la consume).
+   */
+  const deIntegracion = /^\/api\/(v1|integracion)(\/|$)/.test(req.originalUrl ?? '')
+  const status = (original === 502 || original === 504) && !deIntegracion ? 500 : original
+  if (status !== original) res.set('X-Status-Original', String(original))
 
   // Para el rastro de las integraciones: `requireApiKey` anota la llamada cuando
   // la respuesta ya salió, y ahí solo tiene el status. Sin esto, el registro de
