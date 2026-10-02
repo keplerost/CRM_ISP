@@ -318,9 +318,9 @@ export function filtrarPorLista(entradas, lista) {
   return entradas.filter((e) => e.list === lista)
 }
 
-export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS }) =>
+export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS, timeout }) =>
   conConexion(router, (conn) =>
-    conn.write('/ip/firewall/address-list/add', params({ list: lista, address, comment })),
+    conn.write('/ip/firewall/address-list/add', params({ list: lista, address, comment, timeout })),
   )
 
 export const desbloquear = (router, id) =>

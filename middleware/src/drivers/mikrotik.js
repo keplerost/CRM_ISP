@@ -152,11 +152,13 @@ export const listarInterfaces = (router) => request(router, 'GET', '/interface')
 export const listarBloqueos = (router, lista = LISTA_MOROSOS) =>
   request(router, 'GET', `/ip/firewall/address-list?list=${encodeURIComponent(lista)}`)
 
-export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS }) =>
+export const bloquearIp = (router, { address, comment, lista = LISTA_MOROSOS, timeout }) =>
   request(router, 'PUT', '/ip/firewall/address-list', {
     list: lista,
     address,
     ...(comment ? { comment } : {}),
+    // La entrada se borra sola cuando vence: "6h", "30m".
+    ...(timeout ? { timeout } : {}),
   })
 
 export const desbloquear = (router, id) =>

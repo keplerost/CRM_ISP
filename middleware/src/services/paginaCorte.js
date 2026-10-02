@@ -32,6 +32,15 @@
 
 import { aplicarPlantilla } from './mensajeria.js'
 
+/**
+ * A dónde manda el botón "Entendido" del aviso previo.
+ *
+ * Una ruta que ningún sitio real usa: el router le redirige a este servidor
+ * cualquier dirección, y `/` o `/ok` podrían ser justo la página que el abonado
+ * quería abrir.
+ */
+export const RUTA_ENTENDIDO = '/__zc/entendido'
+
 const dinero = (n) => `$${Number(n ?? 0).toFixed(2)}`
 
 /** Escapa lo que va adentro del HTML. Los nombres traen comillas y ampersands. */
@@ -249,6 +258,22 @@ export function html(datos) {
          </section>`
       : ''
 
+  /**
+   * El del aviso todavía tiene internet: tiene que poder cerrarlo.
+   *
+   * Sin este botón, cada página HTTP que abre durante días le muestra lo mismo,
+   * y lo que era un recordatorio se vuelve un estorbo. Con él, lo deja de ver
+   * unas horas y después vuelve a aparecer, hasta que paga o se le corta.
+   */
+  const bloqueEntendido =
+    datos.motivo === 'aviso'
+      ? `<form method="post" action="${RUTA_ENTENDIDO}">
+           ${datos.volver ? `<input type="hidden" name="volver" value="${esc(datos.volver)}">` : ''}
+           <button class="boton secundario" type="submit">Entendido, seguir navegando</button>
+           ${datos.pausaHoras ? `<p class="dato centro">No te lo volvemos a mostrar en ${datos.pausaHoras} ${datos.pausaHoras === 1 ? 'hora' : 'horas'}.</p>` : ''}
+         </form>`
+      : ''
+
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -289,6 +314,8 @@ export function html(datos) {
   .dato{font-size:13px;color:#94a3b8}
   .boton{display:block;text-align:center;background:#16a34a;color:#fff;text-decoration:none;
          padding:14px;border-radius:10px;font-size:16px;font-weight:600;margin:12px 0 8px}
+  .boton.secundario{width:100%;border:0;cursor:pointer;background:#334155;font-family:inherit}
+  .centro{text-align:center}
   .ficha{font-size:13px;color:#94a3b8;text-align:center;margin-top:6px}
   footer{text-align:center;font-size:12px;color:#64748b;margin-top:18px}
   .copiado{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#334155;
@@ -310,6 +337,7 @@ export function html(datos) {
 
   ${bloqueCuentas ? `<div class="tarjeta">${bloqueCuentas}</div>` : ''}
   ${bloqueAviso ? `<div class="tarjeta">${bloqueAviso}</div>` : ''}
+  ${bloqueEntendido}
 
   <footer>${
     datos.motivo === 'aviso'
@@ -353,4 +381,38 @@ export function htmlDesconocido({ empresa = {}, telefono, whatsapp } = {}) {
       logo: empresa.logo_b64 ?? null,
     },
   })
+}
+
+/**
+ * Lo que ve después de tocar "Entendido".
+ *
+ * Lo devuelve a la página que había pedido. Si no se sabe cuál era —o si la
+ * pausa no se pudo guardar—, se le dice igual que puede seguir: todavía tiene
+ * servicio, y lo peor que pasa es que vuelva a ver el aviso.
+ */
+export function htmlEntendido({ horas, volver } = {}) {
+  const destino = volver ? esc(volver) : null
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+${destino ? `<meta http-equiv="refresh" content="2;url=${destino}">` : ''}
+<title>Listo</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#0f172a;
+       color:#e2e8f0;display:flex;justify-content:center;padding:40px 20px;text-align:center}
+  h1{font-size:22px;margin:0 0 10px;color:#f8fafc}
+  p{color:#cbd5e1;font-size:15px;margin:0 0 14px}
+  a{color:#38bdf8}
+</style>
+</head>
+<body>
+<div>
+  <h1>Listo, podés seguir navegando</h1>
+  <p>${horas ? `No te vamos a mostrar este aviso por ${horas} ${horas === 1 ? 'hora' : 'horas'}.` : 'Gracias por leerlo.'}</p>
+  ${destino ? `<p><a href="${destino}">Seguir a la página que querías abrir</a></p>` : ''}
+</div>
+</body>
+</html>`
 }

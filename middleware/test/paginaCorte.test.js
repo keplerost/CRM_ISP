@@ -338,3 +338,33 @@ test('el cortado nunca ve la pantalla de aviso previo', () => {
   assert.equal(d.motivo, 'mora')
   assert.match(d.titulo, /suspendido/i)
 })
+
+// ── El botón "Entendido" del aviso previo ──────────────────────────────────
+
+test('el aviso previo trae el botón para cerrarlo, y el corte no', async () => {
+  const { html, RUTA_ENTENDIDO } = await import('../src/services/paginaCorte.js')
+  const base = { titulo: 't', mensaje: 'm', abonado: null, saldo: null, cuentas: [], empresa: { nombre: 'X' } }
+
+  const aviso = html({ ...base, motivo: 'aviso', volver: 'http://example.com/a?b=1', pausaHoras: 6 })
+  assert.ok(aviso.includes(`action="${RUTA_ENTENDIDO}"`))
+  assert.ok(aviso.includes('value="http://example.com/a?b=1"'))
+  assert.ok(aviso.includes('en 6 horas'))
+
+  // Al cortado no se le ofrece cerrar nada: no es un aviso, es su servicio.
+  assert.ok(!html({ ...base, motivo: 'mora' }).includes(RUTA_ENTENDIDO))
+})
+
+test('a dónde vuelve después de "Entendido": solo a una dirección http limpia', async () => {
+  const { volverA, horasDePausa } = await import('../src/servidorCorte.js')
+  assert.equal(volverA('http://diario.com/edicion/hoy'), 'http://diario.com/edicion/hoy')
+  assert.equal(volverA('http://connectivitycheck.gstatic.com/generate_204'), 'http://connectivitycheck.gstatic.com/generate_204')
+  assert.equal(volverA('javascript:alert(1)'), null)
+  assert.equal(volverA('http://x.com/"><script>'), null)
+  assert.equal(volverA('http://a b.com/'), null)
+  assert.equal(volverA(undefined), null)
+
+  assert.equal(horasDePausa(undefined), 6)
+  assert.equal(horasDePausa(0), 6)
+  assert.equal(horasDePausa(3), 3)
+  assert.equal(horasDePausa(500), 72)
+})

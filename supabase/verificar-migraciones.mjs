@@ -301,6 +301,11 @@ const MIGRACIONES = [
     nombre: 'Los proveedores de factura electrónica',
     partes: [['factura_proveedores', ['pais', 'proveedor', 'activo', 'datos', 'secretos_cifrados']]],
   },
+  {
+    numero: 201,
+    nombre: 'Cada cuánto vuelve el aviso previo',
+    partes: [['config_corte', ['aviso_pausa_horas']]],
+  },
 ]
 
 console.log(`\nBase: ${url}\n`)

@@ -164,6 +164,29 @@ router.post(
     if (!destino) throw badRequest('Falta la IP destino de la página de aviso de pago')
 
     /**
+     * La lista del aviso previo, si la mandan, queda guardada en la ficha.
+     *
+     * Vacía quiere decir "este router no muestra aviso previo". Se guarda
+     * antes de tocar el router porque la sincronización de cada día la lee de
+     * ahí: con la regla puesta y la ficha sin lista, nadie entraría nunca.
+     */
+    if (req.body?.listaAviso !== undefined) {
+      const listaAviso = String(req.body.listaAviso ?? '').trim()
+      if (listaAviso && !/^[\w.-]{1,50}$/.test(listaAviso)) {
+        throw badRequest('El nombre de la lista solo puede tener letras, números, punto, guion y guion bajo.')
+      }
+      if (listaAviso && listaAviso.toLowerCase() === String(req.equipo.lista_morosos ?? mt.LISTA_MOROSOS).toLowerCase()) {
+        throw badRequest('La lista del aviso no puede ser la misma que la del corte.')
+      }
+      const { error } = await db()
+        .from('routers_mikrotik')
+        .update({ lista_aviso: listaAviso || null })
+        .eq('id', req.equipo.id)
+      if (error) throw error
+      req.equipo.lista_aviso = listaAviso || null
+    }
+
+    /**
      * La lista sale de la ficha del router si no la mandan.
      *
      * Antes caía a la constante `CORTE_MOROSOS`, y ahora cada router puede tener
@@ -181,6 +204,9 @@ router.post(
         destino,
         puerto: Number(puerto) || undefined,
         lista: lista || req.equipo.lista_morosos || mt.LISTA_MOROSOS,
+        // Sin lista de aviso en la ficha, el router no muestra aviso previo y
+        // no se le escribe nada de eso.
+        listaAviso: req.equipo.lista_aviso || null,
       }),
     )
   }),

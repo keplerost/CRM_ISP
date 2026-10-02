@@ -207,7 +207,13 @@ export async function revisar(routerId, { red, destino } = {}) {
       ),
     )
   } else {
-    const acciones = portal.planear({ filter: reglas, nat: nats, destino: sugerido, lista })
+    const acciones = portal.planear({
+      filter: reglas,
+      nat: nats,
+      destino: sugerido,
+      lista,
+      listaAviso: equipo.lista_aviso || null,
+    })
     const falta = portal.resumir(acciones)
     pasos.push(
       falta
@@ -297,6 +303,7 @@ export async function configurar(routerId, { red, pasos, destinoAviso, forzarApi
       const r = await portal.aplicar(equipo, {
         destino,
         lista: equipo.lista_morosos || mt.LISTA_MOROSOS,
+        listaAviso: equipo.lista_aviso || null,
       })
       return { mensaje: r.mensaje, cambio: r.cambio }
     })

@@ -49,6 +49,11 @@ const SUFIJOS = {
   portalPagina: 'PortalCorte-pagina',
   portalDns: 'PortalCorte-dns',
   portalSinNat: 'PortalCorte-sin-nat',
+  // El aviso previo: el que está por vencer ve la página en su HTTP, hasta que
+  // toca "Entendido" y pasa unas horas en la lista de los que ya la vieron.
+  avisoRedireccion: 'AvisoPago',
+  avisoVisto: 'AvisoPago-visto',
+  avisoSinNat: 'AvisoPago-sin-nat',
 }
 
 /** Con qué comentario se escribe una regla nueva. */

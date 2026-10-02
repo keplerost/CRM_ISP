@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { config } from '../config.js'
 import { badRequest } from '../lib/errors.js'
-import { comentario, esNuestra } from '../lib/marcaReglas.js'
+import { MARCA, comentario, esNuestra } from '../lib/marcaReglas.js'
 import * as mt from './mikrotikService.js'
 
 /**
@@ -28,6 +28,20 @@ import * as mt from './mikrotikService.js'
  *   portalDns     forward accept del DNS, antes del drop del corte
  *   portalSinNat  srcnat accept hacia la página, antes de cualquier masquerade
  *
+ * ── Las tres del aviso previo, solo si el router tiene `lista_aviso` ──
+ *
+ *   avisoRedireccion  dstnat: el HTTP del que está por vencer va a la página
+ *   avisoVisto        dstnat accept: el que tocó "Entendido" navega libre unas
+ *                     horas. Va delante de avisoRedireccion
+ *   avisoSinNat       srcnat accept hacia la página, por lo mismo que portalSinNat
+ *
+ * El del aviso todavía tiene servicio: no hace falta ningún permiso en forward.
+ *
+ * Hay un orden más, y es el que no se ve. `avisoVisto` es un accept del puerto
+ * 80 para una lista que dura horas: si al abonado se lo corta en ese rato y esa
+ * regla está delante de la redirección del corte, el accept le gana y el
+ * cortado no ve su página. Por eso la del corte va siempre delante de avisoVisto.
+ *
  * ── Lo que queda fuera del router ──
  *
  * El servidor tiene que poder contestarle al abonado. Si el router llega por el
@@ -35,7 +49,13 @@ import * as mt from './mikrotikService.js'
  * `iroute` de OpenVPN). Eso no se puede hacer desde la API del router.
  */
 
-const PRIVADA_TUNEL = /^10\.66\.(\d{1,3})\.(\d{1,3})$/
+/**
+ * La lista de los que ya vieron el aviso. Es nuestra y no del router: nadie más
+ * escribe en ella, y cada entrada se borra sola con su timeout.
+ */
+export const LISTA_AVISO_VISTO = `${MARCA}-aviso-visto`
+
+const PRIVADA_TUNEL =/^10\.66\.(\d{1,3})\.(\d{1,3})$/
 const ENV_TUNEL = '/etc/openvpn/smartolt.env'
 
 const aEntero = (ip) => {
@@ -123,7 +143,7 @@ export function reglaDelCorte(filter = [], lista) {
 }
 
 /** Lo que debería tener cada regla. El comentario es lo que la identifica después. */
-export function camposDe(clave, { destino, puerto, lista }) {
+export function camposDe(clave, { destino, puerto, lista, listaAviso }) {
   switch (clave) {
     case 'redireccion':
       return {
@@ -163,6 +183,36 @@ export function camposDe(clave, { destino, puerto, lista }) {
         action: 'accept',
         comment: comentario('portalSinNat'),
       }
+    case 'avisoRedireccion':
+      return {
+        chain: 'dstnat',
+        protocol: 'tcp',
+        'dst-port': '80',
+        'src-address-list': listaAviso,
+        action: 'dst-nat',
+        'to-addresses': destino,
+        'to-ports': String(puerto),
+        comment: comentario('avisoRedireccion'),
+      }
+    case 'avisoVisto':
+      // Solo el 80: es lo único que avisoRedireccion le toma. Un accept más
+      // amplio saltearía cualquier otra regla de dstnat que tenga el router.
+      return {
+        chain: 'dstnat',
+        protocol: 'tcp',
+        'dst-port': '80',
+        'src-address-list': LISTA_AVISO_VISTO,
+        action: 'accept',
+        comment: comentario('avisoVisto'),
+      }
+    case 'avisoSinNat':
+      return {
+        chain: 'srcnat',
+        'src-address-list': listaAviso,
+        'dst-address': destino,
+        action: 'accept',
+        comment: comentario('avisoSinNat'),
+      }
     default:
       throw new Error(`Pieza desconocida: ${clave}`)
   }
@@ -174,7 +224,12 @@ const CLAVE_DE = {
   portalPagina: ['dst-address', 'dst-port', 'src-address-list'],
   portalDns: ['src-address-list'],
   portalSinNat: ['dst-address', 'src-address-list'],
+  avisoRedireccion: ['to-addresses', 'to-ports', 'src-address-list'],
+  avisoVisto: ['src-address-list', 'dst-port'],
+  avisoSinNat: ['dst-address', 'src-address-list'],
 }
+
+const SIN_NAT = ['portalSinNat', 'avisoSinNat']
 
 /**
  * Qué hay que hacer, sin tocar nada.
@@ -183,8 +238,8 @@ const CLAVE_DE = {
  * otro lado) o 'mover' (está pero detrás del drop o del masquerade, donde no
  * sirve de nada). El orden de la lista es el orden en que hay que aplicarlas.
  */
-export function planear({ filter = [], nat = [], destino, puerto = config.portalCorte, lista }) {
-  const valores = { destino, puerto, lista }
+export function planear({ filter = [], nat = [], destino, puerto = config.portalCorte, lista, listaAviso = null }) {
+  const valores = { destino, puerto, lista, listaAviso }
   const acciones = []
 
   const evaluar = (clave, tipo, reglas, anclaFn) => {
@@ -216,14 +271,41 @@ export function planear({ filter = [], nat = [], destino, puerto = config.portal
   }
 
   // El primer srcnat de la lista: el accept tiene que ganarle a cualquier
-  // masquerade, y en srcnat gana el que está más arriba.
+  // masquerade, y en srcnat gana el que está más arriba. Las dos excepciones
+  // nuestras no cuentan: si cada una se anclara en la otra, se moverían
+  // alternadamente en cada pasada sin terminar nunca.
   const primerSrcnat = () =>
-    nat.find((r) => r.chain === 'srcnat' && !esNuestra(r.comment, 'portalSinNat')) ?? null
+    nat.find((r) => r.chain === 'srcnat' && !SIN_NAT.some((c) => esNuestra(r.comment, c))) ?? null
+  const nuestraNat = (clave) => nat.find((r) => esNuestra(r.comment, clave)) ?? null
 
-  evaluar('redireccion', 'nat', nat, null)
+  // Con aviso previo, la redirección del corte va delante del "ya lo vio".
+  evaluar('redireccion', 'nat', nat, listaAviso ? () => nuestraNat('avisoVisto') : null)
   evaluar('portalSinNat', 'nat', nat, primerSrcnat)
   evaluar('portalPagina', 'filter', filter, () => reglaDelCorte(filter, lista))
   evaluar('portalDns', 'filter', filter, () => reglaDelCorte(filter, lista))
+
+  if (listaAviso) {
+    /**
+     * La redirección del aviso, delante de la de otro sistema.
+     *
+     * Un router que viene de WispHub ya redirige su lista de aviso a su propio
+     * proxy. Si la nuestra queda detrás, el abonado ve el aviso de ellos —y el
+     * día que ese sistema se apaga, una página que no carga—.
+     */
+    const avisoAjeno = () =>
+      nat.find(
+        (r) =>
+          encendida(r) &&
+          r.chain === 'dstnat' &&
+          ['redirect', 'dst-nat'].includes(r.action) &&
+          mismaLista(r['src-address-list'], listaAviso) &&
+          !esNuestra(r.comment, 'avisoRedireccion'),
+      ) ?? null
+
+    evaluar('avisoRedireccion', 'nat', nat, avisoAjeno)
+    evaluar('avisoVisto', 'nat', nat, () => nuestraNat('avisoRedireccion'))
+    evaluar('avisoSinNat', 'nat', nat, primerSrcnat)
+  }
 
   return acciones
 }
@@ -233,6 +315,9 @@ const TITULOS = {
   portalPagina: 'permiso para llegar a la página',
   portalDns: 'permiso de DNS',
   portalSinNat: 'excepción al masquerade',
+  avisoRedireccion: 'redirección del aviso previo',
+  avisoVisto: 'pausa del aviso para el que ya lo vio',
+  avisoSinNat: 'excepción al masquerade del aviso',
 }
 
 /** Una línea legible de lo que falta, para la pantalla de revisión. */
@@ -250,7 +335,7 @@ export function resumir(acciones) {
 }
 
 /** Lee el router, planea y aplica. Devuelve qué se hizo. */
-export async function aplicar(equipo, { destino, puerto = config.portalCorte, lista }) {
+export async function aplicar(equipo, { destino, puerto = config.portalCorte, lista, listaAviso = null }) {
   // La confusión más natural: en el campo "IP del servidor" se pone la del
   // router, que es la que uno tiene a mano. El router se redirige a sí mismo y
   // el cortado ve una página que no carga, sin ningún error en ningún lado.
@@ -263,12 +348,28 @@ export async function aplicar(equipo, { destino, puerto = config.portalCorte, li
     })
   }
 
-  const [filter, nat] = await Promise.all([mt.listarReglasFilter(equipo), mt.listarReglasNat(equipo)])
-  const acciones = planear({ filter: filter ?? [], nat: nat ?? [], destino, puerto, lista })
-
+  /**
+   * Una acción por vez, volviendo a leer el router entre una y otra.
+   *
+   * Algunas piezas se anclan en otras que todavía no existen: el "ya lo vio" va
+   * delante de la redirección del aviso, y la del corte delante del "ya lo vio".
+   * Planeado de una sola vez, la pieza nueva no tiene `.id` todavía y la que se
+   * ancla en ella quedaría al final de la cadena, donde no sirve.
+   *
+   * El tope es por si dos reglas se disputaran el mismo lugar: mejor cortar y
+   * decirlo que dejar al router moviendo reglas sin fin.
+   */
   const hechas = []
-  for (const a of acciones) {
-    if (a.accion === 'ok') continue
+  for (let vuelta = 0; ; vuelta++) {
+    const [filter, nat] = await Promise.all([mt.listarReglasFilter(equipo), mt.listarReglasNat(equipo)])
+    const a = planear({ filter: filter ?? [], nat: nat ?? [], destino, puerto, lista, listaAviso }).find(
+      (x) => x.accion !== 'ok',
+    )
+    if (!a) break
+    if (vuelta >= 15) {
+      throw new Error(`Las reglas no terminan de acomodarse: sigue pendiente ${TITULOS[a.clave]}.`)
+    }
+
     if (a.accion === 'crear') {
       const campos = a.antesDe ? { ...a.campos, 'place-before': a.antesDe } : a.campos
       await mt.agregarRegla(equipo, { tipo: a.tipo, campos })

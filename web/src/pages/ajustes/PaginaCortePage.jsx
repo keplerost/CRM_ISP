@@ -45,7 +45,7 @@ export default function PaginaCortePage() {
       const [c, q, r, e] = await Promise.all([
         supabase.from('config_corte').select('*').eq('id', 1).maybeSingle(),
         supabase.from('cuentas_pago').select('*').order('nombre'),
-        supabase.from('routers_mikrotik').select('id, nombre, lista_morosos, ip_host').order('nombre'),
+        supabase.from('routers_mikrotik').select('id, nombre, lista_morosos, lista_aviso, ip_host').order('nombre'),
         // Para poder mostrar de dónde sale cada dato que se completa solo.
         supabase.from('sri_config').select('ruc, razon_social, telefono').limit(1).maybeSingle(),
       ])
@@ -209,6 +209,23 @@ export default function PaginaCortePage() {
             />
           </Field>
 
+          {/* El aviso previo se cierra con "Entendido": esto dice cuánto dura
+              cerrado. Sin pausa, el que está por vencer lo vería en cada página
+              durante días. */}
+          <Field
+            label="El aviso previo vuelve a aparecer cada"
+            hint="horas, después de que el abonado toca «Entendido» · entre 1 y 72"
+          >
+            <Input
+              type="number"
+              min={1}
+              max={72}
+              value={config?.aviso_pausa_horas ?? 6}
+              onChange={(e) => cambiar('aviso_pausa_horas', e.target.value === '' ? 6 : Number(e.target.value))}
+              className="max-w-[120px]"
+            />
+          </Field>
+
           <div className="flex flex-wrap gap-4 text-sm text-slate-300">
             <label className="flex items-center gap-2">
               <input
@@ -308,11 +325,17 @@ function EnviarAlRouter({ routers }) {
   const [routerId, setRouterId] = useState('')
   const [destino, setDestino] = useState('')
   const [puerto, setPuerto] = useState(8090)
+  // null = todavía no se tocó: se muestra lo que tiene la ficha del router.
+  const [listaAviso, setListaAviso] = useState(null)
   const [hecho, setHecho] = useState(null)
   const [trabajando, setTrabajando] = useState(false)
   const [error, setError] = useState(null)
 
   const equipo = routers.find((r) => r.id === routerId)
+  const listaAvisoEfectiva = listaAviso ?? equipo?.lista_aviso ?? ''
+  const avisoIgualAlCorte =
+    Boolean(listaAvisoEfectiva) &&
+    listaAvisoEfectiva.trim().toLowerCase() === String(equipo?.lista_morosos ?? '').toLowerCase()
 
   /**
    * La del servidor vista desde el túnel: si el router es 10.66.0.11, el
@@ -328,7 +351,14 @@ function EnviarAlRouter({ routers }) {
     setTrabajando(true)
     setError(null)
     try {
-      setHecho(await api.mikrotik.redireccionPago(routerId, { destino, puerto }))
+      setHecho(
+        await api.mikrotik.redireccionPago(routerId, {
+          destino,
+          puerto,
+          listaAviso: listaAvisoEfectiva.trim(),
+        }),
+      )
+      if (equipo) equipo.lista_aviso = listaAvisoEfectiva.trim() || null
     } catch (e) {
       setError(e)
     } finally {
@@ -346,7 +376,13 @@ function EnviarAlRouter({ routers }) {
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Router">
-            <Select value={routerId} onChange={(e) => setRouterId(e.target.value)}>
+            <Select
+              value={routerId}
+              onChange={(e) => {
+                setRouterId(e.target.value)
+                setListaAviso(null)
+              }}
+            >
               <option value="">Elegí el router…</option>
               {routers.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -389,6 +425,38 @@ function EnviarAlRouter({ routers }) {
           </p>
         )}
 
+        <Field
+          label="Lista del aviso previo"
+          hint="vacía = este router no muestra aviso previo · al que está por vencer se lo mete acá"
+        >
+          <Input
+            value={listaAvisoEfectiva}
+            onChange={(e) => setListaAviso(e.target.value)}
+            placeholder="AVISO_PAGO"
+            disabled={!equipo}
+            className="max-w-[260px] font-mono"
+          />
+        </Field>
+
+        {equipo && listaAvisoEfectiva.trim() && !avisoIgualAlCorte && (
+          <p className="text-[11px] text-slate-500">
+            <Eye size={12} className="mr-1 inline" />
+            También se crea la redirección del aviso previo para{' '}
+            <b className="font-mono text-slate-400">{listaAvisoEfectiva.trim()}</b>, con su botón
+            «Entendido». Si este router viene de WispHub y usás su misma lista (<b>Aviso</b>), la
+            nuestra se pone delante de la de ellos — pero WispHub va a seguir metiendo y sacando
+            abonados de esa lista mientras esté encendido. Con una lista nueva no se pisan.
+          </p>
+        )}
+
+        {avisoIgualAlCorte && (
+          <Aviso tipo="alerta">
+            <AlertTriangle size={13} className="mr-1 inline" />
+            La lista del aviso no puede ser la misma que la del corte: el que está por vencer quedaría
+            cortado.
+          </Aviso>
+        )}
+
         {esDelRouter && (
           <Aviso tipo="alerta">
             <AlertTriangle size={13} className="mr-1 inline" />
@@ -400,7 +468,7 @@ function EnviarAlRouter({ routers }) {
         <Button
           icon={Wifi}
           cargando={trabajando}
-          disabled={!routerId || !destino || esDelRouter}
+          disabled={!routerId || !destino || esDelRouter || avisoIgualAlCorte}
           onClick={instalar}
         >
           Crear la regla en el router

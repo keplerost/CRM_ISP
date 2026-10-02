@@ -1,7 +1,9 @@
 import express from 'express'
 
-import { db } from './lib/db.js'
-import { armar, html, htmlDesconocido } from './services/paginaCorte.js'
+import { cargarRouter, db } from './lib/db.js'
+import { armar, html, htmlDesconocido, htmlEntendido, RUTA_ENTENDIDO } from './services/paginaCorte.js'
+import { LISTA_AVISO_VISTO } from './services/portalCorte.js'
+import * as mt from './services/mikrotikService.js'
 
 /**
  * El servidor de la página del abonado cortado.
@@ -86,9 +88,78 @@ async function datosPara(ip) {
   }
 }
 
+/**
+ * Cada cuánto vuelve a aparecer el aviso previo. Entre 1 y 72 horas: menos
+ * sería volver al aviso en cada página, y más dejaría pasar la ventana entera
+ * sin volver a verlo.
+ */
+export function horasDePausa(valor) {
+  const n = Math.round(Number(valor))
+  if (!Number.isFinite(n) || n < 1) return 6
+  return Math.min(n, 72)
+}
+
+/**
+ * A dónde mandarlo después de "Entendido": a la página que había pedido.
+ *
+ * Sale del propio pedido —el Host y la ruta que el router redirigió—, así que
+ * solo puede llevarlo a donde él mismo quería ir. Igual se valida: un Host
+ * con caracteres raros armaría un enlace que no se sabe a dónde va.
+ */
+export function volverA(texto) {
+  const v = String(texto ?? '')
+  if (!/^http:\/\/[a-z0-9.-]+(:\d+)?(\/[^\s"'<>]*)?$/i.test(v)) return null
+  return v.slice(0, 500)
+}
+
 export function crearApp() {
   const app = express()
   app.disable('x-powered-by')
+
+  /**
+   * "Entendido": el que está por vencer ya leyó el aviso.
+   *
+   * Se lo mete unas horas en la lista de los que ya lo vieron, y la regla de
+   * delante lo deja pasar. Así el aviso aparece de a ratos y no en cada página.
+   *
+   * No hace falta ninguna sesión: la IP es del socket y solo puede pausar SU
+   * propio aviso. Y a un cortado no se le hace caso — su página no es un aviso
+   * que se pueda cerrar.
+   */
+  app.post(RUTA_ENTENDIDO, express.urlencoded({ extended: false, limit: '4kb' }), async (req, res) => {
+    const ip = ipDelPedido(req)
+    const volver = volverA(req.body?.volver)
+    try {
+      const [rAbonado, rConf] = await Promise.all([
+        db().from('v_corte_abonado').select('id, nombre, router_id, estado, en_aviso_previo').eq('ip', ip).maybeSingle(),
+        db().from('config_corte').select('aviso_pausa_horas').eq('id', 1).maybeSingle(),
+      ])
+      const abonado = rAbonado.data
+      const horas = horasDePausa(rConf.data?.aviso_pausa_horas)
+
+      if (abonado?.en_aviso_previo && abonado.estado !== 'cortado' && abonado.router_id) {
+        const equipo = await cargarRouter(abonado.router_id)
+        try {
+          await mt.bloquearIp(equipo, {
+            address: ip,
+            lista: LISTA_AVISO_VISTO,
+            comment: `Vio el aviso · ${abonado.nombre}`,
+            timeout: `${horas}h`,
+          })
+        } catch (e) {
+          // Tocó dos veces: la entrada ya está y su timeout sigue corriendo.
+          if (!/already have/i.test(e.message)) throw e
+        }
+        console.log(`[corte] ${ip} — ${abonado.nombre} vio el aviso, pausa de ${horas} h`)
+      }
+
+      res.status(200).set('Cache-Control', 'no-store').type('html').send(htmlEntendido({ horas, volver }))
+    } catch (e) {
+      console.error(`[corte] ${ip} — no se pudo pausar el aviso: ${e.message}`)
+      // Lo peor que pasa es que vuelva a ver el aviso. No vale una página de error.
+      res.status(200).set('Cache-Control', 'no-store').type('html').send(htmlEntendido({ horas: null, volver }))
+    }
+  })
 
   app.use(async (req, res) => {
     const ip = ipDelPedido(req)
@@ -172,7 +243,14 @@ export function crearApp() {
         .status(200)
         .set('Cache-Control', 'no-store, no-cache, must-revalidate')
         .type('html')
-        .send(html(datos))
+        .send(
+          html({
+            ...datos,
+            // Lo que había pedido, para devolverlo ahí después de "Entendido".
+            volver: volverA(`http://${req.headers.host ?? ''}${req.originalUrl ?? '/'}`),
+            pausaHoras: horasDePausa(config.aviso_pausa_horas),
+          }),
+        )
     } catch (e) {
       console.error(`[corte] ${ip} — ${e.message}`)
       res.status(500).type('html').send(htmlDesconocido({}))
