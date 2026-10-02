@@ -161,7 +161,15 @@ export default function FichaConsumo({ cliente, onError }) {
           `${r.sin_emparejar} sin cola en su router: revisá que la IP de la ficha coincida con el target de su Simple Queue.`,
         )
       }
-      if (r.fallidos?.length) partes.push(`${r.fallidos.length} con error.`)
+      // Con el motivo: "1 con error" a secas no deja saber si fue el router
+      // entero —que no se pudo leer— o un abonado puntual.
+      if (r.fallidos?.length) {
+        partes.push(
+          `${r.fallidos.length} con error: ${r.fallidos
+            .map((f) => `${f.router ? `router ${f.router}` : f.cliente} — ${f.error}`)
+            .join(' · ')}`,
+        )
+      }
       setAviso(partes.join(' '))
       await recargar()
     } catch (err) {

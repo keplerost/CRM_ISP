@@ -199,6 +199,7 @@ export async function recolectar({ simular = false, fecha = null } = {}) {
     try {
       colas = await mk.listarSimpleQueues(router)
     } catch (err) {
+      console.warn(`[consumo] ${router.nombre}: no se pudieron leer las colas — ${err.message}`)
       resultado.fallidos.push({ router: router.nombre, error: err.message })
       continue
     }
