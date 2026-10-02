@@ -1,4 +1,4 @@
-import { db } from '../lib/db.js'
+import { conClave, db } from '../lib/db.js'
 import * as mk from '../services/mikrotikService.js'
 import { fechaLocal } from './facturacionMensual.js'
 
@@ -197,7 +197,9 @@ export async function recolectar({ simular = false, fecha = null } = {}) {
 
     let colas
     try {
-      colas = await mk.listarSimpleQueues(router)
+      // Dentro del try: una credencial que no se puede descifrar es un router
+      // que no se mide, no una medición que se cae para todos.
+      colas = await mk.listarSimpleQueues(conClave(router))
     } catch (err) {
       console.warn(`[consumo] ${router.nombre}: no se pudieron leer las colas — ${err.message}`)
       resultado.fallidos.push({ router: router.nombre, error: err.message })
@@ -294,7 +296,7 @@ export async function sincronizarSesiones() {
   for (const router of routers ?? []) {
     let activas = []
     try {
-      activas = (await mk.listarPppActive(router)) ?? []
+      activas = (await mk.listarPppActive(conClave(router))) ?? []
     } catch {
       // Sin PPPoE en este router no hay sesiones que seguir. No es un error.
       continue

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { asyncHandler, notFound, badRequest, AppError } from '../lib/errors.js'
 import { requireAuth } from '../lib/auth.js'
-import { db } from '../lib/db.js'
+import { cargarRouter, db } from '../lib/db.js'
 import * as mk from '../services/mikrotikService.js'
 import * as olt from '../services/oltService.js'
 
@@ -39,14 +39,14 @@ async function contexto(clientId) {
   if (error) throw new AppError(`No se pudo leer el cliente: ${error.message}`, { status: 502 })
   if (!cliente) throw notFound('No existe ese cliente')
 
+  // Con la contraseña descifrada: leída directo de la tabla, el MikroTik
+  // rechazaba cada herramienta con "Username or password is invalid".
   let equipo = null
   if (cliente.router_id) {
-    const { data } = await db()
-      .from('routers_mikrotik')
-      .select('*')
-      .eq('id', cliente.router_id)
-      .maybeSingle()
-    equipo = data ?? null
+    equipo = await cargarRouter(cliente.router_id).catch((e) => {
+      if (e?.status === 404) return null
+      throw e
+    })
   }
 
   return { cliente, equipo }

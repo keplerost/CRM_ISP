@@ -50,5 +50,18 @@ export async function cargarRouter(routerId) {
   if (error) throw new AppError(`No se pudo leer el router: ${error.message}`, { status: 502 })
   if (!data) throw notFound(`No existe un router MikroTik con id ${routerId}`)
 
-  return { ...data, password: decrypt(data.password_encrypted) }
+  return conClave(data)
+}
+
+/**
+ * Una fila de `routers_mikrotik`, lista para conectarse.
+ *
+ * En la base la contraseña está cifrada. Leer la fila directo y pasársela al
+ * driver manda la cifrada, y el MikroTik contesta "Username or password is
+ * invalid" — un error que hace buscar el problema en el router, cuando el
+ * router está bien. Pasó con la medición de consumo y con las herramientas de
+ * la ficha. Todo lo que lea routers por su cuenta pasa por acá.
+ */
+export function conClave(fila) {
+  return { ...fila, password: decrypt(fila.password_encrypted) }
 }

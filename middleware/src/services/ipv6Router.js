@@ -1,4 +1,4 @@
-import { db } from '../lib/db.js'
+import { cargarRouter, db } from '../lib/db.js'
 import { AppError } from '../lib/errors.js'
 import * as mt from './mikrotikService.js'
 
@@ -43,11 +43,8 @@ const REGLAS = [
   },
 ]
 
-async function equipo(id) {
-  const { data, error } = await db().from('routers_mikrotik').select('*').eq('id', id).single()
-  if (error || !data) throw new AppError('No se encontró el router', { status: 404 })
-  return data
-}
+/** El router con su contraseña descifrada: con la cifrada, el MikroTik la rechaza. */
+const equipo = (id) => cargarRouter(id)
 
 /**
  * El script de RouterOS equivalente, para poder leerlo antes de aplicarlo.
