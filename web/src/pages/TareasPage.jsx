@@ -168,6 +168,14 @@ export default function TareasPage() {
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
 
+      {datos.apagadas_por_entorno && (
+        <Aviso tipo="alerta">
+          Esta copia del sistema tiene las tareas apagadas por configuración del servidor
+          (TAREAS_APAGADAS). Lo que se guarde acá vale para las demás copias, pero esta no corre
+          ninguna tarea.
+        </Aviso>
+      )}
+
       <form onSubmit={guardar} className="space-y-3">
         {datos.tareas.map((t) => (
           <Tarea

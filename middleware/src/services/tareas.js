@@ -405,12 +405,14 @@ export async function valores() {
  */
 export async function rearrancar() {
   const { efectivo } = await valores()
+  const apagadas = tareasApagadas()
 
   for (const tarea of TAREAS) {
     if (temporizadores[tarea.clave]) {
       clearInterval(temporizadores[tarea.clave])
       delete temporizadores[tarea.clave]
     }
+    if (apagadas) continue
     try {
       const t = tarea.arrancar(efectivo)
       if (t) temporizadores[tarea.clave] = t
@@ -428,11 +430,31 @@ export async function rearrancar() {
   }
 }
 
+/**
+ * Una copia del middleware que solo atiende la API, sin automatismos.
+ *
+ * ── Por qué hace falta ──
+ *
+ * La configuración de las tareas vive en la base, y la base es una sola. Dos
+ * copias del middleware contra la misma base —el servidor y una PC que sigue
+ * atendiendo un túnel— corrían las MISMAS tareas dos veces: dos cortes por
+ * mora, dos facturaciones. Apagarlas desde la pantalla no sirve, porque las
+ * apagaría en las dos.
+ *
+ * Se decide por el entorno de cada copia: `TAREAS_APAGADAS=1` en su .env. Se
+ * mira en cada rearranque, así que tampoco las enciende guardar desde Ajustes.
+ */
+export function tareasApagadas(env = process.env) {
+  return /^(1|true|si|sí)$/i.test(String(env.TAREAS_APAGADAS ?? '').trim())
+}
+
 /** Para la pantalla: qué está corriendo, con qué valores y cuándo corrió. */
 export async function estado() {
   const { efectivo, guardado } = await valores()
 
   return {
+    // La pantalla lo avisa: si no, las tareas se ven encendidas y no corren.
+    apagadas_por_entorno: tareasApagadas(),
     tareas: TAREAS.map((t) => ({
       clave: t.clave,
       nombre: t.nombre,

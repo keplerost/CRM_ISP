@@ -333,3 +333,9 @@ test('el motivo se lee venga como venga', () => {
   assert.equal(r.ejemplos[0].cliente, 'Elsa')
   assert.equal(r.ejemplos[0].motivo, 'sin correo ni celular')
 })
+
+test('TAREAS_APAGADAS deja una copia del middleware sin automatismos', async () => {
+  const { tareasApagadas } = await import('../src/services/tareas.js')
+  for (const v of ['1', 'true', 'TRUE', 'si', 'sí', ' 1 ']) assert.equal(tareasApagadas({ TAREAS_APAGADAS: v }), true, v)
+  for (const v of [undefined, '', '0', 'false', 'no']) assert.equal(tareasApagadas({ TAREAS_APAGADAS: v }), false, String(v))
+})

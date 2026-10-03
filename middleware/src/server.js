@@ -43,7 +43,7 @@ import firmasRoutes, { webhookFirma } from './routes/firmas.routes.js'
 import webhookWhatsappRoutes from './routes/webhookWhatsapp.routes.js'
 import { guardLicencia } from './lib/guardLicencia.js'
 import { programarRenovacion } from './services/licencia.js'
-import { rearrancar as rearrancarTareas } from './services/tareas.js'
+import { rearrancar as rearrancarTareas, tareasApagadas } from './services/tareas.js'
 import { arrancar as arrancarPortalCorte } from './servidorCorte.js'
 
 const app = express()
@@ -359,9 +359,11 @@ app.listen(config.port, () => {
       .then(() => rearrancarTareas())
       .then(({ encendidas }) => {
         console.log(
-          encendidas.length
-            ? `  Automatismos encendidos: ${encendidas.join(' · ')}.`
-            : '  Automatismos: todos apagados (se encienden en Ajustes → Tareas programadas).',
+          tareasApagadas()
+            ? '  Automatismos: APAGADOS en esta copia (TAREAS_APAGADAS en el .env). Solo atiende la API.'
+            : encendidas.length
+              ? `  Automatismos encendidos: ${encendidas.join(' · ')}.`
+              : '  Automatismos: todos apagados (se encienden en Ajustes → Tareas programadas).',
         )
       })
       .catch((err) => console.error('  No se pudieron arrancar los automatismos:', err.message))
