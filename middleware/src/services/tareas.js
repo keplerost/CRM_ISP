@@ -446,6 +446,13 @@ export async function estado() {
       desde_archivo: guardado[llaveActiva(t)] == null,
     })),
     valores: efectivo,
+    // El detalle de la última medición de subida: es lo que dice por qué no se
+    // mide a alguien (sin cola, sin límite, primera lectura).
+    subida: estadoSubida?.ultimaCorrida
+      ? { ...(estadoSubida.ultimoResultado ?? {}), error: estadoSubida.error ?? null }
+      : estadoSubida?.error
+        ? { error: estadoSubida.error }
+        : null,
     ultimas_corridas: {
       cortes: estadoCortes?.ultimaCorrida ?? null,
       facturacion: estadoFacturacion?.ultimaCorrida ?? null,

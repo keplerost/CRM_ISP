@@ -189,7 +189,20 @@ export function textoCampana({ etiqueta, detalle: d = {} }) {
 let previas = new Map()
 
 export async function ejecutarSubida({ ahora = new Date(), intervaloMs = 5 * 60_000 } = {}) {
-  const resultado = { medidos: 0, saturados: 0, abiertos: 0, confirmados: 0, cerrados: 0, fallidos: [] }
+  const resultado = {
+    routers: 0,
+    activos: 0,
+    emparejados: 0,
+    sin_limite: 0,
+    primera_lectura: 0,
+    medidos: 0,
+    saturados: 0,
+    abiertos: 0,
+    confirmados: 0,
+    cerrados: 0,
+    en_curso: 0,
+    fallidos: [],
+  }
 
   const { data: regla, error: eRegla } = await db()
     .from('alerta_reglas').select('*').eq('clave', REGLA).maybeSingle()
@@ -204,6 +217,9 @@ export async function ejecutarSubida({ ahora = new Date(), intervaloMs = 5 * 60_
     .select('id, nombre, codigo, ip, usuario_ppp, router_id, estado, zona')
     .eq('estado', 'activo')
 
+  resultado.routers = routers?.length ?? 0
+  resultado.activos = clientes?.length ?? 0
+
   const lecturas = []
   for (const router of routers ?? []) {
     const suyos = (clientes ?? []).filter((c) => c.router_id === router.id)
@@ -216,6 +232,14 @@ export async function ejecutarSubida({ ahora = new Date(), intervaloMs = 5 * 60_
       resultado.fallidos.push({ router: router.nombre, error: err.message })
     }
   }
+
+  /* Lo que se cuenta para la pantalla: es lo que dice POR QUÉ no se midió a
+     alguien. Sin cola emparejada, sin límite, o es la primera lectura. */
+  resultado.emparejados = lecturas.length
+  resultado.sin_limite = lecturas.filter((l) => !limiteSubida(l.cola)).length
+  resultado.primera_lectura = lecturas.filter(
+    (l) => limiteSubida(l.cola) && previas.get(l.client_id)?.origen !== l.origen,
+  ).length
 
   const medicion = medir(lecturas, previas, ahora.getTime(), intervaloMs)
   previas = medicion.previas
@@ -261,6 +285,9 @@ export async function ejecutarSubida({ ahora = new Date(), intervaloMs = 5 * 60_
       .eq('id', r.id)
     resultado.cerrados++
   }
+
+  resultado.en_curso =
+    (abiertos?.length ?? 0) + resultado.abiertos - plan.borrar.length - plan.resolver.length
 
   if (plan.confirmar.length) {
     const { data: usuarios } = await db()

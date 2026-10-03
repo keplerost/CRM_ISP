@@ -176,6 +176,7 @@ export default function TareasPage() {
             form={form}
             set={set}
             ultima={datos.ultimas_corridas?.[t.clave]}
+            subida={datos.subida}
           />
         ))}
 
@@ -191,7 +192,55 @@ export default function TareasPage() {
   )
 }
 
-function Tarea({ tarea, form, set, ultima }) {
+/**
+ * Qué pasó en la última medición de subida.
+ *
+ * Sin esto la tarea solo decía "corriendo" y una hora, y no había forma de
+ * saber si medía a alguien. Los números están en el orden en que alguien se
+ * cae del embudo: activo → con cola → con límite → medido.
+ */
+function SubidaResumen({ r }) {
+  if (!r) return null
+  if (r.error && r.medidos == null) {
+    return <p className="mt-2 text-xs text-red-400">Falló la última medición: {r.error}</p>
+  }
+
+  const fila = (etiqueta, valor, tono = 'text-slate-200') => (
+    <div className="rounded-lg bg-slate-800/60 px-3 py-2">
+      <p className={`text-base font-bold leading-none ${tono}`}>{valor ?? 0}</p>
+      <p className="mt-1 text-[11px] text-slate-500">{etiqueta}</p>
+    </div>
+  )
+
+  let pista = null
+  if (!r.activos) pista = 'No hay abonados activos con router asignado.'
+  else if (!r.emparejados)
+    pista = 'Ninguna cola del router coincide con un abonado: la cola tiene que apuntar a la IP del abonado, o llamarse <pppoe-usuario> con el usuario PPPoE de su ficha.'
+  else if (r.sin_limite === r.emparejados)
+    pista = 'Las colas encontradas no tienen límite de subida (Max Limit), y sin límite no hay contra qué comparar.'
+  else if (!r.medidos && r.primera_lectura)
+    pista = 'Primera lectura: se fijó el punto de partida. Desde la próxima corrida ya se mide la velocidad.'
+
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {fila('activos con router', r.activos)}
+        {fila('con cola en el router', r.emparejados)}
+        {fila('cola sin límite de subida', r.sin_limite, r.sin_limite ? 'text-amber-400' : 'text-slate-200')}
+        {fila('medidos', r.medidos, 'text-sky-400')}
+        {fila('saturando ahora', r.en_curso, r.en_curso ? 'text-red-400' : 'text-emerald-400')}
+      </div>
+      {pista && <p className="text-xs text-slate-400">{pista}</p>}
+      {r.fallidos?.length > 0 && (
+        <p className="text-xs text-amber-400">
+          No se pudo leer: {r.fallidos.map((f) => `${f.router} (${f.error})`).join(' · ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function Tarea({ tarea, form, set, ultima, subida }) {
   const encendida = Boolean(form[LLAVE[tarea.clave]])
 
   return (
@@ -254,6 +303,7 @@ function Tarea({ tarea, form, set, ultima }) {
               </>
             )}
             {tarea.clave === 'mora' && <MoraPrueba />}
+            {tarea.clave === 'subida' && <SubidaResumen r={subida} />}
 
             {encendida && CAMPOS[tarea.clave] && (
               <div className="mt-3 flex flex-wrap gap-3">
