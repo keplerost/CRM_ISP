@@ -443,9 +443,21 @@ export async function rearrancar() {
  *
  * Se decide por el entorno de cada copia: `TAREAS_APAGADAS=1` en su .env. Se
  * mira en cada rearranque, así que tampoco las enciende guardar desde Ajustes.
+ *
+ * ── Solo fuera de producción ──
+ *
+ * Es una herramienta de la PC de desarrollo, no una opción del sistema. Una
+ * instalación de producción —la de cada ISP, que arranca con
+ * NODE_ENV=production desde deploy/— la IGNORA: ahí un .env copiado de otro
+ * lado o una línea escrita sin querer dejaría a un ISP sin cortes, sin
+ * facturación y sin alertas, y nadie lo notaría hasta fin de mes.
  */
-export function tareasApagadas(env = process.env) {
+export function pidieronApagarTareas(env = process.env) {
   return /^(1|true|si|sí)$/i.test(String(env.TAREAS_APAGADAS ?? '').trim())
+}
+
+export function tareasApagadas(env = process.env) {
+  return env.NODE_ENV !== 'production' && pidieronApagarTareas(env)
 }
 
 /** Para la pantalla: qué está corriendo, con qué valores y cuándo corrió. */

@@ -170,9 +170,8 @@ export default function TareasPage() {
 
       {datos.apagadas_por_entorno && (
         <Aviso tipo="alerta">
-          Esta copia del sistema tiene las tareas apagadas por configuración del servidor
-          (TAREAS_APAGADAS). Lo que se guarde acá vale para las demás copias, pero esta no corre
-          ninguna tarea.
+          Esta es una copia de desarrollo con las tareas apagadas (TAREAS_APAGADAS). Lo que se
+          guarde acá vale para el servidor, pero esta copia no corre ninguna tarea.
         </Aviso>
       )}
 

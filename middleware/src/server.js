@@ -43,7 +43,7 @@ import firmasRoutes, { webhookFirma } from './routes/firmas.routes.js'
 import webhookWhatsappRoutes from './routes/webhookWhatsapp.routes.js'
 import { guardLicencia } from './lib/guardLicencia.js'
 import { programarRenovacion } from './services/licencia.js'
-import { rearrancar as rearrancarTareas, tareasApagadas } from './services/tareas.js'
+import { rearrancar as rearrancarTareas, tareasApagadas, pidieronApagarTareas } from './services/tareas.js'
 import { arrancar as arrancarPortalCorte } from './servidorCorte.js'
 
 const app = express()
@@ -356,7 +356,12 @@ app.listen(config.port, () => {
     cargarZona()
       .catch((err) => console.warn('  No se pudo leer la zona horaria:', err.message))
       .then(() => console.log(`  Zona horaria: ${process.env.TZ}.`))
-      .then(() => rearrancarTareas())
+      .then(() => {
+        if (pidieronApagarTareas() && !tareasApagadas()) {
+          console.warn('  TAREAS_APAGADAS se ignora en producción: los automatismos corren igual.')
+        }
+        return rearrancarTareas()
+      })
       .then(({ encendidas }) => {
         console.log(
           tareasApagadas()

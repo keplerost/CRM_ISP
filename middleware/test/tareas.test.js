@@ -334,8 +334,15 @@ test('el motivo se lee venga como venga', () => {
   assert.equal(r.ejemplos[0].motivo, 'sin correo ni celular')
 })
 
-test('TAREAS_APAGADAS deja una copia del middleware sin automatismos', async () => {
+test('TAREAS_APAGADAS deja una copia de desarrollo sin automatismos', async () => {
   const { tareasApagadas } = await import('../src/services/tareas.js')
   for (const v of ['1', 'true', 'TRUE', 'si', 'sí', ' 1 ']) assert.equal(tareasApagadas({ TAREAS_APAGADAS: v }), true, v)
   for (const v of [undefined, '', '0', 'false', 'no']) assert.equal(tareasApagadas({ TAREAS_APAGADAS: v }), false, String(v))
+})
+
+test('en producción TAREAS_APAGADAS se ignora: un ISP no puede quedarse sin tareas por error', async () => {
+  const { tareasApagadas, pidieronApagarTareas } = await import('../src/services/tareas.js')
+  const env = { NODE_ENV: 'production', TAREAS_APAGADAS: '1' }
+  assert.equal(pidieronApagarTareas(env), true)
+  assert.equal(tareasApagadas(env), false)
 })
