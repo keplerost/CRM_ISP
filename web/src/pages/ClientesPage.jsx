@@ -119,8 +119,17 @@ export default function ClientesPage() {
     setError,
   } = useTabla('v_clientes_ficha', { orderBy: 'codigo', ascending: true })
 
+  const [params] = useSearchParams()
   const [busqueda, setBusqueda] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
+  /* Estado y router se pueden sembrar desde la URL: las tarjetas de "Clientes
+     por router" del panel enlazan con `?router=<id>&estado=<estado>` para abrir
+     exactamente a la gente que contaron. Los estados desconocidos se ignoran:
+     un enlace viejo no puede dejar la lista vacía sin explicación. */
+  const [filtroEstado, setFiltroEstado] = useState(() => {
+    const e = params.get('estado') ?? ''
+    return ['activo', 'cortado', 'suspendido', 'baja'].includes(e) ? e : ''
+  })
+  const [filtroRouter, setFiltroRouter] = useState(() => params.get('router') ?? '')
 
   /**
    * "Solo deuda vencida", encendible desde la URL.
@@ -138,7 +147,6 @@ export default function ClientesPage() {
    * `si` se sigue aceptando: es como se llamaba antes y puede haber un enlace
    * guardado. Cuesta una comparación y evita que ese enlace abra sin filtro.
    */
-  const [params] = useSearchParams()
   const [soloVencida, setSoloVencida] = useState(() =>
     ['vencida', 'si'].includes(params.get('deuda')),
   )
@@ -263,6 +271,7 @@ export default function ClientesPage() {
           filtrarAbonados(clientes, {
             busqueda,
             estado: filtroEstado,
+            router: filtroRouter,
             vencidos: soloVencida ? vencidos : null,
           }),
           filtrosVigentes,
@@ -271,7 +280,18 @@ export default function ClientesPage() {
         { campo, valor },
         ctx,
       ),
-    [clientes, busqueda, filtroEstado, soloVencida, vencidos, filtrosVigentes, campo, valor, ctx],
+    [
+      clientes,
+      busqueda,
+      filtroEstado,
+      filtroRouter,
+      soloVencida,
+      vencidos,
+      filtrosVigentes,
+      campo,
+      valor,
+      ctx,
+    ],
   )
 
   /* El orden lo manda el catálogo, no el orden en que se marcaron: si no, la
@@ -290,7 +310,7 @@ export default function ClientesPage() {
    */
   useEffect(
     () => setPagina(1),
-    [busqueda, filtroEstado, soloVencida, filtrosVigentes, campo, valor, porPagina],
+    [busqueda, filtroEstado, filtroRouter, soloVencida, filtrosVigentes, campo, valor, porPagina],
   )
 
   /* Y si la lista se achicó por debajo de la página en la que estábamos —se
@@ -474,6 +494,24 @@ export default function ClientesPage() {
                   <DollarSign size={13} />
                   Deuda vencida
                 </button>
+
+                {/* El filtro por router solo llega desde la URL (las tarjetas
+                    del panel), así que se muestra mientras está puesto y se
+                    quita con un clic: si no, la lista recortada no tendría
+                    nada en pantalla que la explique. */}
+                {filtroRouter && (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroRouter('')}
+                    title="Quitar el filtro por router"
+                    className="flex shrink-0 items-center gap-1.5 rounded-xl bg-[#F0F9FF] px-3 py-1.5 text-xs font-semibold text-sky-400 transition hover:text-sky-300"
+                  >
+                    Router:{' '}
+                    {clientes.find((c) => String(c.router_id) === filtroRouter)?.router ??
+                      'sin clientes'}
+                    <X size={13} />
+                  </button>
+                )}
 
                 {/* `ml-auto` lo empuja hasta el borde derecho de la fila. */}
                 <div className="ml-auto w-56 shrink-0">

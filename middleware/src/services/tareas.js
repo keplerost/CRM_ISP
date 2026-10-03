@@ -16,6 +16,8 @@ import { programarPausasVencidas } from './pausasVencidas.js'
 import { programarAvisosPago, estadoAvisosPago } from './avisosPago.js'
 import { programarCorteMora, estadoMora } from './corteMora.js'
 import { programarFirmas, estadoFirmas } from './firmasProgramadas.js'
+import { programarFotoRouters, estadoFotoRouters } from './fotoRouters.js'
+import { programarSubida, estadoSubida } from './subidaSaturada.js'
 
 /**
  * Los automatismos: qué corre solo, cada cuánto y a qué hora.
@@ -213,6 +215,26 @@ export const TAREAS = [
       programarPausasVencidas({ activo: v.pausas_automatico, hora: v.pausas_hora, ...extra }),
   },
   {
+    clave: 'foto_routers',
+    nombre: 'Foto mensual por router',
+    que: 'Anota cuántos activos, cortados y pausados tiene cada router, y cuánto se le debe. Es lo que alimenta el reporte de crecimiento mes a mes.',
+    cuidado:
+      'Solo lee y escribe su propia tabla: no toca routers ni abonados. Apagada, el reporte queda con meses sin datos de morosos que después no se pueden recuperar.',
+    tipo: 'diaria',
+    arrancar: (v, extra) =>
+      programarFotoRouters({ activo: v.foto_routers_automatico, hora: v.foto_routers_hora, ...extra }),
+  },
+  {
+    clave: 'subida',
+    nombre: 'Subida saturada',
+    que: 'Mide la subida de cada abonado en las colas del router y avisa por la campana —y por los destinos de Alertas— cuando alguien la satura de forma sostenida.',
+    cuidado:
+      'Solo lee las colas: no corta ni limita a nadie. El porcentaje y los minutos se ajustan en Ajustes → Alertas, regla "Subida saturada". Para que salga por WhatsApp o Telegram también tiene que estar encendida la tarea de alertas.',
+    tipo: 'intervalo',
+    arrancar: (v, extra) =>
+      v.subida_automatico ? programarSubida({ cada_minutos: v.subida_cada_minutos, ...extra }) : null,
+  },
+  {
     clave: 'stock',
     nombre: 'Aviso de material por acabarse',
     que: 'Revisa el stock de cada bodega y de cada técnico, y avisa de lo que está en el mínimo o por debajo.',
@@ -269,6 +291,14 @@ const DEL_ARCHIVO = () => ({
   // sin servicio y sin facturar durante meses.
   pausas_automatico: true,
   pausas_hora: '08:00',
+  // Encendida, por lo mismo: solo lee y anota. Y tarde, porque la foto del
+  // último día del mes es la que queda como cierre.
+  foto_routers_automatico: true,
+  foto_routers_hora: '23:30',
+  // Encendida: solo lee las colas, una consulta por router. Cinco minutos es
+  // lo bastante fino para ver algo sostenido sin cargar el equipo.
+  subida_automatico: true,
+  subida_cada_minutos: 5,
   // Apagada hasta que los mínimos estén cargados: encendida sin mínimos no
   // avisa de nada, y con mínimos mal puestos avisa todos los días de lo mismo
   // hasta que dejan de mirarse.
@@ -426,6 +456,8 @@ export async function estado() {
       avisos_pago: estadoAvisosPago?.ultimaCorrida ?? null,
       mora: estadoMora?.ultimaCorrida ?? null,
       firmas: estadoFirmas?.ultimaCorrida ?? null,
+      foto_routers: estadoFotoRouters?.ultimaCorrida ?? null,
+      subida: estadoSubida?.ultimaCorrida ?? null,
     },
 
     /**

@@ -33,6 +33,8 @@ const CAMPOS = {
   comisiones: [{ campo: 'comisiones_hora', label: 'Hora', tipo: 'hora' }],
   cartera: [{ campo: 'cartera_hora', label: 'Hora', tipo: 'hora' }],
   stock: [{ campo: 'stock_hora', label: 'Hora', tipo: 'hora' }],
+  foto_routers: [{ campo: 'foto_routers_hora', label: 'Hora', tipo: 'hora' }],
+  subida: [{ campo: 'subida_cada_minutos', label: 'Cada (minutos)', tipo: 'numero' }],
   avisos_pago: [{ campo: 'avisos_pago_hora', label: 'Hora', tipo: 'hora' }],
   mora: [
     { campo: 'mora_hora', label: 'Hora', tipo: 'hora' },
@@ -93,6 +95,8 @@ const LLAVE = {
   cartera: 'cartera_automatico',
   alertas: 'alertas_automaticas',
   pausas: 'pausas_automatico',
+  foto_routers: 'foto_routers_automatico',
+  subida: 'subida_automatico',
   stock: 'stock_automatico',
   avisos_pago: 'avisos_pago_automatico',
   mora: 'mora_automatico',

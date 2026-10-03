@@ -38,6 +38,7 @@ import corteRoutes from './routes/corte.routes.js'
 import personalRoutes from './routes/personal.routes.js'
 import reemplazosRoutes from './routes/reemplazos.routes.js'
 import documentosRoutes from './routes/documentos.routes.js'
+import reportesRoutes from './routes/reportes.routes.js'
 import firmasRoutes, { webhookFirma } from './routes/firmas.routes.js'
 import webhookWhatsappRoutes from './routes/webhookWhatsapp.routes.js'
 import { guardLicencia } from './lib/guardLicencia.js'
@@ -235,6 +236,7 @@ app.use('/api/alertas', alertasRoutes)
 app.use('/api/actas', actasRoutes)
 app.use('/api/corte', corteRoutes)
 app.use('/api/documentos', documentosRoutes)
+app.use('/api/reportes', reportesRoutes)
 app.use('/api/firmas', firmasRoutes)
 
 app.use((req, res) => {

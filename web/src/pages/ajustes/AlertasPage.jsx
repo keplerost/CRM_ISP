@@ -383,7 +383,13 @@ function Regla({ r, onGuardar }) {
         abonados: r.clave === 'corte_grupo' ? Number(umbral) || 3 : 1,
         zona: 'Centro',
         empezo_en: new Date(Date.now() - 12 * 60000),
-        detalle: { codigo: 132, rx_dbm: Number(umbral) || -27 },
+        detalle: {
+          codigo: 132,
+          rx_dbm: Number(umbral) || -27,
+          ultimo_mbps: 9.4,
+          limite_mbps: 10,
+          ultimo_pct: Math.max(Number(umbral) || 80, 94),
+        },
       }),
     [r.clave, r.nombre, umbral],
   )

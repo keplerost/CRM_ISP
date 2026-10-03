@@ -153,6 +153,9 @@ const RUTAS = [
   ['/conciliacion', 'finanzas.conciliacion'],
   ['/arcotel', 'finanzas.reporte_arcotel'],
   ['/estadisticas', ['reportes.ver', 'finanzas.reportes']],
+  // Lee la cartera entera por router: es un reporte de gestión, no una pantalla
+  // de trabajo diario.
+  ['/reportes/crecimiento-routers', ['reportes.ver', 'finanzas.reportes']],
   ['/facturacion', 'facturacion.ver'],
 
   // Soporte. Técnicos y cuadrillas es gestión de gente, no de tickets: quien

@@ -700,6 +700,12 @@ export const api = {
     probarSmtp: (datos) => post('/api/sri/probar-smtp', datos),
   },
 
+  /** Reportes de gestión que se bajan como archivo (Excel o PDF). */
+  reportes: {
+    crecimientoRouters: (query = '') =>
+      archivo(`/api/reportes/crecimiento-routers${query ? `?${query}` : ''}`),
+  },
+
   pagos: {
     /**
      * El comprobante que se le entrega al cliente por un cobro.

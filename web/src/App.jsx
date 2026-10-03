@@ -59,6 +59,7 @@ const ConciliacionPage = lazy(() => import('./pages/ConciliacionPage'))
 const ArcotelPage = lazy(() => import('./pages/ArcotelPage'))
 const RecaudacionPage = lazy(() => import('./pages/recaudacion/InicioPage'))
 const EstadisticasPage = lazy(() => import('./pages/EstadisticasPage'))
+const CrecimientoRoutersPage = lazy(() => import('./pages/CrecimientoRoutersPage'))
 const SoportePage = lazy(() => import('./pages/SoportePage'))
 const TicketPage = lazy(() => import('./pages/TicketPage'))
 const TecnicosPage = lazy(() => import('./pages/TecnicosPage'))
@@ -356,6 +357,7 @@ export default function App() {
         <Route path="arcotel" element={<ArcotelPage />} />
         <Route path="recaudacion" element={<RecaudacionPage />} />
         <Route path="estadisticas" element={<EstadisticasPage />} />
+        <Route path="reportes/crecimiento-routers" element={<CrecimientoRoutersPage />} />
 
         <Route path="soporte" element={<SoportePage />} />
         <Route path="soporte/tecnicos" element={<TecnicosPage />} />

@@ -20,6 +20,7 @@ import {
   WifiOff,
   XCircle,
   PauseCircle,
+  Router as RouterIcon,
 } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
@@ -211,6 +212,240 @@ const Vacio = ({ icon: Icon = CheckCircle2, titulo, sub }) => (
   </div>
 )
 
+/**
+ * Clientes por router: una tarjeta por cada RB cargado.
+ *
+ * Se arma con los routers de la base y el estado de cada abonado, no leyendo
+ * los equipos: es lo que el sistema dice que tiene que pasar, y no depende de
+ * que el RB conteste. Agregar un router en el módulo de red le hace aparecer
+ * su tarjeta acá sin tocar nada.
+ *
+ * `cortado` y `suspendido` van separados porque dicen cosas distintas: el
+ * primero es por deuda (y es lo que deja el botón "Suspender servicio"), el
+ * segundo es una pausa o un secret deshabilitado que llegó al importar. Los
+ * retirados (`baja`) no cuentan: ya no son abonados de ese router.
+ *
+ * Cada número abre el listado con el router y el estado ya filtrados.
+ *
+ * ── La deuda ──
+ *
+ * "Por cobrar" es el saldo de todas las facturas impagas de los abonados del
+ * router; "vencido" es solo el de las que ya pasaron su vencimiento, con la
+ * misma regla que `clientesConVencido`. El vencido abre el listado con
+ * `?deuda=vencida`, que es el filtro que ya usa la tarjeta de cartera.
+ * Los retirados tampoco suman acá: lo suyo es cobranza de baja, no del sector.
+ */
+const VISIBLES_DE_ENTRADA = 6
+
+const ORDENES = [
+  ['servicio', 'Más sin servicio'],
+  ['deuda', 'Más deuda vencida'],
+]
+
+function ClientesPorRouter({ routers, clientes, facturas, salud, verRouters, verCrecimiento }) {
+  const [todos, setTodos] = useState(false)
+  const [orden, setOrden] = useState('servicio')
+
+  const { tarjetas, sinRouter } = useMemo(() => {
+    const cuenta = new Map(
+      routers.map((r) => [
+        r.id,
+        {
+          id: r.id,
+          nombre: r.nombre,
+          habilitado: r.activo !== false,
+          activo: 0,
+          cortado: 0,
+          suspendido: 0,
+          porCobrar: 0,
+          vencido: 0,
+        },
+      ]),
+    )
+    const routerDe = new Map()
+    let sinRouter = 0
+    for (const c of clientes) {
+      if (!['activo', 'cortado', 'suspendido'].includes(c.estado)) continue
+      const r = cuenta.get(c.router_id)
+      if (r) {
+        r[c.estado] += 1
+        routerDe.set(c.id, r)
+      } else sinRouter += 1
+    }
+
+    const hoy = fechaLocal()
+    for (const f of facturas) {
+      const saldo = Number(f.saldo ?? 0)
+      const r = routerDe.get(f.client_id)
+      if (!r || !(saldo > 0)) continue
+      r.porCobrar += saldo
+      if (f.fecha_vencimiento && f.fecha_vencimiento < hoy) r.vencido += saldo
+    }
+
+    const sinServicio = (r) => r.cortado + r.suspendido
+    const criterio =
+      orden === 'deuda'
+        ? (a, b) => b.vencido - a.vencido || b.porCobrar - a.porCobrar
+        : (a, b) => sinServicio(b) - sinServicio(a) || b.vencido - a.vencido
+    const tarjetas = [...cuenta.values()].sort(
+      (a, b) => criterio(a, b) || String(a.nombre).localeCompare(String(b.nombre)),
+    )
+    return { tarjetas, sinRouter }
+  }, [routers, clientes, facturas, orden])
+
+  const enPantalla = todos ? tarjetas : tarjetas.slice(0, VISIBLES_DE_ENTRADA)
+  const filtro = (id, estado) =>
+    `/clientes?router=${encodeURIComponent(id)}${estado ? `&estado=${estado}` : ''}`
+  const conVencido = (id) => `/clientes?router=${encodeURIComponent(id)}&deuda=vencida`
+
+  return (
+    <Seccion
+      titulo="Clientes por router"
+      subtitulo="Activos, cortados y pausados de cada MikroTik"
+      a={verRouters ? '/red/routers' : null}
+      etiquetaEnlace="Ver routers"
+    >
+      {tarjetas.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-1" role="group" aria-label="Ordenar routers">
+          {ORDENES.map(([clave, etiqueta]) => (
+            <button
+              key={clave}
+              type="button"
+              onClick={() => setOrden(clave)}
+              aria-pressed={orden === clave}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                orden === clave
+                  ? 'bg-[#F0F9FF] text-sky-400'
+                  : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'
+              }`}
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      )}
+      {tarjetas.length === 0 ? (
+        <Vacio
+          icon={RouterIcon}
+          titulo="No hay routers cargados"
+          sub="Registrá el primero en Red → Routers"
+        />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {enPantalla.map((r) => {
+              const total = r.activo + r.cortado + r.suspendido
+              const pct = total ? Math.round((r.activo / total) * 100) : 0
+              const estado = salud?.[r.id]
+              return (
+                <div key={r.id} className={`t-panel p-4 ${r.habilitado ? '' : 'opacity-60'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      to={filtro(r.id)}
+                      className="t-titulo min-w-0 truncate text-[13px] font-bold text-slate-100 hover:text-sky-400"
+                    >
+                      {r.nombre}
+                    </Link>
+                    {estado && (
+                      <span
+                        className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                          estado === 'online' ? 'bg-emerald-500' : 'bg-red-500'
+                        }`}
+                        title={estado === 'online' ? 'Responde' : 'No responde'}
+                      />
+                    )}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {[
+                      ['activo', 'activos', r.activo, 'text-emerald-400'],
+                      ['cortado', 'cortados', r.cortado, 'text-red-400'],
+                      ['suspendido', 'pausados', r.suspendido, 'text-amber-400'],
+                    ].map(([clave, etiqueta, n, color]) => (
+                      <Link
+                        key={clave}
+                        to={filtro(r.id, clave)}
+                        className="rounded-lg px-1 py-1 transition hover:bg-slate-800"
+                      >
+                        <p
+                          className={`t-dato text-lg font-bold leading-none ${n ? color : 'text-slate-500'}`}
+                        >
+                          {numero(n)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500">{etiqueta}</p>
+                      </Link>
+                    ))}
+                  </div>
+
+                  {/* La barra dice lo mismo que los números; va oculta para
+                      lectores de pantalla porque ya está escrito arriba. */}
+                  <div className="mt-3 flex items-center gap-2">
+                    <div
+                      className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800"
+                      aria-hidden="true"
+                    >
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="t-dato text-[11px] text-slate-500">
+                      {total ? `${pct}% con servicio` : 'sin clientes'}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-end justify-between gap-2 border-t border-[rgba(15,23,42,0.06)] pt-3">
+                    <div>
+                      <p className="t-dato text-sm font-bold leading-none text-slate-100">
+                        {moneda(r.porCobrar)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">por cobrar</p>
+                    </div>
+                    {r.vencido > 0 ? (
+                      <Link
+                        to={conVencido(r.id)}
+                        className="rounded-lg px-1 py-0.5 text-right transition hover:bg-slate-800"
+                      >
+                        <p className="t-dato text-sm font-bold leading-none text-red-400">
+                          {moneda(r.vencido)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-500">vencido</p>
+                      </Link>
+                    ) : (
+                      <p className="text-[11px] text-emerald-400">sin deuda vencida</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+            <span>
+              {sinRouter > 0 &&
+                `${numero(sinRouter)} abonado${sinRouter === 1 ? '' : 's'} sin router asignado`}
+            </span>
+            {tarjetas.length > VISIBLES_DE_ENTRADA && (
+              <button
+                type="button"
+                onClick={() => setTodos((t) => !t)}
+                className="rounded-lg px-2 py-1 font-semibold text-sky-400 transition hover:bg-[#F0F9FF]"
+              >
+                {todos ? 'Ver menos' : `Ver los ${tarjetas.length} routers`}
+              </button>
+            )}
+            {verCrecimiento && (
+              <Link
+                to="/reportes/crecimiento-routers"
+                className="ml-auto rounded-lg px-2 py-1 font-semibold text-sky-400 transition hover:bg-[#F0F9FF]"
+              >
+                Ver crecimiento mes a mes →
+              </Link>
+            )}
+          </div>
+        </>
+      )}
+    </Seccion>
+  )
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    EL PANEL
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -233,6 +468,7 @@ export default function Dashboard() {
    * un cartel rojo porque se cayó la API sería una alarma sobre la alarma.
    */
   const [problemas, setProblemas] = useState(null)
+  const [saludRouters, setSaludRouters] = useState(null)
 
   useEffect(() => {
     let vivo = true
@@ -249,7 +485,7 @@ export default function Dashboard() {
       supabase.from('v_tickets').select('*').order('created_at', { ascending: false }).limit(80),
       supabase.from('v_pagos').select('*').order('created_at', { ascending: false }).limit(12),
       supabase.from('v_facturas_por_cobrar').select('client_id, saldo, fecha_vencimiento'),
-      supabase.from('v_clientes_ficha').select('id, estado'),
+      supabase.from('v_clientes_ficha').select('id, estado, router_id'),
       /* La MISMA vista y el MISMO filtro que usa el listado de ONUs.
          `senal_baja` se calcula en la base —migración 44— justamente para que
          la regla viva en un solo lugar: si el umbral cambia, cambia para el
@@ -284,6 +520,8 @@ export default function Dashboard() {
         .lt('suspendido_hasta', hoy)
         .order('suspendido_hasta')
         .limit(6),
+      // Solo lo que se dibuja: la tabla también guarda la clave del equipo.
+      supabase.from('routers_mikrotik').select('id, nombre, activo').order('nombre'),
     ]
 
     Promise.allSettled(consultas).then((res) => {
@@ -317,8 +555,19 @@ export default function Dashboard() {
         expedientes: filas(9),
         pausadosVencidos: filas(10),
         pausadosVencidosTotal: cuantas(10),
+        routers: filas(11),
       })
     })
+
+    /* Si cada router responde o no. Va aparte y sin esperar: consulta los
+       equipos en vivo y uno caído tarda en contestar. Mientras no llega, las
+       tarjetas se dibujan igual, solo que sin el puntito de estado. */
+    api.ipam
+      .saludRouters()
+      .then(
+        (f) => vivo && setSaludRouters(Object.fromEntries((f ?? []).map((r) => [r.id, r.estado]))),
+      )
+      .catch(() => {})
 
     api.tareas
       .estado()
@@ -456,6 +705,17 @@ export default function Dashboard() {
       {/* El resumen de áreas que ya existía. Es otra pregunta —qué pasó hoy en
           ventas y en campo, con el detalle a un clic— y sigue siendo suya. */}
       <ResumenAreas />
+
+      {abre('/clientes') && (
+        <ClientesPorRouter
+          routers={d.routers}
+          clientes={d.clientes}
+          facturas={d.facturas}
+          salud={saludRouters}
+          verRouters={abre('/red/routers')}
+          verCrecimiento={abre('/reportes/crecimiento-routers')}
+        />
+      )}
 
       {/* ── Red ────────────────────────────────────────────────────────── */}
       <div className="grid gap-5 lg:grid-cols-3">

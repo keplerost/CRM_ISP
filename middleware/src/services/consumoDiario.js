@@ -138,6 +138,8 @@ export function emparejar(colas = [], clientes = []) {
       origen: nombre || objetivo,
       subida: rx,
       bajada: tx,
+      // La cola entera: la medición de subida saturada necesita su límite.
+      cola: q,
     })
   }
 

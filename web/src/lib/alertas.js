@@ -17,6 +17,7 @@ const ICONO = {
   ont_caida: '⚠️',
   potencia_critica: '🟡',
   degradacion: '🟡',
+  subida_saturada: '⬆️',
 }
 
 const hora = (f) => {
@@ -100,6 +101,27 @@ export function textoAlerta(evento, ahora = new Date()) {
       .join('\n')
   }
 
+  /*
+   * La subida saturada no es una avería: es un abonado que llena su propia
+   * subida. El texto lo dice de entrada, para que quien atiende la llamada de
+   * "anda lento" sepa qué contestar.
+   */
+  if (e.regla === 'subida_saturada') {
+    const d = e.detalle ?? {}
+    const identidad = d.codigo != null ? ` (${String(d.codigo).padStart(6, '0')})` : ''
+    const mbps = (n) => Number(n ?? 0).toLocaleString('es-EC', { maximumFractionDigits: 1 })
+    return [
+      `${icono} Subida saturada — ${e.etiqueta ?? 'abonado'}${identidad}`,
+      d.ultimo_mbps != null && d.limite_mbps != null
+        ? `${mbps(d.ultimo_mbps)} de ${mbps(d.limite_mbps)} Mbps (${Math.round(d.ultimo_pct ?? 0)}%) desde las ${hora(e.empezo_en)} (${haceCuanto(e.empezo_en, ahora)})`
+        : `Desde las ${hora(e.empezo_en)} (${haceCuanto(e.empezo_en, ahora)})`,
+      'Es tráfico que sale de su casa: se le va a notar lento para todo.',
+      e.zona ? `Zona: ${e.zona}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
   if (e.regla === 'degradacion') {
     return [
       `${icono} Señal bajando — ${e.etiqueta ?? 'abonado'}`,
@@ -170,4 +192,5 @@ export const UNIDAD_UMBRAL = {
   corte_grupo: 'abonados de la misma caja',
   potencia_critica: 'dBm',
   degradacion: 'dBm de caída',
+  subida_saturada: '% del límite de subida',
 }

@@ -14,6 +14,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Button, Card, Field, Select, Stat, Table } from '../ui'
 import { enlaceWhatsapp } from '../../lib/soporte'
+import SubidaSaturada from './SubidaSaturada'
 
 /**
  * Consumo del abonado, mes a mes.
@@ -408,6 +409,8 @@ export default function FichaConsumo({ cliente, onError }) {
           )}
         />
       </Card>
+
+      <SubidaSaturada cliente={cliente} />
     </div>
   )
 }

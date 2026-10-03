@@ -7,6 +7,7 @@ import { usePais } from '../../lib/pais'
 import { puedeEntrar } from '../../lib/rutasPermisos'
 import {
   Activity,
+  TrendingUp,
   Megaphone,
   Award,
   Backpack,
@@ -152,6 +153,7 @@ const SECCIONES = [
           // facturas, y quien lo arma es el mismo que mira la caja.
           { to: '/arcotel', label: 'Reporte ARCOTEL', icon: ClipboardList, modulo: 'reporteRegulador' },
           { to: '/estadisticas', label: 'Estadísticas', icon: BarChart3 },
+          { to: '/reportes/crecimiento-routers', label: 'Crecimiento por router', icon: TrendingUp },
           { to: '/facturacion', label: 'Facturación', icon: Receipt },
         ],
       },
