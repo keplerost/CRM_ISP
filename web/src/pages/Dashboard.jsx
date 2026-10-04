@@ -20,7 +20,9 @@ import {
   WifiOff,
   XCircle,
   PauseCircle,
+  Receipt,
   Router as RouterIcon,
+  Wallet,
 } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabaseClient'
@@ -522,6 +524,10 @@ export default function Dashboard() {
         .limit(6),
       // Solo lo que se dibuja: la tabla también guarda la clave del equipo.
       supabase.from('routers_mikrotik').select('id, nombre, activo').order('nombre'),
+      /* Facturas y cobros de hoy, facturas sin pagar y vencidas: sumados en la
+         base sobre TODO, no sobre las filas que bajan. Sin la migración 206
+         falla sola y las tarjetas que dependen de ella no se dibujan. */
+      supabase.rpc('panel_facturacion', { p_hoy: hoy }),
     ]
 
     Promise.allSettled(consultas).then((res) => {
@@ -556,6 +562,7 @@ export default function Dashboard() {
         pausadosVencidos: filas(10),
         pausadosVencidosTotal: cuantas(10),
         routers: filas(11),
+        facturacion: filas(12)[0] ?? null,
       })
     })
 
@@ -638,7 +645,7 @@ export default function Dashboard() {
           este sistema no guarda ni histórico de disponibilidad ni medición de
           tráfico, así que serían un número inventado. En su lugar van dos que
           sí existen y que además se miran todos los días. */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {abre('/clientes') && (
           <KpiCard
             icon={Users}
@@ -661,7 +668,56 @@ export default function Dashboard() {
         {/* Abre exactamente a la gente que este número contó: el listado
             filtra con `clientesConVencido`, la misma función que se usa acá
             arriba para calcularlo. */}
-        {abre('/clientes') && (
+        {/* Facturas sin pagar, con las vencidas adentro: las vencidas son una
+            parte de las sin pagar, y verlas juntas dice cuánto de lo pendiente
+            ya está atrasado. Reemplaza a "Cartera vencida", que mostraba el
+            mismo monto vencido. Sin la migración 206 vuelve la tarjeta vieja. */}
+        {abre('/clientes') && d.facturacion && (
+          <KpiCard
+            icon={Wallet}
+            etiqueta="Facturas sin pagar"
+            valor={moneda(d.facturacion.sin_pagar_monto)}
+            pista={
+              <>
+                {numero(d.facturacion.sin_pagar)} factura{d.facturacion.sin_pagar === 1 ? '' : 's'}
+                {d.facturacion.vencidas > 0 ? (
+                  <span className="font-semibold text-red-400">
+                    {' · '}
+                    {numero(d.facturacion.vencidas)} vencida{d.facturacion.vencidas === 1 ? '' : 's'} ·{' '}
+                    {moneda(d.facturacion.vencidas_monto)}
+                  </span>
+                ) : (
+                  <span className="text-emerald-400"> · ninguna vencida</span>
+                )}
+              </>
+            }
+            a={d.facturacion.vencidas > 0 ? '/clientes?deuda=vencida' : '/clientes'}
+            tono={d.facturacion.vencidas > 0 ? 'critico' : 'ok'}
+          />
+        )}
+        {abre('/facturacion') && d.facturacion && (
+          <KpiCard
+            icon={Receipt}
+            etiqueta="Facturas de hoy"
+            valor={numero(d.facturacion.facturas_hoy)}
+            pista={`${moneda(d.facturacion.facturado_hoy)} facturados`}
+            a="/facturacion?t=mes"
+          />
+        )}
+        {(abre('/transacciones') || abre('/pagos')) && d.facturacion && (
+          <KpiCard
+            icon={DollarSign}
+            etiqueta="Cobros de hoy"
+            valor={numero(d.facturacion.cobros_hoy)}
+            pista={`${moneda(d.facturacion.cobrado_hoy)} cobrados`}
+            a={
+              abre('/transacciones')
+                ? `/transacciones?desde=${fechaLocal()}&hasta=${fechaLocal()}`
+                : '/pagos'
+            }
+          />
+        )}
+        {abre('/clientes') && !d.facturacion && (
           <KpiCard
             icon={DollarSign}
             etiqueta="Cartera vencida"
@@ -985,7 +1041,7 @@ export default function Dashboard() {
         {abre('/pagos') && (
           <Seccion
             titulo="Últimos cobros registrados"
-            subtitulo={`${moneda(m.cobradoHoy)} cobrados hoy`}
+            subtitulo={`${moneda(d.facturacion?.cobrado_hoy ?? m.cobradoHoy)} cobrados hoy`}
             a="/pagos"
             className="lg:col-span-2"
           >

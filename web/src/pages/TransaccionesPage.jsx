@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Ban, FileText, Pencil, Printer, Receipt } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { usePermisos } from '../lib/AuthContext'
@@ -93,8 +93,17 @@ export default function TransaccionesPage() {
   const verTodos = puede('finanzas.ver_todos')
   const yo = perfil?.id ?? null
 
+  /* Desde y hasta se pueden sembrar por la URL: la tarjeta "Cobros de hoy" del
+     panel abre con ?desde=hoy&hasta=hoy, para mostrar los mismos cobros que
+     contó. Una fecha mal escrita se ignora y queda el mes en curso. */
+  const [params] = useSearchParams()
   const [filtros, setFiltros] = useState(() => ({
     ...mesEnCurso(),
+    ...Object.fromEntries(
+      ['desde', 'hasta']
+        .map((k) => [k, params.get(k)])
+        .filter(([, v]) => /^\d{4}-\d{2}-\d{2}$/.test(v ?? '')),
+    ),
     forma_pago: '',
     operador: '',
     router: '',
