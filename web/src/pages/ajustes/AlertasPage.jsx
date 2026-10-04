@@ -379,8 +379,9 @@ function Regla({ r, onGuardar }) {
       textoAlerta({
         regla: r.clave,
         nombre: r.nombre,
-        etiqueta: r.clave === 'corte_grupo' ? 'NAP-12' : 'Ana Pérez',
-        abonados: r.clave === 'corte_grupo' ? Number(umbral) || 3 : 1,
+        etiqueta: ['corte_grupo', 'degradacion'].includes(r.clave) ? 'NAP-12' : 'Ana Pérez',
+        entidad: r.clave === 'degradacion' ? 'nap' : 'onu',
+        abonados: r.clave === 'corte_grupo' ? Number(umbral) || 3 : r.clave === 'degradacion' ? 14 : 1,
         zona: 'Centro',
         empezo_en: new Date(Date.now() - 12 * 60000),
         detalle: {
@@ -389,6 +390,10 @@ function Regla({ r, onGuardar }) {
           ultimo_mbps: 9.4,
           limite_mbps: 10,
           ultimo_pct: Math.max(Number(umbral) || 80, 94),
+          desde: -21.3,
+          hasta: -21.3 - Math.max(Number(umbral) || 2, 2.5),
+          dias: 7,
+          direccion: 'Av. Principal y Calle 5',
         },
       }),
     [r.clave, r.nombre, umbral],

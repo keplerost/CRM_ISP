@@ -154,3 +154,20 @@ test('medido cada hora, una lectura fallida no cierra la alerta', () => {
   assert.equal(decidir({ medidas: [], abiertos: [abierto], regla, ahora: new Date(2 * hora), intervaloMs: hora }).resolver.length, 0)
   assert.equal(decidir({ medidas: [], abiertos: [abierto], regla, ahora: new Date(3 * hora + MIN), intervaloMs: hora }).resolver.length, 1)
 })
+
+test('la NAP degradándose dice la caja, cuánto cayó y qué revisar', () => {
+  const t = textoAlerta({
+    regla: 'degradacion',
+    entidad: 'nap',
+    etiqueta: 'NAP-12',
+    abonados: 14,
+    zona: 'Centro',
+    detalle: { desde: -21.3, hasta: -23.8, dias: 7, direccion: 'Av. Principal' },
+  })
+  assert.match(t, /NAP-12 degradándose — 14 clientes/)
+  assert.match(t, /de -21,3 a -23,8 dBm \(-2,5 dB en 7 días\)/)
+  assert.match(t, /📍 Av\. Principal/)
+  assert.match(t, /splitter/)
+  // La de una ONT sola sigue con su texto de siempre.
+  assert.match(textoAlerta({ regla: 'degradacion', entidad: 'onu', etiqueta: 'Ana' }), /Señal bajando — Ana/)
+})

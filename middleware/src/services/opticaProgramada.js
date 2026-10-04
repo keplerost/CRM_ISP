@@ -147,9 +147,23 @@ export async function leerTodas() {
       }
     }
 
+    /*
+     * Con las lecturas nuevas guardadas, se mira si alguna caja NAP se está
+     * degradando. Va acá y no en la tarea de alertas porque es el único
+     * momento en que hay datos nuevos, y la campana tiene que sonar aunque la
+     * tarea de alertas esté apagada. Si la migración 207 no corrió, la función
+     * no existe y la lectura sigue igual.
+     */
+    let napsDegradadas = null
+    if (leidas.length) {
+      const { data: nuevas, error: eNap } = await db().rpc('detectar_nap_degradada')
+      napsDegradadas = eNap ? { error: eNap.message } : nuevas
+    }
+
     const resumen = {
       leidas,
       fallidas,
+      naps_degradadas: napsDegradadas,
       sin_snmp: sinSnmp,
       filas_historial: leidas.reduce((a, l) => a + l.historial, 0),
       corrida: new Date().toISOString(),
