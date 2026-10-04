@@ -127,3 +127,30 @@ test('los textos dicen cuánto sube, contra qué límite, y que no es la red', (
   assert.match(c.titulo, /Juan Pérez/)
   assert.match(c.detalle, /9.4 de 10 Mbps/)
 })
+
+test('medido cada hora, un promedio alto ya está sostenido: se confirma al abrir', () => {
+  const ahora = new Date(60 * MIN)
+  const horaria = { ...medida(90), desde: new Date(0).toISOString() }
+  const [abierto] = decidir({ medidas: [horaria], abiertos: [], regla, ahora }).abrir
+  assert.ok(abierto.detalle.confirmado_en, 'una hora por encima del umbral no necesita otra hora más')
+
+  // Cada cinco minutos, en cambio, una sola muestra no alcanza la espera de 15.
+  const corta = { ...medida(90), desde: new Date(55 * MIN).toISOString() }
+  const [abierto5] = decidir({ medidas: [corta], abiertos: [], regla, ahora }).abrir
+  assert.equal(abierto5.detalle.confirmado_en, undefined)
+})
+
+test('medido cada hora, la lectura no se descarta por espaciada', () => {
+  const previas = new Map([['c1', { subida: 0, origen: 'juan', t: 0 }]])
+  const bytes = (9e6 / 8) * 3600
+  const { medidas } = medir([lectura(bytes)], previas, 60 * MIN, 60 * MIN)
+  assert.equal(medidas.length, 1)
+  assert.equal(medidas[0].pct, 90)
+})
+
+test('medido cada hora, una lectura fallida no cierra la alerta', () => {
+  const abierto = { id: 'e1', entidad_id: 'c1', empezo_en: new Date(0).toISOString(), detalle: { medido_en: new Date(0).toISOString(), confirmado_en: 'x' } }
+  const hora = 60 * MIN
+  assert.equal(decidir({ medidas: [], abiertos: [abierto], regla, ahora: new Date(2 * hora), intervaloMs: hora }).resolver.length, 0)
+  assert.equal(decidir({ medidas: [], abiertos: [abierto], regla, ahora: new Date(3 * hora + MIN), intervaloMs: hora }).resolver.length, 1)
+})

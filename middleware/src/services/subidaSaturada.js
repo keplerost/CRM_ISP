@@ -37,8 +37,12 @@ export const REGLA = 'subida_saturada'
 /** Cuántos puntos por debajo del umbral hay que bajar para cerrar. */
 export const MARGEN_CIERRE = 20
 
-/** Un evento sin muestras nuevas en este tiempo se da por terminado. */
-const SIN_DATOS_MS = 60 * 60 * 1000
+/**
+ * Un evento sin muestras nuevas en este tiempo se da por terminado: una hora, o
+ * tres intervalos si se mide más espaciado. Con lecturas cada hora, una sola
+ * vez que el router no conteste no puede cerrar una alerta que sigue pasando.
+ */
+const sinDatosMs = (intervaloMs) => Math.max(60 * 60 * 1000, intervaloMs * 3)
 
 /** Roles a los que les suena la campana. */
 const ROLES_QUE_AVISAR = ['super_admin', 'admin', 'jefe_tecnico']
@@ -103,7 +107,7 @@ export function medir(lecturas, previas, ahora = Date.now(), intervaloMs = 5 * 6
  * @param abiertos eventos abiertos de esta regla (de la base)
  * @param regla    { umbral, espera_min }
  */
-export function decidir({ medidas, abiertos, regla, ahora = new Date() }) {
+export function decidir({ medidas, abiertos, regla, ahora = new Date(), intervaloMs = 5 * 60_000 }) {
   const umbral = Number(regla?.umbral ?? 80)
   const esperaMs = Number(regla?.espera_min ?? 15) * 60_000
   const plan = { abrir: [], actualizar: [], borrar: [], resolver: [], confirmar: [] }
@@ -124,12 +128,17 @@ export function decidir({ medidas, abiertos, regla, ahora = new Date() }) {
 
     if (!e) {
       if (m.pct >= umbral) {
-        plan.abrir.push({
-          entidad_id: id,
-          cliente: m.cliente,
-          empezo_en: m.desde,
-          detalle: { ...muestra, pico_mbps: m.mbps, pico_pct: m.pct, muestras: 1 },
-        })
+        const detalle = { ...muestra, pico_mbps: m.mbps, pico_pct: m.pct, muestras: 1 }
+        /*
+         * Si la muestra sola ya cubre la espera, se confirma al abrir.
+         *
+         * La velocidad es el PROMEDIO entre dos lecturas. Medido cada hora, un
+         * promedio por encima del umbral ya es una hora sostenida: esperar a la
+         * lectura siguiente para "confirmar" atrasaría el aviso otra hora sin
+         * agregar ninguna certeza.
+         */
+        if (ahora - new Date(m.desde) >= esperaMs) detalle.confirmado_en = ahora.toISOString()
+        plan.abrir.push({ entidad_id: id, cliente: m.cliente, empezo_en: m.desde, detalle })
       }
       continue
     }
@@ -165,7 +174,7 @@ export function decidir({ medidas, abiertos, regla, ahora = new Date() }) {
   for (const e of abiertos) {
     if (medidos.has(String(e.entidad_id))) continue
     const ultimo = new Date(e.detalle?.medido_en ?? e.empezo_en)
-    if (ahora - ultimo < SIN_DATOS_MS) continue
+    if (ahora - ultimo < sinDatosMs(intervaloMs)) continue
     if (e.detalle?.confirmado_en) plan.resolver.push({ id: e.id, detalle: e.detalle })
     else plan.borrar.push(e.id)
   }
@@ -252,7 +261,11 @@ export async function ejecutarSubida({ ahora = new Date(), intervaloMs = 5 * 60_
     .eq('regla', REGLA)
     .is('resuelto_en', null)
 
-  const plan = decidir({ medidas: medicion.medidas, abiertos: abiertos ?? [], regla, ahora })
+  const plan = decidir({ medidas: medicion.medidas, abiertos: abiertos ?? [], regla, ahora, intervaloMs })
+
+  // Los que hay que avisar por la campana: los que se confirmaron en esta
+  // pasada, sean eventos que ya estaban abiertos o que nacieron confirmados.
+  const aNotificar = [...plan.confirmar]
 
   for (const a of plan.abrir) {
     const c = a.cliente ?? {}
@@ -266,8 +279,14 @@ export async function ejecutarSubida({ ahora = new Date(), intervaloMs = 5 * 60_
       empezo_en: a.empezo_en,
       detalle: { ...a.detalle, codigo: c.codigo ?? null, cliente_id: a.entidad_id },
     })
-    if (error) resultado.fallidos.push({ cliente: c.nombre, error: error.message })
-    else resultado.abiertos++
+    if (error) {
+      resultado.fallidos.push({ cliente: c.nombre, error: error.message })
+      continue
+    }
+    resultado.abiertos++
+    if (a.detalle.confirmado_en) {
+      aNotificar.push({ entidad_id: a.entidad_id, etiqueta: c.nombre, detalle: a.detalle })
+    }
   }
 
   for (const u of [...plan.actualizar, ...plan.confirmar]) {
@@ -289,14 +308,14 @@ export async function ejecutarSubida({ ahora = new Date(), intervaloMs = 5 * 60_
   resultado.en_curso =
     (abiertos?.length ?? 0) + resultado.abiertos - plan.borrar.length - plan.resolver.length
 
-  if (plan.confirmar.length) {
+  if (aNotificar.length) {
     const { data: usuarios } = await db()
       .from('usuarios_sistema')
       .select('id')
       .eq('activo', true)
       .in('rol', ROLES_QUE_AVISAR)
 
-    for (const c of plan.confirmar) {
+    for (const c of aNotificar) {
       const { titulo, detalle } = textoCampana(c)
       for (const u of usuarios ?? []) {
         await db().rpc('notificar', {
