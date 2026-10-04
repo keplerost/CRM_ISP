@@ -1,4 +1,5 @@
-import { db } from '../lib/db.js'
+import { db } from '../lib/db.js'
+
 import { cuandoSePuede, esperaLaFranja } from '../lib/horarioAvisos.js'
 import { canalesPara } from './avisosPago.js'
 import { enviar, seEntrego } from './mensajeria.js'
@@ -129,6 +130,16 @@ export async function avisarAlAbonado({
     const clienteId = cliente?.id ?? cliente?.cliente_id
     if (!clienteId) return { enviado: false, motivo: 'el aviso no dice de qué abonado es' }
 
+    // El que pidió que no lo molesten no recibe ni esto. Es su decisión, y vale
+    // también para el aviso de que se le cortó.
+    //
+    // Va ANTES de la franja horaria: de noche, este aviso se encolaba para las
+    // 06:00 solo para descartarse al salir de la cola. No se encola lo que
+    // nunca se va a mandar.
+    if (cliente.avisos_activos === false) {
+      return { enviado: false, motivo: 'el abonado pidió no recibir avisos' }
+    }
+
     /**
      * La hora.
      *
@@ -151,12 +162,6 @@ export async function avisarAlAbonado({
           motivo: `fuera del horario de avisos (${franja.desde}–${franja.hasta}): sale a las ${franja.desde}`,
         }
       }
-    }
-
-    // El que pidió que no lo molesten no recibe ni esto. Es su decisión, y vale
-    // también para el aviso de que se le cortó.
-    if (cliente.avisos_activos === false) {
-      return { enviado: false, motivo: 'el abonado pidió no recibir avisos' }
     }
 
     const { data: plantillas } = await db()
