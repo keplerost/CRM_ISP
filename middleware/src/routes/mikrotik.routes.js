@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import * as reparar from '../services/repararRouter.js'
+import { moraDelRouter } from '../services/corteMora.js'
 import { config } from '../config.js'
 import * as configurar from '../services/configurarRouter.js'
 import * as portal from '../services/portalCorte.js'
@@ -584,18 +585,31 @@ router.post(
 router.get(
   '/:id/reparar',
   asyncHandler(async (req, res) => {
-    res.json(await reparar.revisar(req.params.id))
+    // Y lo que el corte por mora le debe a este router: los que la corrida no
+    // pudo cortar (o reconectar) porque el router no respondía.
+    const plan = await reparar.revisar(req.params.id)
+    res.json({ ...plan, mora: await moraDelRouter(req.params.id) })
   }),
 )
 
 router.post(
   '/:id/reparar',
   asyncHandler(async (req, res) => {
-    res.json(
-      await reparar.reparar(req.params.id, {
-        borrarDesconocidos: req.body?.borrarDesconocidos === true,
-      }),
-    )
+    const hecho = await reparar.reparar(req.params.id, {
+      borrarDesconocidos: req.body?.borrarDesconocidos === true,
+    })
+
+    // Después de sincronizar, los cortes y reconexiones pendientes de este
+    // router. Si el router sigue sin responder, quedan en `fallos`.
+    const mora = await moraDelRouter(req.params.id, { aplicar: true })
+    res.json({
+      ...hecho,
+      mora: { cortados: mora.cortados.length, reconectados: mora.reconectados.length },
+      fallos: [
+        ...(hecho.fallos ?? []),
+        ...mora.fallidos.map((f) => `${f.cliente ?? '—'}: ${f.error ?? f.motivo ?? 'no se pudo aplicar'}`),
+      ],
+    })
   }),
 )
 

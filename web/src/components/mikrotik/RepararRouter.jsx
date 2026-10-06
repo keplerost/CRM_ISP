@@ -42,6 +42,11 @@ export default function RepararRouter({ router }) {
     }
   }
 
+  // Lo que el corte por mora le debe a este router (lo que la corrida diaria
+  // no pudo aplicar). Cuenta como diferencia: el sistema dice que van cortados.
+  const moraPendiente = (plan?.mora?.a_cortar?.length ?? 0) + (plan?.mora?.a_reconectar?.length ?? 0)
+  const sinCambios = plan?.resumen?.sin_cambios && !moraPendiente
+
   if (hecho) {
     return (
       <Card>
@@ -51,6 +56,11 @@ export default function RepararRouter({ router }) {
             {hecho.bloqueos} bloqueos
             {hecho.borrados ? ` · ${hecho.borrados} borrados` : ''}
           </p>
+          {(hecho.mora?.cortados > 0 || hecho.mora?.reconectados > 0) && (
+            <p className="text-emerald-300">
+              Corte por mora: {hecho.mora.cortados} cortados · {hecho.mora.reconectados} reconectados
+            </p>
+          )}
           {hecho.fallos?.map((f) => (
             <p key={f} className="text-xs text-rose-400">
               {f}
@@ -90,12 +100,34 @@ export default function RepararRouter({ router }) {
           </Button>
         ) : (
           <>
-            {plan.resumen.sin_cambios ? (
+            {plan.mora?.a_cortar?.length > 0 && (
+              <Lista titulo={`Cortes por mora sin aplicar (${plan.mora.a_cortar.length})`}>
+                {plan.mora.a_cortar.map((n) => (
+                  <li key={n} className="py-1">
+                    <span className="text-slate-200">{n}</span>
+                    <span className="ml-2 text-amber-400">debe estar cortado y sigue navegando</span>
+                  </li>
+                ))}
+              </Lista>
+            )}
+
+            {plan.mora?.a_reconectar?.length > 0 && (
+              <Lista titulo={`Reconexiones sin aplicar (${plan.mora.a_reconectar.length})`}>
+                {plan.mora.a_reconectar.map((n) => (
+                  <li key={n} className="py-1">
+                    <span className="text-slate-200">{n}</span>
+                    <span className="ml-2 text-emerald-400">pagó y sigue cortado</span>
+                  </li>
+                ))}
+              </Lista>
+            )}
+
+            {sinCambios ? (
               <Aviso>
                 El router coincide con el sistema en sus {plan.resumen.clientes} abonados. No hay
                 nada que corregir.
               </Aviso>
-            ) : (
+            ) : plan.resumen.sin_cambios ? null : (
               <>
               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                 <Dato n={plan.resumen.colas_a_crear} t="colas a crear" />
@@ -240,7 +272,7 @@ export default function RepararRouter({ router }) {
                 variante={borrarDesconocidos ? 'peligro' : 'primario'}
                 icon={borrarDesconocidos ? Trash2 : Wrench}
                 cargando={trabajando}
-                disabled={plan.resumen.sin_cambios && !borrarDesconocidos}
+                disabled={sinCambios && !borrarDesconocidos}
                 onClick={() => correr(true)}
               >
                 Reparar

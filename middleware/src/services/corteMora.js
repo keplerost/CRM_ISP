@@ -165,6 +165,7 @@ async function devolverServicio(lista, equipo) {
         } catch (err) {
           fallidos.push({
             cliente: r.nombre,
+            router_id: r.router_id,
             motivo: `Se reconectó en IPv4 pero quedó bloqueado en IPv6: ${err.message}`,
           })
         }
@@ -180,7 +181,7 @@ async function devolverServicio(lista, equipo) {
 
       reconectados.push({ cliente: r.nombre, ip: r.ip, saldo: r.saldo })
     } catch (err) {
-      fallidos.push({ accion: 'reconectar', cliente: r.nombre, ip: r.ip, error: err.message })
+      fallidos.push({ accion: 'reconectar', cliente: r.nombre, ip: r.ip, router_id: r.router_id, error: err.message })
     }
   }
 
@@ -374,6 +375,42 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
     )
   }
 
+  const { cortados, reconectados, fallidos } = await aplicarCortes(aCortar, aReconectar)
+
+  return {
+    simulado: false,
+    fecha: fechaLocal(),
+    cortados,
+    reconectados,
+    fallidos,
+
+    /**
+     * Cuántos quedaron afuera por el tope.
+     *
+     * ── Por qué este número estaba mal ──
+     *
+     * Antes se calculaba así:
+     *
+     *     Math.max(0, aCortar.length === tope ? -1 : 0)
+     *
+     * que da CERO siempre: si se alcanzó el tope da `max(0, -1)` = 0, y si no,
+     * `max(0, 0)` = 0. El comentario decía lo correcto —"sin esto, 50 cortados
+     * con 200 pendientes parece un trabajo terminado"— y el cálculo hacía
+     * exactamente lo que el comentario quería evitar.
+     *
+     * Ahora sale de contar cuántos hay de verdad contra cuántos se trajeron.
+     */
+    pendientes: quedaronSinCortar,
+    total_a_cortar: totalACortar ?? aCortar.length,
+    tope,
+  }
+}
+
+/**
+ * Corta y reconecta una lista ya decidida. Lo usan la corrida diaria y
+ * "Reparar el router", que la llama solo con los abonados de ese router.
+ */
+async function aplicarCortes(aCortar, aReconectar) {
   // Un router se carga una vez por corrida aunque tenga veinte morosos: cada
   // carga descifra credenciales y golpea la base.
   const routers = new Map()
@@ -476,6 +513,7 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
         } catch (err) {
           fallidos.push({
             cliente: c.nombre,
+            router_id: c.router_id,
             motivo: `Se cortó en IPv4 pero no en IPv6: ${err.message}`,
           })
         }
@@ -538,37 +576,61 @@ export async function ejecutarCorteMora({ simular = false, limite = null } = {})
       })
     } catch (err) {
       // Que falle un router no puede dejar sin cortar a los demás.
-      fallidos.push({ accion: 'cortar', cliente: c.nombre, ip: c.ip, error: err.message })
+      fallidos.push({ accion: 'cortar', cliente: c.nombre, ip: c.ip, router_id: c.router_id, error: err.message })
     }
   }
 
-  return {
-    simulado: false,
-    fecha: fechaLocal(),
-    cortados,
-    reconectados,
-    fallidos,
 
-    /**
-     * Cuántos quedaron afuera por el tope.
-     *
-     * ── Por qué este número estaba mal ──
-     *
-     * Antes se calculaba así:
-     *
-     *     Math.max(0, aCortar.length === tope ? -1 : 0)
-     *
-     * que da CERO siempre: si se alcanzó el tope da `max(0, -1)` = 0, y si no,
-     * `max(0, 0)` = 0. El comentario decía lo correcto —"sin esto, 50 cortados
-     * con 200 pendientes parece un trabajo terminado"— y el cálculo hacía
-     * exactamente lo que el comentario quería evitar.
-     *
-     * Ahora sale de contar cuántos hay de verdad contra cuántos se trajeron.
-     */
-    pendientes: quedaronSinCortar,
-    total_a_cortar: totalACortar ?? aCortar.length,
-    tope,
+  return { cortados, reconectados, fallidos }
+}
+
+/**
+ * Lo que el corte por mora le debe a UN router, para "Reparar el router".
+ *
+ * ── Por qué está acá ──
+ *
+ * Cuando la corrida diaria no pudo cortar a alguien —el router no respondía—,
+ * ese abonado no queda registrado como cortado y sigue navegando hasta la
+ * corrida de mañana. "Reparar" es el botón que deja el router igual a lo que
+ * dice el sistema, y el sistema dice que ese abonado va cortado: es el lugar
+ * natural para aplicarlo, sin otro botón.
+ *
+ * Usa las MISMAS vistas que la corrida diaria. Con dos criterios, el día que
+ * difieran el que se entera es el abonado.
+ *
+ * Con `aplicar` en falso solo cuenta: es lo que muestra la revisión.
+ */
+export async function moraDelRouter(routerId, { aplicar = false } = {}) {
+  const [rCortar, rReconectar] = await Promise.all([
+    db().from('v_clientes_a_cortar_por_mora').select('*').eq('router_id', routerId),
+    db().from('v_clientes_a_reconectar').select('*').eq('router_id', routerId),
+  ])
+  // Sin la vista (migración 132) no hay corte por mora que aplicar.
+  if (rCortar.error || rReconectar.error) {
+    return { a_cortar: [], a_reconectar: [], cortados: [], reconectados: [], fallidos: [] }
   }
+
+  const aCortar = rCortar.data ?? []
+  const aReconectar = rReconectar.data ?? []
+  const resumen = {
+    a_cortar: aCortar.map((c) => c.nombre),
+    a_reconectar: aReconectar.map((r) => r.nombre),
+  }
+  if (!aplicar || (!aCortar.length && !aReconectar.length)) {
+    return { ...resumen, cortados: [], reconectados: [], fallidos: [] }
+  }
+
+  const r = await aplicarCortes(aCortar, aReconectar)
+
+  // El aviso del panel sale de la última corrida: se sacan de ahí los que
+  // ahora sí quedaron hechos, para que no siga diciendo que faltan.
+  const hechos = new Set([...r.cortados, ...r.reconectados].map((x) => x.cliente))
+  const ult = estadoMora.ultimoResultado
+  if (ult?.fallidos?.length) {
+    estadoMora.ultimoResultado = { ...ult, fallidos: ult.fallidos.filter((f) => !hechos.has(f.cliente)) }
+  }
+
+  return { ...resumen, ...r }
 }
 
 /**

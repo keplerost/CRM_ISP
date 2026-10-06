@@ -544,14 +544,20 @@ export function _resumenDeFallas(resultado) {
   if (resultado.error) return { error: resultado.error, fallidos: 0, ejemplos: [] }
 
   const fallidos = resultado.fallidos ?? []
+  const caso = (f) => ({
+    cliente: f.cliente ?? f.nombre ?? null,
+    accion: f.accion ?? null,
+    motivo: f.error ?? f.motivo ?? null,
+  })
   return {
     error: null,
     fallidos: fallidos.length,
-    ejemplos: fallidos.slice(0, 3).map((f) => ({
-      cliente: f.cliente ?? f.nombre ?? null,
-      accion: f.accion ?? null,
-      motivo: f.error ?? f.motivo ?? null,
-    })),
+    ejemplos: fallidos.slice(0, 3).map(caso),
+    // La lista entera, para el "ver todos" del panel, con el router de cada
+    // uno: es lo que permite mandar directo a "Reparar" el router que falló.
+    // Con tope: una corrida con el router caído puede dejar cientos.
+    lista: fallidos.slice(0, 200).map((f) => ({ ...caso(f), router_id: f.router_id ?? null })),
+    routers: [...new Set(fallidos.map((f) => f.router_id).filter(Boolean))],
   }
 }
 

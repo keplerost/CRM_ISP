@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../lib/confirmar'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Cpu,
   MemoryStick,
@@ -82,7 +82,10 @@ export default function MikrotikPage() {
 
   // null = cerrado | {} = alta | {id,…} = edición de ese router
   const [enFormulario, setEnFormulario] = useState(null)
-  const [routerId, setRouterId] = useState('')
+  // `?router=<id>` lo abre directo: es a donde manda el aviso del panel cuando
+  // la corrida no pudo cortar en ese router.
+  const [params] = useSearchParams()
+  const [routerId, setRouterId] = useState(() => params.get('router') ?? '')
   // El que se acaba de registrar: se configura solo apenas aparece.
   const [recienCreado, setRecienCreado] = useState(null)
   const [salud, setSalud] = useState({})

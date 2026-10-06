@@ -296,6 +296,8 @@ test('el resumen distingue no haber corrido, haber fallado entero, y fallar en c
     error: null,
     fallidos: 0,
     ejemplos: [],
+    lista: [],
+    routers: [],
   })
 
   // No pudo ni empezar.
@@ -321,6 +323,20 @@ test('el resumen distingue no haber corrido, haber fallado entero, y fallar en c
     accion: 'cortar',
     motivo: 'router no responde',
   })
+})
+
+test('la lista entera trae el router de cada caso, para mandar a repararlo', () => {
+  const r = _resumenDeFallas({
+    fallidos: [
+      { accion: 'cortar', cliente: 'Ana', router_id: 'r1', error: 'timeout' },
+      { accion: 'cortar', cliente: 'Beto', router_id: 'r1', error: 'timeout' },
+      { accion: 'cortar', cliente: 'Carla', router_id: 'r2', error: 'timeout' },
+      { accion: 'cortar', cliente: 'Dario', router_id: 'r1', error: 'timeout' },
+    ],
+  })
+  assert.equal(r.lista.length, 4)
+  assert.equal(r.lista[3].router_id, 'r1')
+  assert.deepEqual(r.routers, ['r1', 'r2'])
 })
 
 test('el motivo se lee venga como venga', () => {

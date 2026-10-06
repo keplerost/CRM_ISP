@@ -1316,11 +1316,25 @@ function PausadosVencidos({ abonados, total, puede }) {
 }
 
 function TareasConProblemas({ problemas, puede }) {
-  if (!problemas) return null
+  // "Ver todos" abierto, por tarea.
+  const [abiertos, setAbiertos] = useState({})
+  // Los nombres de los routers que fallaron, para el botón "Reparar <router>".
+  const [nombres, setNombres] = useState({})
 
-  const conFalla = Object.entries(problemas).filter(
+  const conFalla = Object.entries(problemas ?? {}).filter(
     ([, p]) => p && (p.error || p.fallidos > 0),
   )
+  const idsRouters = [...new Set(conFalla.flatMap(([, p]) => p.routers ?? []))].sort().join(',')
+
+  useEffect(() => {
+    if (!idsRouters) return
+    supabase
+      .from('routers_mikrotik')
+      .select('id, nombre')
+      .in('id', idsRouters.split(','))
+      .then(({ data }) => setNombres(Object.fromEntries((data ?? []).map((r) => [r.id, r.nombre]))))
+  }, [idsRouters])
+
   if (!conFalla.length) return null
 
   return (
@@ -1345,16 +1359,28 @@ function TareasConProblemas({ problemas, puede }) {
                   </p>
 
                   {p.ejemplos?.length > 0 && (
-                    <ul className="mt-2 space-y-0.5">
-                      {p.ejemplos.map((e, i) => (
+                    <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto">
+                      {(abiertos[clave] && p.lista?.length ? p.lista : p.ejemplos).map((e, i) => (
                         <li key={i} className="t-dato truncate text-[11px] text-slate-500">
                           <b className="text-slate-400">{e.cliente ?? '—'}</b>
                           {e.motivo ? ` · ${e.motivo}` : ''}
                         </li>
                       ))}
-                      {p.fallidos > p.ejemplos.length && (
-                        <li className="text-[11px] text-slate-600">
-                          y {p.fallidos - p.ejemplos.length} más
+                      {p.fallidos > p.ejemplos.length && !abiertos[clave] && (
+                        <li>
+                          {p.lista?.length > p.ejemplos.length ? (
+                            <button
+                              type="button"
+                              onClick={() => setAbiertos((a) => ({ ...a, [clave]: true }))}
+                              className="text-[11px] font-semibold text-sky-400 hover:underline"
+                            >
+                              Ver los {p.fallidos}
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-600">
+                              y {p.fallidos - p.ejemplos.length} más
+                            </span>
+                          )}
                         </li>
                       )}
                     </ul>
@@ -1362,15 +1388,24 @@ function TareasConProblemas({ problemas, puede }) {
                 </div>
               </div>
 
-              {puede(t.donde) && (
-                <Link
-                  to={t.donde}
-                  className="t-btn t-btn-marca shrink-0"
-                >
-                  {t.verbo}
-                  <ChevronRight size={14} />
-                </Link>
-              )}
+              {puede(t.donde) &&
+                (t.donde === '/red/routers' && p.routers?.length ? (
+                  // Directo a "Reparar el router" de cada router que falló: ahí
+                  // se aplican los cortes y reconexiones que quedaron pendientes.
+                  <div className="flex shrink-0 flex-col gap-2">
+                    {p.routers.map((id) => (
+                      <Link key={id} to={`/red/routers?router=${id}`} className="t-btn t-btn-marca">
+                        Reparar {nombres[id] ?? 'el router'}
+                        <ChevronRight size={14} />
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <Link to={t.donde} className="t-btn t-btn-marca shrink-0">
+                    {t.verbo}
+                    <ChevronRight size={14} />
+                  </Link>
+                ))}
             </div>
           </div>
         )
