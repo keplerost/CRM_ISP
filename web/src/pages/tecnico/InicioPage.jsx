@@ -34,6 +34,7 @@ import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
 import { supabase } from '../../lib/supabaseClient'
 import { largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
+import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
 
 /**
  * El tablero del técnico de campo.
@@ -57,6 +58,8 @@ import MapaCampo from '../../components/tecnico/MapaCampo'
  */
 export default function InicioPage() {
   const { perfil } = usePermisos()
+  // Quién es el jefe de grupo hoy, y si es él: lo primero que tiene que ver.
+  const cuadrilla = useMiCuadrilla(perfil?.tecnico_id)
   const { tema, alternar } = useTemaCampo('claro')
   const [d, setD] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -148,6 +151,8 @@ export default function InicioPage() {
           </Link>
         </div>
       </div>
+
+      <MiCuadrilla c={cuadrilla} />
 
       {error && (
         <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-[13px] text-rose-400">

@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Camera, Check, Fuel, Gauge, PlayCircle, Route, StopCircle, TriangleAlert, Wrench } from 'lucide-react'
+import {
+  Camera,
+  Check,
+  Fuel,
+  Gauge,
+  PlayCircle,
+  Route,
+  StopCircle,
+  TriangleAlert,
+  Wrench,
+} from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { hoyISO } from '../../lib/campo'
@@ -7,6 +17,7 @@ import { subirFotoIngreso, ubicacionDelIngreso } from '../../lib/jornadaFoto'
 import { RADIO_LLEGADA_M } from '../../lib/soporte'
 import { cuantoFalta, urgencia } from '../../lib/mantenimiento'
 import { Button, Field, Input, Select } from '../../components/ui'
+import MiCuadrilla from '../../components/tecnico/MiCuadrilla'
 
 /**
  * Mi jornada: con qué salí y cuánto marcaba el tablero.
@@ -40,6 +51,18 @@ export default function JornadaPage() {
   const [carga, setCarga] = useState(null)
 
   /**
+   * La cuadrilla de hoy (migración 208).
+   *
+   * En una cuadrilla con jefe de grupo, el vehículo y los km los carga SOLO el
+   * jefe del día: tres técnicos en la misma camioneta cargando cada uno los
+   * suyos sumaban el recorrido tres veces. Los demás marcan su ingreso —foto y
+   * ubicación— para la asistencia. Sin cuadrilla, o en una cuadrilla sin jefe
+   * definido, todo sigue como antes. `null` también si la 208 no corrió.
+   */
+  const [cuadrilla, setCuadrilla] = useState(null)
+  const cargaKm = !cuadrilla || cuadrilla.sin_jefe || cuadrilla.soy_jefe
+
+  /**
    * Lo que le falta al vehículo de hoy.
    *
    * Se pide acá y no en el tablero de inicio porque el aviso solo tiene sentido
@@ -65,7 +88,7 @@ export default function JornadaPage() {
       setCargando(false)
       return
     }
-    const [v, j] = await Promise.all([
+    const [v, j, c] = await Promise.all([
       supabase.from('vehiculos').select('*').eq('activo', true).order('nombre'),
       supabase
         .from('v_jornadas')
@@ -73,9 +96,11 @@ export default function JornadaPage() {
         .eq('tecnico_id', perfil.tecnico_id)
         .eq('fecha', hoyISO())
         .maybeSingle(),
+      supabase.rpc('mi_cuadrilla_hoy', { p_fecha: hoyISO() }),
     ])
     setVehiculos(v.data ?? [])
     setJornada(j.data ?? null)
+    setCuadrilla(c.error ? null : (c.data ?? null))
     if (j.data) {
       setForm({
         vehiculo_id: j.data.vehiculo_id ?? '',
@@ -114,7 +139,7 @@ export default function JornadaPage() {
   }, [recargar])
 
   async function abrir() {
-    if (!form.vehiculo_id || form.km_inicio === '') return
+    if (cargaKm && (!form.vehiculo_id || form.km_inicio === '')) return
     setGuardando(true)
     setError(null)
     try {
@@ -136,8 +161,10 @@ export default function JornadaPage() {
         {
           tecnico_id: perfil.tecnico_id,
           fecha: hoyISO(),
-          vehiculo_id: form.vehiculo_id,
-          km_inicio: Number(form.km_inicio),
+          // Quien no es jefe de grupo marca solo su ingreso: la base rechaza
+          // vehículo y km que no le corresponden.
+          vehiculo_id: cargaKm ? form.vehiculo_id : null,
+          km_inicio: cargaKm ? Number(form.km_inicio) : null,
           inicio_at: new Date().toISOString(),
           lat_ingreso: donde.lat,
           lng_ingreso: donde.lng,
@@ -194,6 +221,19 @@ export default function JornadaPage() {
     }
   }
 
+  /** Quien no carga km cierra su jornada solo con la hora de salida. */
+  async function marcarSalida() {
+    setGuardando(true)
+    setError(null)
+    const { error: err } = await supabase
+      .from('jornadas')
+      .update({ fin_at: new Date().toISOString() })
+      .eq('id', jornada.id)
+    setGuardando(false)
+    if (err) return setError(err)
+    await recargar()
+  }
+
   async function cerrar() {
     if (form.km_fin === '') return
     if (Number(form.km_fin) < Number(jornada.km_inicio)) {
@@ -229,7 +269,7 @@ export default function JornadaPage() {
     )
   }
 
-  if (!vehiculos.length) {
+  if (cargaKm && !vehiculos.length) {
     return (
       <div className="py-16 text-center">
         <Route size={28} className="mx-auto mb-2 text-slate-700" />
@@ -282,12 +322,32 @@ export default function JornadaPage() {
 
       <AvisoMantenimiento items={pendiente} />
 
+      <MiCuadrilla c={cuadrilla} />
+
       <section className="t-card p-4">
         <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           <Gauge size={12} /> Jornada de hoy
         </p>
 
-        {!jornada?.inicio_at ? (
+        {!jornada?.inicio_at && !cargaKm ? (
+          <div className="space-y-3">
+            <p className="text-[12px] leading-snug text-slate-400">
+              El vehículo y los km los registra el jefe de grupo
+              {cuadrilla?.jefe ? ` (${cuadrilla.jefe})` : ''}. Vos marcás tu ingreso con la foto.
+            </p>
+            <FotoIngreso foto={foto} onFoto={setFoto} />
+            <Button
+              variante="primario"
+              icon={PlayCircle}
+              className="w-full py-3"
+              onClick={abrir}
+              cargando={guardando}
+              disabled={guardando}
+            >
+              Marcar ingreso
+            </Button>
+          </div>
+        ) : !jornada?.inicio_at ? (
           <div className="space-y-3">
             <Field label="Vehículo">
               <Select
@@ -327,6 +387,21 @@ export default function JornadaPage() {
           </div>
         ) : (
           <div className="space-y-3">
+            {jornada.km_inicio == null ? (
+              <p className="text-center text-[13px] text-slate-300">
+                Ingreso marcado a las{' '}
+                {new Date(jornada.inicio_at).toLocaleTimeString('es-EC', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {jornada.fin_at &&
+                  ` · salida ${new Date(jornada.fin_at).toLocaleTimeString('es-EC', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`}
+              </p>
+            ) : (
+            <>
             <div className="grid grid-cols-2 gap-2 text-center">
               <Dato label="Salida" valor={`${jornada.km_inicio} km`} />
               <Dato
@@ -342,6 +417,8 @@ export default function JornadaPage() {
                 minute: '2-digit',
               })}
             </p>
+            </>
+            )}
 
             <DistanciaIngreso j={jornada} />
 
@@ -372,7 +449,19 @@ export default function JornadaPage() {
               <p className="text-center text-[11px] leading-snug text-amber-400">{avisoFoto}</p>
             )}
 
-            {jornada.km_fin == null ? (
+            {jornada.km_inicio == null ? (
+              !jornada.fin_at && (
+                <Button
+                  icon={StopCircle}
+                  className="w-full py-3"
+                  onClick={marcarSalida}
+                  cargando={guardando}
+                  disabled={guardando}
+                >
+                  Marcar salida
+                </Button>
+              )
+            ) : jornada.km_fin == null ? (
               <>
                 <Field label="Kilometraje al volver">
                   <Input
@@ -399,6 +488,7 @@ export default function JornadaPage() {
               </p>
             )}
 
+            {jornada.km_inicio != null && (
             <button
               type="button"
               onClick={() =>
@@ -409,6 +499,7 @@ export default function JornadaPage() {
               <Fuel size={14} className="mr-1.5 inline" />
               Registrar carga de combustible
             </button>
+            )}
           </div>
         )}
       </section>
@@ -691,3 +782,4 @@ function AvisoMantenimiento({ items }) {
     </div>
   )
 }
+

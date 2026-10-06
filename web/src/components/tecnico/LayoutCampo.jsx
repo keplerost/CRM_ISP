@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Bell } from 'lucide-react'
+import { Bell, Star } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { saludo } from '../../lib/campo'
 import BarraInferior, { DESTINOS, NavEscritorio } from './BarraInferior'
 import EstadoConexion from './EstadoConexion'
+import { useMiCuadrilla } from './MiCuadrilla'
 import { arrancarCola } from '../../lib/cola'
 // Registra qué sabe hacer la cola. El import tiene efecto de módulo y no
 // exporta nada que se use acá: sin él, la cola acepta operaciones que después
@@ -66,6 +67,7 @@ export default function LayoutCampo() {
     d.end ? pathname === d.to : pathname.startsWith(d.to),
   )
   const enInicio = pathname === '/campo'
+  const cuadrilla = useMiCuadrilla(perfil?.tecnico_id)
 
   return (
     <div className="min-h-dvh bg-[#F6F8FB] pb-24 text-slate-200 md:pb-6">
@@ -85,6 +87,14 @@ export default function LayoutCampo() {
                     month: 'long',
                   })
                 : `${perfil?.nombre ?? ''} ${perfil?.apellido ?? ''}`.trim()}
+              {/* El distintivo del jefe de grupo, en todas las pantallas: es
+                  quien carga vehículo y km, y tiene que saberlo antes de salir. */}
+              {cuadrilla?.soy_jefe && (
+                <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-500">
+                  <Star size={10} /> Jefe de grupo · {cuadrilla.cuadrilla}
+                  {cuadrilla.es_reemplazo ? ' (hoy)' : ''}
+                </span>
+              )}
             </p>
           </div>
 

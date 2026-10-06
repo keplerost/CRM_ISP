@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useConfirmar } from '../lib/confirmar'
-import { HardHat, Pencil, Plus, Trash2, Truck, Users } from 'lucide-react'
+import { HardHat, Pencil, Plus, Star, Trash2, Truck, UserCheck, Users } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { hoyISO } from '../lib/campo'
 import ConPermiso from '../components/layout/ConPermiso'
 import {
   Button,
@@ -20,6 +21,16 @@ import {
  * Sin esta pantalla los técnicos habría que cargarlos por SQL, y el ticket
  * quedaría siempre sin asignar. Es chica a propósito: son datos que se tocan
  * una vez al mes, no todos los días.
+ *
+ * Los técnicos con usuario NO se cargan acá: su ficha la crea y la mantiene
+ * Ajustes → Personal (migración 208). Acá se agregan solo los que no usan el
+ * sistema, y se arman las cuadrillas con su jefe de grupo.
+ *
+ * ── El jefe de grupo y su reemplazo ──
+ *
+ * El jefe de grupo es el integrante con rol `lider`: carga el vehículo y los
+ * km de la cuadrilla. Si falta, administración o un jefe técnico designa un
+ * reemplazo SOLO PARA HOY; mañana vuelve el titular sin tocar nada.
  */
 
 const ESPECIALIDADES = {
@@ -37,13 +48,17 @@ const TECNICO_VACIO = {
   activo: true,
 }
 
-const CUADRILLA_VACIA = { nombre: '', zona: '', vehiculo: '', activo: true }
+const CUADRILLA_VACIA = { nombre: '', zona: '', vehiculo: '', activo: true, lider: '' }
 
 export default function TecnicosPage() {
   const confirmar = useConfirmar()
   const [tecnicos, setTecnicos] = useState([])
   const [cuadrillas, setCuadrillas] = useState([])
   const [miembros, setMiembros] = useState([])
+  const [reemplazos, setReemplazos] = useState([])
+  const [dirige, setDirige] = useState(false)
+  // { cuadrilla, tecnico_id } mientras se elige el reemplazo de hoy
+  const [eligiendoReemplazo, setEligiendoReemplazo] = useState(null)
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(true)
 
@@ -53,15 +68,20 @@ export default function TecnicosPage() {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const [t, c, m] = await Promise.all([
+    const [t, c, m, r, d] = await Promise.all([
       supabase.from('tecnicos').select('*').order('nombre'),
       supabase.from('cuadrillas').select('*').order('nombre'),
       supabase.from('cuadrilla_miembros').select('*'),
+      // Sin la migración 208 estas dos fallan y la pantalla sigue como antes.
+      supabase.from('cuadrilla_reemplazos').select('*').eq('fecha', hoyISO()),
+      supabase.rpc('dirige_cuadrillas'),
     ])
     if (t.error) setError(t.error)
     setTecnicos(t.data ?? [])
     setCuadrillas(c.data ?? [])
     setMiembros(m.data ?? [])
+    setReemplazos(r.error ? [] : (r.data ?? []))
+    setDirige(Boolean(d.data))
     setCargando(false)
   }, [])
 
@@ -105,7 +125,7 @@ export default function TecnicosPage() {
     setError(null)
 
     try {
-      const { id, integrantes = [], ...datos } = editandoCuadrilla
+      const { id, integrantes = [], lider, ...datos } = editandoCuadrilla
       const fila = {
         nombre: datos.nombre.trim(),
         zona: datos.zona?.trim() || null,
@@ -122,9 +142,14 @@ export default function TecnicosPage() {
       // y son tres filas.
       await supabase.from('cuadrilla_miembros').delete().eq('cuadrilla_id', guardada.id)
       if (integrantes.length) {
-        await supabase.from('cuadrilla_miembros').insert(
-          integrantes.map((tecnico_id) => ({ cuadrilla_id: guardada.id, tecnico_id })),
+        const { error: errM } = await supabase.from('cuadrilla_miembros').insert(
+          integrantes.map((tecnico_id) => ({
+            cuadrilla_id: guardada.id,
+            tecnico_id,
+            rol: tecnico_id === lider ? 'lider' : 'tecnico',
+          })),
         )
+        if (errM) throw errM
       }
 
       setEditandoCuadrilla(null)
@@ -145,6 +170,35 @@ export default function TecnicosPage() {
 
   const integrantesDe = (cuadrillaId) =>
     miembros.filter((m) => m.cuadrilla_id === cuadrillaId).map((m) => m.tecnico_id)
+  const liderDe = (cuadrillaId) =>
+    miembros.find((m) => m.cuadrilla_id === cuadrillaId && m.rol === 'lider')?.tecnico_id ?? ''
+  const reemplazoDe = (cuadrillaId) =>
+    reemplazos.find((r) => r.cuadrilla_id === cuadrillaId)?.tecnico_id ?? null
+  const nombreDe = (id) => tecnicos.find((t) => t.id === id)?.nombre ?? '—'
+
+  /** El reemplazo vale solo para hoy: mañana vuelve el titular solo. */
+  async function guardarReemplazo(e) {
+    e.preventDefault()
+    const { cuadrilla, tecnico_id } = eligiendoReemplazo
+    setGuardando(true)
+    setError(null)
+    const { error: err } = tecnico_id
+      ? await supabase
+          .from('cuadrilla_reemplazos')
+          .upsert(
+            { cuadrilla_id: cuadrilla.id, fecha: hoyISO(), tecnico_id },
+            { onConflict: 'cuadrilla_id,fecha' },
+          )
+      : await supabase
+          .from('cuadrilla_reemplazos')
+          .delete()
+          .eq('cuadrilla_id', cuadrilla.id)
+          .eq('fecha', hoyISO())
+    setGuardando(false)
+    if (err) return setError(err)
+    setEligiendoReemplazo(null)
+    await recargar()
+  }
 
   return (
     <div className="space-y-5">
@@ -160,6 +214,7 @@ export default function TecnicosPage() {
       <Card
         title="Técnicos"
         icon={Users}
+        subtitle="Los que tienen usuario se crean solos desde Ajustes → Personal. Acá se agregan los que no usan el sistema." 
         actions={
           <ConPermiso permiso="usuarios.crear" envezDe={null}>
             <Button variante="primario" icon={Plus} onClick={() => setEditandoTecnico(TECNICO_VACIO)}>
@@ -174,7 +229,17 @@ export default function TecnicosPage() {
           vacio="Todavía no hay técnicos cargados."
           renderFila={(t) => (
             <tr key={t.id} className="border-t border-slate-800">
-              <td className="px-3 py-2 text-slate-200">{t.nombre}</td>
+              <td className="px-3 py-2 text-slate-200">
+                {t.nombre}
+                {t.user_id && (
+                  <span
+                    className="ml-2 inline-flex items-center gap-1 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-400"
+                    title="Tiene usuario: nombre, correo y celular se editan en Ajustes → Personal"
+                  >
+                    <UserCheck size={11} /> con usuario
+                  </span>
+                )}
+              </td>
               <td className="px-3 py-2 font-mono text-xs">{t.identificacion ?? '—'}</td>
               <td className="px-3 py-2 font-mono text-xs">{t.telefono ?? '—'}</td>
               <td className="px-3 py-2 text-xs">{ESPECIALIDADES[t.especialidad]}</td>
@@ -227,7 +292,7 @@ export default function TecnicosPage() {
         }
       >
         <Table
-          columnas={['Nombre', 'Zona', 'Vehículo', 'Integrantes', '']}
+          columnas={['Nombre', 'Zona', 'Vehículo', 'Integrantes', 'Jefe de grupo', '']}
           filas={cargando ? [] : cuadrillas}
           vacio="Sin cuadrillas. Se puede asignar a técnicos sueltos igual."
           renderFila={(c) => {
@@ -245,13 +310,41 @@ export default function TecnicosPage() {
                         .join(', ')
                     : 'sin integrantes'}
                 </td>
+                <td className="px-3 py-2 text-xs">
+                  {liderDe(c.id) ? (
+                    <span className="flex items-center gap-1 text-slate-200">
+                      <Star size={12} className="text-amber-400" />
+                      {nombreDe(liderDe(c.id))}
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">sin definir</span>
+                  )}
+                  {reemplazoDe(c.id) && (
+                    <span className="mt-0.5 block font-semibold text-amber-400">
+                      Hoy: {nombreDe(reemplazoDe(c.id))} (reemplazo)
+                    </span>
+                  )}
+                  {dirige && ids.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEligiendoReemplazo({ cuadrilla: c, tecnico_id: reemplazoDe(c.id) ?? '' })
+                      }
+                      className="mt-1 block text-[11px] font-semibold text-sky-400 hover:underline"
+                    >
+                      {reemplazoDe(c.id) ? 'Cambiar reemplazo de hoy' : 'Reemplazo de hoy'}
+                    </button>
+                  )}
+                </td>
                 <td className="px-3 py-2">
                   <div className="flex justify-end gap-1">
                     <ConPermiso permiso="usuarios.editar" envezDe={null}>
                       <Button
                         variante="fantasma"
                         icon={Pencil}
-                        onClick={() => setEditandoCuadrilla({ ...c, integrantes: ids })}
+                        onClick={() =>
+                          setEditandoCuadrilla({ ...c, integrantes: ids, lider: liderDe(c.id) })
+                        }
                       />
                     </ConPermiso>
                     <ConPermiso permiso="usuarios.eliminar" envezDe={null}>
@@ -410,8 +503,79 @@ export default function TecnicosPage() {
               </div>
             </Field>
 
+            <Field
+              label="Jefe de grupo"
+              hint="Carga el vehículo y los km de la cuadrilla. Los demás marcan solo su ingreso."
+            >
+              <Select
+                value={
+                  editandoCuadrilla.integrantes.includes(editandoCuadrilla.lider)
+                    ? editandoCuadrilla.lider
+                    : ''
+                }
+                onChange={(e) => setEditandoCuadrilla((c) => ({ ...c, lider: e.target.value }))}
+              >
+                <option value="">— sin definir (todos cargan vehículo y km) —</option>
+                {tecnicos
+                  .filter((t) => editandoCuadrilla.integrantes.includes(t.id))
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+
             <div className="flex justify-end gap-2">
               <Button variante="fantasma" type="button" onClick={() => setEditandoCuadrilla(null)}>
+                Cancelar
+              </Button>
+              <Button variante="primario" type="submit" cargando={guardando}>
+                Guardar
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* --- Modal reemplazo de hoy --- */}
+      <Modal
+        abierto={Boolean(eligiendoReemplazo)}
+        titulo={`Reemplazo de hoy · ${eligiendoReemplazo?.cuadrilla.nombre ?? ''}`}
+        onCerrar={() => setEligiendoReemplazo(null)}
+      >
+        {eligiendoReemplazo && (
+          <form onSubmit={guardarReemplazo} className="space-y-4">
+            <p className="text-xs text-slate-400">
+              Vale solo para hoy. Mañana el jefe de grupo vuelve a ser{' '}
+              <b>
+                {liderDe(eligiendoReemplazo.cuadrilla.id)
+                  ? nombreDe(liderDe(eligiendoReemplazo.cuadrilla.id))
+                  : 'el titular'}
+              </b>{' '}
+              sin que haga falta cambiar nada.
+            </p>
+            <Field label="Quién hace de jefe de grupo hoy">
+              <Select
+                value={eligiendoReemplazo.tecnico_id}
+                onChange={(e) => setEligiendoReemplazo((r) => ({ ...r, tecnico_id: e.target.value }))}
+              >
+                <option value="">— sin reemplazo (el titular) —</option>
+                {tecnicos
+                  .filter(
+                    (t) =>
+                      integrantesDe(eligiendoReemplazo.cuadrilla.id).includes(t.id) &&
+                      t.id !== liderDe(eligiendoReemplazo.cuadrilla.id),
+                  )
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nombre}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <div className="flex justify-end gap-2">
+              <Button variante="fantasma" type="button" onClick={() => setEligiendoReemplazo(null)}>
                 Cancelar
               </Button>
               <Button variante="primario" type="submit" cargando={guardando}>

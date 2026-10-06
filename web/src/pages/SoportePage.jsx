@@ -66,7 +66,16 @@ export default function SoportePage() {
     setCargando(true)
 
     let consulta = supabase.from('v_tickets').select('*')
-    if (!puede('soporte.ver')) consulta = consulta.eq('tecnico_id', perfil?.tecnico_id ?? NADIE)
+    if (!puede('soporte.ver')) {
+      /* Los suyos y los de las cuadrillas que integra: un ticket asignado a la
+         cuadrilla es trabajo de todos sus integrantes, no de nadie. */
+      const yo = perfil?.tecnico_id ?? NADIE
+      const { data: cuadrillas } = await supabase.rpc('mis_cuadrillas')
+      const ids = (cuadrillas ?? []).map((c) => (typeof c === 'string' ? c : c.mis_cuadrillas))
+      consulta = ids.length
+        ? consulta.or(`tecnico_id.eq.${yo},cuadrilla_id.in.(${ids.join(',')})`)
+        : consulta.eq('tecnico_id', yo)
+    }
 
     const { data, error: err } = await consulta
       .order('created_at', { ascending: false })

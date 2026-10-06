@@ -583,19 +583,21 @@ export default function PersonalPage() {
                   ))}
                 </Select>
               </Field>
-              {/* El vínculo con el técnico ya cargado en Soporte. No es un dato
-                  administrativo: es lo que decide qué tickets ve al entrar. Sin
-                  elegirlo, su bandeja va a estar vacía. */}
-              {editando.rol === 'tecnico' && (
+              {/* El vínculo con su ficha de Soporte, que decide qué tickets ve.
+                  Desde la migración 208 no hace falta elegirlo: si queda vacío,
+                  la ficha se crea sola al guardar con su nombre, correo y
+                  celular. Elegir una sirve solo para enlazar una ficha que ya
+                  estaba cargada a mano, y no duplicarla. */}
+              {['tecnico', 'jefe_tecnico'].includes(editando.rol) && (
                 <Field
-                  label="Técnico vinculado"
-                  hint="De acá salen los tickets e instalaciones que va a ver. Sin esto no ve ninguno."
+                  label="Ficha en Soporte"
+                  hint="Vacío = se crea sola al guardar. Elegí una solo si ya estaba cargada en Soporte → Técnicos."
                 >
                   <Select
                     value={editando.tecnico_id ?? ''}
                     onChange={(e) => setEditando({ ...editando, tecnico_id: e.target.value || null })}
                   >
-                    <option value="">— sin vincular —</option>
+                    <option value="">— crear automáticamente —</option>
                     {tecnicos.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.nombre}

@@ -208,7 +208,10 @@ const RUTAS = [
   // Va ANTES que '/monitoreo' porque el mapa resuelve por prefijo más largo.
   // Ver la lista de averías alcanza con poder ver el monitoreo; abrirlas —que le
   // escribe a cientos de abonados— lo decide `red.incidencias` adentro.
-  ['/monitoreo/incidencias', ['red.monitoreo_ver', 'red.incidencias']],
+  // No alcanza con `red.monitoreo_ver`: ese es el del técnico, que ve si un
+  // nodo está caído desde la app de campo, y con él se le abría la lista de
+  // cortes masivos —y el grupo "Gestión de Red e IPAM" entero en el menú—.
+  ['/monitoreo/incidencias', ['red.monitoreo', 'red.incidencias']],
   ['/monitoreo', 'red.monitoreo'],
   ['/bloqueos', 'red.cortes'],
 
