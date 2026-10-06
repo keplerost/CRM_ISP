@@ -393,8 +393,10 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
   // Recalcula cuando cambia algo del alcance. El resto del formulario —el
   // título, la descripción— no lo toca: escribir el texto no cambia a quién le
   // llega.
+  const abierto = Boolean(creando)
+
   useEffect(() => {
-    if (!creando) return setPrevia(null)
+    if (!abierto) return setPrevia(null)
 
     const alcance = {
       alcance: creando.alcance,
@@ -429,7 +431,9 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
     creando?.olt_id,
     creando?.puerto_pon,
     creando?.router_id,
-    creando,
+    // `abierto` y no `creando`: con el objeto entero, cada tecla del título
+    // volvía a calcular y el cuadro parpadeaba entre "Calculando…" y el número.
+    abierto,
   ])
 
   async function guardar(e) {
@@ -564,7 +568,7 @@ function FormIncidencia({ creando, setCreando, catalogos, guardando, setGuardand
                 : 'border-slate-800 bg-[#F6F8FB]'
             }`}
           >
-            {calculando ? (
+            {calculando && !previa ? (
               <p className="text-[12px] text-slate-500">Calculando a quiénes alcanza…</p>
             ) : previa ? (
               <>

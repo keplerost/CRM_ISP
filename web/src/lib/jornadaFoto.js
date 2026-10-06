@@ -143,3 +143,33 @@ export async function ubicacionDelIngreso(tecnicoId, hoy) {
     ),
   }
 }
+
+/**
+ * La foto de una salida de emergencia (migración 210).
+ *
+ * Mismo bucket que la del ingreso, en `emergencia/<id>/`, y el mismo trato: no
+ * lanza, devuelve `{ ok, error }`. La emergencia se abre igual sin foto.
+ */
+export async function subirFotoEmergencia(emergenciaId, archivo) {
+  if (!emergenciaId || !archivo) return { ok: false, error: new Error('Falta la emergencia o la foto') }
+
+  try {
+    const blob = await comprimirImagen(archivo)
+    const ruta = `emergencia/${emergenciaId}/ingreso-${Date.now()}.jpg`
+
+    const { error: errSubida } = await supabase.storage
+      .from(BUCKET)
+      .upload(ruta, blob, { contentType: 'image/jpeg' })
+    if (errSubida) throw errSubida
+
+    const { error: errFila } = await supabase
+      .from('salidas_emergencia')
+      .update({ foto_ingreso: ruta })
+      .eq('id', emergenciaId)
+    if (errFila) throw errFila
+
+    return { ok: true, ruta }
+  } catch (error) {
+    return { ok: false, error }
+  }
+}

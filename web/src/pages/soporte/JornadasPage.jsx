@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, Camera, CameraOff, Clock, MapPin, X } from 'lucide-react'
+import { CalendarDays, Camera, CameraOff, Clock, MapPin, Siren, X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { urlDeFoto } from '../../lib/jornadaFoto'
 import { RADIO_LLEGADA_M } from '../../lib/soporte'
@@ -41,6 +41,53 @@ const hora = (v) =>
   v
     ? new Date(v).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
     : '—'
+
+/**
+ * Las salidas de emergencia del día (migración 210): trabajo fuera de la
+ * jornada. Van aparte porque son las horas que se pagan o se compensan. Las
+ * abiertas aparecen siempre, sea cual sea la fecha elegida.
+ */
+function Emergencias({ fecha }) {
+  const [filas, setFilas] = useState([])
+
+  useEffect(() => {
+    const desde = new Date(`${fecha}T00:00:00`)
+    const hasta = new Date(desde.getTime() + 864e5)
+    supabase
+      .from('v_salidas_emergencia')
+      .select('*')
+      .or(`fin_at.is.null,and(inicio_at.gte.${desde.toISOString()},inicio_at.lt.${hasta.toISOString()})`)
+      .order('inicio_at', { ascending: false })
+      .then(({ data, error }) => setFilas(error ? [] : (data ?? [])))
+  }, [fecha])
+
+  if (!filas.length) return null
+
+  const hora = (f) => new Date(f).toLocaleString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const dura = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`)
+
+  return (
+    <Card title="Salidas de emergencia" icon={Siren}>
+      <ul className="divide-y divide-slate-800/60 px-4 sm:px-6">
+        {filas.map((e) => (
+          <li key={e.id} className="py-2.5 text-sm">
+            <p className="text-slate-100">
+              <b>{e.tecnico}</b> · {e.motivo}
+            </p>
+            <p className="text-[11px] text-slate-500">
+              {hora(e.inicio_at)} → {e.fin_at ? hora(e.fin_at) : <span className="text-rose-400">sigue afuera</span>}
+              {` · ${dura(e.minutos ?? 0)}`}
+              {e.km_recorridos != null && ` · ${e.km_recorridos} km`}
+              {!e.foto_ingreso && ' · sin foto'}
+            </p>
+            {e.cierre_nota && <p className="text-[12px] text-slate-300">“{e.cierre_nota}”</p>}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
 
 export default function JornadasPage() {
   const [fecha, setFecha] = useState(hoyLocal)
@@ -128,6 +175,9 @@ export default function JornadasPage() {
           color={lejos ? 'text-amber-400' : 'text-slate-500'}
         />
       </div>
+
+      <Emergencias fecha={fecha} />
+
 
       <Card title="Ingresos" icon={Clock}>
         {filas === null ? (

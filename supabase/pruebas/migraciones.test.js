@@ -4556,6 +4556,11 @@ test('la reparación de red la cierra el jefe de grupo y resuelve el corte', asy
               'zona', 'ZONA 209', 'abierta', NOW(), 1);
       INSERT INTO incidencia_avisos (incidencia_id, client_id, momento, estado)
       VALUES ('f2090000-0000-0000-0000-000000000001', 'e2090000-0000-0000-0000-000000000001', 'apertura', 'enviado');
+
+      -- Con el ingreso marcado: desde la 210, sin él no se reporta ni se cierra.
+      INSERT INTO jornadas (tecnico_id, fecha, inicio_at) VALUES
+        ('b2090000-0000-0000-0000-000000000001', CURRENT_DATE, NOW() - INTERVAL '3 hours'),
+        ('b2090000-0000-0000-0000-000000000002', CURRENT_DATE, NOW() - INTERVAL '3 hours');
   `)
 
   // Un técnico no asigna.
@@ -4640,4 +4645,51 @@ test('un corte agrupado de la OLT aparece en novedades y se puede asignar', asyn
   assert.equal(r.r.corte_resuelto, false)
   const sigue = await fila(db, `SELECT resuelto_en FROM alerta_eventos WHERE id = '${alerta}'`)
   assert.equal(sigue.resuelto_en, null)
+})
+
+/**
+ * Migración 210: sin ingreso no se inicia ningún trabajo, salvo con una salida
+ * de emergencia. Lo marcado sin señal durante la jornada vale aunque llegue
+ * después de cerrarla.
+ */
+test('sin ingreso el técnico no inicia trabajos, y la emergencia lo habilita', async () => {
+  await sesion(db, null)
+  await db.exec(`
+      UPDATE jornadas SET fin_at = NOW() - INTERVAL '1 minute'
+       WHERE tecnico_id = 'b2090000-0000-0000-0000-000000000002';
+      INSERT INTO tickets (id, nombre, estado, tecnico_id)
+      VALUES ('12100000-0000-0000-0000-000000000001', 'Abonado 210', 'asignado',
+              'b2090000-0000-0000-0000-000000000002');
+  `)
+
+  await sesion(db, 'a2090000-0000-0000-0000-000000000002')
+  assert.equal((await fila(db, 'SELECT estoy_en_servicio() AS v')).v, false)
+
+  await assert.rejects(
+    db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW()
+               WHERE id = '12100000-0000-0000-0000-000000000001'`),
+    /marcá tu ingreso/,
+  )
+
+  // Marcado sin señal a mitad de la jornada, sincronizado después de cerrarla.
+  await db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW() - INTERVAL '2 hours'
+                   WHERE id = '12100000-0000-0000-0000-000000000001'`)
+
+  // La emergencia lo habilita, y no se puede abrir otra encima.
+  const { id } = await fila(db, `SELECT abrir_emergencia('Torre norte apagada') AS id`)
+  assert.ok(id)
+  assert.equal((await fila(db, 'SELECT estoy_en_servicio() AS v')).v, true)
+  await db.query(`UPDATE tickets SET estado = 'en_proceso', llegada_at = NOW()
+                   WHERE id = '12100000-0000-0000-0000-000000000001'`)
+  await assert.rejects(db.query(`SELECT abrir_emergencia('otra')`), /Ya estás en servicio/)
+
+  await db.query(`SELECT cerrar_emergencia('Se reinició el equipo de la torre')`)
+  assert.equal((await fila(db, 'SELECT estoy_en_servicio() AS v')).v, false)
+  const e = await fila(db, `SELECT minutos, fin_at IS NOT NULL AS cerrada FROM v_salidas_emergencia WHERE id = '${id}'`)
+  assert.equal(e.cerrada, true)
+
+  // La oficina no marca jornada y mueve estados igual.
+  await sesion(db, 'a2090000-0000-0000-0000-000000000003')
+  await db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW()
+                   WHERE id = '12100000-0000-0000-0000-000000000001'`)
 })

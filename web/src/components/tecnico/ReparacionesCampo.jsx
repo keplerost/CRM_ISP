@@ -4,6 +4,7 @@ import { CheckCircle2, ChevronDown, ChevronUp, Hammer, MapPin, MessageSquarePlus
 import { supabase } from '../../lib/supabaseClient'
 import { useConfirmar } from '../../lib/confirmar'
 import { TIPO_AVERIA, useBitacora } from '../red/ReparacionesRed'
+import { exigirEnServicio } from '../../lib/servicio'
 
 /**
  * Las reparaciones de red asignadas a la cuadrilla del técnico (migración 209).
@@ -93,6 +94,12 @@ function Reparacion({ r, onCambio }) {
     }
     setEnviando(true)
     setError(null)
+    try {
+      await exigirEnServicio()
+    } catch (err) {
+      setEnviando(false)
+      return setError(err.message)
+    }
     const pos = await ubicacion()
     const args = { p_id: r.id, p_lat: pos?.lat ?? null, p_lng: pos?.lng ?? null }
     const { data, error: err } =

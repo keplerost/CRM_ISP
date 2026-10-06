@@ -964,7 +964,7 @@ function AvisoJornada({ j }) {
   const texto = sinIniciar
     ? {
         titulo: 'Todavía no iniciaste tu jornada',
-        sub: 'Registrá el vehículo, el kilometraje y tu foto de ingreso.',
+        sub: 'Sin tu ingreso no podés iniciar ningún trabajo. Marcalo con tu foto antes de salir.',
         accion: 'Iniciar',
       }
     : {

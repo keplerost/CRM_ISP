@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { campoApi } from '../../lib/colaCampo'
+import { exigirEnServicio } from '../../lib/servicio'
 import AvisoIncidencia from '../tecnico/AvisoIncidencia'
 import { Aviso, Button, Card, Field, Input, Textarea } from '../ui'
 import FirmaDigital from './FirmaDigital'
@@ -144,6 +145,9 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     setGuardando(true)
     onError?.(null)
     try {
+      // Sin ingreso no se inicia nada (migración 210).
+      if (['en_ruta', 'en_proceso'].includes(nuevo)) await exigirEnServicio()
+
       // `cerrado_por` solo cuando de verdad se está cerrando. Ponerlo en cada
       // cambio de estado hacía figurar como "cerrado por" a quien apenas salió
       // hacia el domicilio.
@@ -181,6 +185,12 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
    * cuando lo que quiere es arrancar.
    */
   async function irAlDomicilio() {
+    // Antes de abrir el mapa: si no marcó ingreso, que no salga manejando.
+    try {
+      await exigirEnServicio()
+    } catch (err) {
+      return onError?.(err)
+    }
     const mapa = enlaceMapa(t)
     if (mapa) window.open(mapa, '_blank', 'noopener')
     await cambiarEstado('en_ruta')
@@ -200,6 +210,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     onError?.(null)
 
     try {
+      await exigirEnServicio()
       const pos = await ubicacionActual()
 
       const metros =

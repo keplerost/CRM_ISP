@@ -3,6 +3,7 @@ import { useConfirmar } from '../../lib/confirmar'
 import { CheckCircle2, MapPinCheck, Navigation } from 'lucide-react'
 import { campoApi } from '../../lib/colaCampo'
 import { RADIO_LLEGADA_M, distanciaEnMetros, ubicacionActual } from '../../lib/soporte'
+import { exigirEnServicio } from '../../lib/servicio'
 
 /**
  * "Llegué al domicilio."
@@ -71,6 +72,7 @@ export default function MarcarLlegada({ orden, onMarcada, onError }) {
     onError?.(null)
 
     try {
+      await exigirEnServicio()
       const pos = await ubicacionActual()
 
       const metros =

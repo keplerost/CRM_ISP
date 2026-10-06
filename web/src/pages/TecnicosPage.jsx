@@ -48,13 +48,14 @@ const TECNICO_VACIO = {
   activo: true,
 }
 
-const CUADRILLA_VACIA = { nombre: '', zona: '', vehiculo: '', activo: true, lider: '' }
+const CUADRILLA_VACIA = { nombre: '', zona: '', vehiculo: '', vehiculo_id: '', activo: true, lider: '' }
 
 export default function TecnicosPage() {
   const confirmar = useConfirmar()
   const [tecnicos, setTecnicos] = useState([])
   const [cuadrillas, setCuadrillas] = useState([])
   const [miembros, setMiembros] = useState([])
+  const [vehiculos, setVehiculos] = useState([])
   const [reemplazos, setReemplazos] = useState([])
   const [dirige, setDirige] = useState(false)
   // { cuadrilla, tecnico_id } mientras se elige el reemplazo de hoy
@@ -68,13 +69,14 @@ export default function TecnicosPage() {
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const [t, c, m, r, d] = await Promise.all([
+    const [t, c, m, r, d, v] = await Promise.all([
       supabase.from('tecnicos').select('*').order('nombre'),
       supabase.from('cuadrillas').select('*').order('nombre'),
       supabase.from('cuadrilla_miembros').select('*'),
       // Sin la migración 208 estas dos fallan y la pantalla sigue como antes.
       supabase.from('cuadrilla_reemplazos').select('*').eq('fecha', hoyISO()),
       supabase.rpc('dirige_cuadrillas'),
+      supabase.from('vehiculos').select('id, nombre, placa').eq('activo', true).order('nombre'),
     ])
     if (t.error) setError(t.error)
     setTecnicos(t.data ?? [])
@@ -82,6 +84,7 @@ export default function TecnicosPage() {
     setMiembros(m.data ?? [])
     setReemplazos(r.error ? [] : (r.data ?? []))
     setDirige(Boolean(d.data))
+    setVehiculos(v.data ?? [])
     setCargando(false)
   }, [])
 
@@ -129,8 +132,16 @@ export default function TecnicosPage() {
       const fila = {
         nombre: datos.nombre.trim(),
         zona: datos.zona?.trim() || null,
-        vehiculo: datos.vehiculo?.trim() || null,
         activo: Boolean(datos.activo),
+      }
+      // El vehículo es el de Vehículos (migración 211). El texto se sigue
+      // guardando con su nombre, para lo que todavía lo lee.
+      if (vehiculos.length) {
+        const v = vehiculos.find((x) => x.id === datos.vehiculo_id)
+        fila.vehiculo_id = v?.id ?? null
+        fila.vehiculo = v ? [v.nombre, v.placa].filter(Boolean).join(' · ') : null
+      } else {
+        fila.vehiculo = datos.vehiculo?.trim() || null
       }
 
       const { data: guardada, error: err } = id
@@ -301,7 +312,12 @@ export default function TecnicosPage() {
               <tr key={c.id} className="border-t border-slate-800">
                 <td className="px-3 py-2 text-slate-200">{c.nombre}</td>
                 <td className="px-3 py-2 text-xs">{c.zona ?? '—'}</td>
-                <td className="px-3 py-2 text-xs">{c.vehiculo ?? '—'}</td>
+                <td className="px-3 py-2 text-xs">
+                  {c.vehiculo ?? '—'}
+                  {c.vehiculo && !c.vehiculo_id && vehiculos.length > 0 && (
+                    <span className="block text-[10px] text-amber-400">elegilo de la lista</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-xs text-slate-400">
                   {ids.length
                     ? tecnicos
@@ -343,7 +359,7 @@ export default function TecnicosPage() {
                         variante="fantasma"
                         icon={Pencil}
                         onClick={() =>
-                          setEditandoCuadrilla({ ...c, integrantes: ids, lider: liderDe(c.id) })
+                          setEditandoCuadrilla({ ...c, vehiculo_id: c.vehiculo_id ?? '', integrantes: ids, lider: liderDe(c.id) })
                         }
                       />
                     </ConPermiso>
@@ -466,11 +482,29 @@ export default function TecnicosPage() {
                   onChange={(e) => setEditandoCuadrilla((c) => ({ ...c, zona: e.target.value }))}
                 />
               </Field>
-              <Field label="Vehículo">
-                <Input
-                  value={editandoCuadrilla.vehiculo ?? ''}
-                  onChange={(e) => setEditandoCuadrilla((c) => ({ ...c, vehiculo: e.target.value }))}
-                />
+              <Field
+                label="Vehículo"
+                hint={vehiculos.length ? 'El jefe de grupo sale con este sin tener que elegirlo.' : undefined}
+              >
+                {vehiculos.length ? (
+                  <Select
+                    value={editandoCuadrilla.vehiculo_id ?? ''}
+                    onChange={(e) => setEditandoCuadrilla((c) => ({ ...c, vehiculo_id: e.target.value }))}
+                  >
+                    <option value="">— Sin vehículo fijo —</option>
+                    {vehiculos.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.nombre}
+                        {v.placa ? ` · ${v.placa}` : ''}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <Input
+                    value={editandoCuadrilla.vehiculo ?? ''}
+                    onChange={(e) => setEditandoCuadrilla((c) => ({ ...c, vehiculo: e.target.value }))}
+                  />
+                )}
               </Field>
             </div>
 
