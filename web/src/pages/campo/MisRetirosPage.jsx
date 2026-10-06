@@ -19,7 +19,7 @@ import { PLANTILLAS } from '../../lib/mensajesRetiro'
 import FirmaDigital from '../../components/soporte/FirmaDigital'
 import HistorialVisitas from '../../components/cartera/HistorialVisitas'
 import { abrirPdf } from '../../lib/pdf'
-import { enlaceWhatsApp } from '../../lib/telefono'
+import { enlaceLlamada, enlaceWhatsApp } from '../../lib/telefono'
 import { useMarca } from '../../lib/useMarca'
 import { api } from '../../lib/apiNetwork'
 import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, Input, Modal, Select, Textarea } from '../../components/ui'
@@ -213,7 +213,7 @@ function Contacto({ o, onError }) {
       <div className="flex flex-wrap gap-1.5">
         {o.telefono ? (
           <a
-            href={`tel:${o.telefono}`}
+            href={enlaceLlamada(o.telefono)}
             className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-[11px] text-slate-200 hover:bg-slate-700"
           >
             <Phone size={13} />

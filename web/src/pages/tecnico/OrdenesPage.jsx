@@ -8,6 +8,7 @@ import { ESTADOS } from '../../lib/instalaciones'
 import { HORA, faltaPara, hoyISO } from '../../lib/campo'
 import { conCache } from '../../lib/cacheLocal'
 import { usePermisos } from '../../lib/AuthContext'
+import { enlaceLlamada } from '../../lib/telefono'
 
 /**
  * Las órdenes del técnico.
@@ -160,7 +161,7 @@ function Tarjeta({ o }) {
         )}
         {o.plan && <span>{o.plan}</span>}
         {o.telefono && (
-          <a href={`tel:${o.telefono}`} className="text-sky-400">
+          <a href={enlaceLlamada(o.telefono)} className="text-sky-400">
             {o.telefono}
           </a>
         )}

@@ -36,6 +36,7 @@ import { largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
 import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
+import { enlaceLlamada } from '../../lib/telefono'
 
 /**
  * El tablero del técnico de campo.
@@ -565,7 +566,7 @@ function Proxima({ o, cargando }) {
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Boton href={o.telefono ? `tel:${o.telefono}` : null} icono={Phone}>
+        <Boton href={enlaceLlamada(o.telefono)} icono={Phone}>
           Llamar
         </Boton>
         <Boton href={enlaceMapa(o, mapaPreferido())} icono={MapPin} externo>

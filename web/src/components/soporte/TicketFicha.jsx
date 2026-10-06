@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { campoApi } from '../../lib/colaCampo'
+import { enlaceWhatsApp, separarTelefonos } from '../../lib/telefono'
 import { completarIngreso } from '../../lib/servicio'
 import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
 import AvisoIncidencia from '../tecnico/AvisoIncidencia'
@@ -138,10 +139,13 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     }))
   }, [t])
 
-  const wa = enlaceWhatsapp(
-    t.telefono_whatsapp || t.telefono,
-    `Hola ${String(t.nombre ?? '').split(' ')[0]}, le escribimos por su reporte N° ${t.codigo}.`,
-  )
+  const mensajeWa = `Hola ${String(t.nombre ?? '').split(' ')[0]}, le escribimos por su reporte N° ${t.codigo}.`
+  const wa = enlaceWhatsapp(t.telefono_whatsapp || t.telefono, mensajeWa)
+
+  // Todos los números del abonado: muchos tienen dos en el mismo campo
+  // ("0991234567 / 0987654321"). Los botones grandes usan el primero; con más
+  // de uno, abajo se ofrece cada uno por separado.
+  const numeros = separarTelefonos([t.telefono_whatsapp, t.telefono].filter(Boolean).join(' / '))
 
   async function cambiarEstado(nuevo) {
     setGuardando(true)
@@ -412,9 +416,9 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       {/* ------------------------------------------------ Acciones rápidas */}
       <div className="grid grid-cols-3 gap-2">
         <a
-          href={t.telefono ? `tel:${t.telefono}` : undefined}
+          href={numeros[0] ? `tel:${numeros[0].local}` : undefined}
           className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs transition ${
-            t.telefono
+            numeros.length
               ? 'border-sky-500/40 bg-sky-500/10 text-sky-200 active:bg-sky-500/20'
               : 'pointer-events-none border-slate-800 text-slate-600'
           }`}
@@ -451,6 +455,35 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
           Navegar
         </a>
       </div>
+
+      {numeros.length > 1 && (
+        <div className="space-y-1.5 rounded-xl border border-slate-800 p-3">
+          <p className="text-[11px] text-slate-500">El abonado tiene {numeros.length} números:</p>
+          {numeros.map((n) => (
+            <div key={n.internacional} className="flex items-center gap-2 text-[13px]">
+              <span className="flex-1 tabular-nums text-slate-200">
+                {n.local}
+                {!n.movil && <span className="ml-1 text-[11px] text-slate-500">fijo</span>}
+              </span>
+              <a href={`tel:${n.local}`} className="rounded-lg border border-sky-500/40 px-2.5 py-1 text-[12px] text-sky-300">
+                <Phone size={13} className="mr-1 inline" />
+                Llamar
+              </a>
+              {n.movil && (
+                <a
+                  href={enlaceWhatsApp(n.local, mensajeWa)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg border border-emerald-500/40 px-2.5 py-1 text-[12px] text-emerald-300"
+                >
+                  <MessageCircle size={13} className="mr-1 inline" />
+                  WhatsApp
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {enlaceMapa(t, 'waze') && (
         <a
