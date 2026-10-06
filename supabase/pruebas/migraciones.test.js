@@ -4664,16 +4664,23 @@ test('sin ingreso el técnico no inicia trabajos, y la emergencia lo habilita', 
 
   await sesion(db, 'a2090000-0000-0000-0000-000000000002')
   assert.equal((await fila(db, 'SELECT estoy_en_servicio() AS v')).v, false)
+  assert.equal((await fila(db, 'SELECT estado_de_ingreso() AS v')).v, 'jornada_cerrada')
 
+  // Desde la 212, salir hacia el domicilio no pide nada: manejar no es empezar.
+  await db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW()
+                   WHERE id = '12100000-0000-0000-0000-000000000001'`)
+
+  // Llegar, sí: con la jornada cerrada, no.
   await assert.rejects(
-    db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW()
+    db.query(`UPDATE tickets SET estado = 'en_proceso', llegada_at = NOW()
                WHERE id = '12100000-0000-0000-0000-000000000001'`),
-    /marcá tu ingreso/,
+    /jornada de hoy ya está cerrada/,
   )
 
   // Marcado sin señal a mitad de la jornada, sincronizado después de cerrarla.
-  await db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW() - INTERVAL '2 hours'
+  await db.query(`UPDATE tickets SET estado = 'en_proceso', llegada_at = NOW() - INTERVAL '2 hours'
                    WHERE id = '12100000-0000-0000-0000-000000000001'`)
+  await db.query(`UPDATE tickets SET estado = 'en_ruta' WHERE id = '12100000-0000-0000-0000-000000000001'`)
 
   // La emergencia lo habilita, y no se puede abrir otra encima.
   const { id } = await fila(db, `SELECT abrir_emergencia('Torre norte apagada') AS id`)
@@ -4692,4 +4699,115 @@ test('sin ingreso el técnico no inicia trabajos, y la emergencia lo habilita', 
   await sesion(db, 'a2090000-0000-0000-0000-000000000003')
   await db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW()
                    WHERE id = '12100000-0000-0000-0000-000000000001'`)
+})
+
+/**
+ * Migración 212: el jefe de grupo registra los km en la base sin marcar
+ * ingreso; el ingreso se marca solo al llegar al primer cliente, con esa hora
+ * y esa ubicación. Una llegada que sincroniza tarde lo adelanta.
+ */
+test('el ingreso se marca solo al llegar al primer cliente', async () => {
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('a2120000-0000-0000-0000-000000000001', 'tec212@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('b2120000-0000-0000-0000-000000000001', 'Técnico 212', true);
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id)
+      VALUES ('c2120000-0000-0000-0000-000000000001', 'a2120000-0000-0000-0000-000000000001', 'tec212',
+              'tec212@demo.ec', 'Técnico', '212', 'tecnico', '[]'::jsonb, true, 'b2120000-0000-0000-0000-000000000001');
+      INSERT INTO tickets (id, nombre, estado, tecnico_id) VALUES
+        ('12120000-0000-0000-0000-000000000001', 'Primer cliente', 'asignado', 'b2120000-0000-0000-0000-000000000001'),
+        ('12120000-0000-0000-0000-000000000002', 'Otro cliente', 'asignado', 'b2120000-0000-0000-0000-000000000001');
+  `)
+
+  await sesion(db, 'a2120000-0000-0000-0000-000000000001')
+  assert.equal((await fila(db, 'SELECT estado_de_ingreso() AS v')).v, 'falta_ingreso')
+
+  // La salida del vehículo en la base: km, sin ingreso.
+  await db.query(`INSERT INTO jornadas (tecnico_id, fecha, km_inicio)
+                  VALUES ('b2120000-0000-0000-0000-000000000001', (NOW() AT TIME ZONE zona_horaria())::date, 1000)`)
+  assert.equal((await fila(db, 'SELECT estado_de_ingreso() AS v')).v, 'falta_ingreso')
+
+  // Llega al primer cliente: el ingreso queda en esa llegada, con su ubicación.
+  await db.query(`UPDATE tickets SET estado = 'en_proceso', llegada_at = NOW() - INTERVAL '10 minutes',
+                         llegada_lat = -0.9, llegada_lng = -79.4
+                   WHERE id = '12120000-0000-0000-0000-000000000001'`)
+  const j = await fila(db, `SELECT km_inicio, inicio_at < NOW() - INTERVAL '9 minutes' AS en_la_llegada,
+                                   lat_ingreso::float AS lat, mi_jornada_de_hoy() = id AS es_la_mia
+                              FROM jornadas WHERE tecnico_id = 'b2120000-0000-0000-0000-000000000001'`)
+  assert.deepEqual({ ...j }, { km_inicio: 1000, en_la_llegada: true, lat: -0.9, es_la_mia: true })
+  assert.equal((await fila(db, 'SELECT estado_de_ingreso() AS v')).v, 'en_servicio')
+
+  // Una llegada anterior que sincroniza tarde adelanta el ingreso.
+  await db.query(`UPDATE tickets SET estado = 'en_proceso', llegada_at = NOW() - INTERVAL '1 hour'
+                   WHERE id = '12120000-0000-0000-0000-000000000002'`)
+  const adelantado = await fila(db, `SELECT inicio_at < NOW() - INTERVAL '59 minutes' AS v FROM jornadas
+                                      WHERE tecnico_id = 'b2120000-0000-0000-0000-000000000001'`)
+  assert.equal(adelantado.v, true)
+})
+
+/**
+ * Migración 213: el jefe de grupo toma la foto grupal en el sitio. Lejos del
+ * cliente no la acepta; a los presentes les marca el ingreso con esa foto, y
+ * quien no estaba queda para marcar el suyo.
+ */
+test('la foto grupal en el sitio marca el ingreso de los presentes', async () => {
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES
+        ('a2130000-0000-0000-0000-000000000001', 'jefe213@demo.ec'),
+        ('a2130000-0000-0000-0000-000000000002', 'uno213@demo.ec'),
+        ('a2130000-0000-0000-0000-000000000003', 'dos213@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES
+        ('b2130000-0000-0000-0000-000000000001', 'Jefe 213', true),
+        ('b2130000-0000-0000-0000-000000000002', 'Uno 213', true),
+        ('b2130000-0000-0000-0000-000000000003', 'Dos 213', true);
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('c2130000-0000-0000-0000-000000000001', 'a2130000-0000-0000-0000-000000000001', 'jefe213', 'jefe213@demo.ec',
+         'Jefe', '213', 'tecnico', '[]'::jsonb, true, 'b2130000-0000-0000-0000-000000000001'),
+        ('c2130000-0000-0000-0000-000000000002', 'a2130000-0000-0000-0000-000000000002', 'uno213', 'uno213@demo.ec',
+         'Uno', '213', 'tecnico', '[]'::jsonb, true, 'b2130000-0000-0000-0000-000000000002'),
+        ('c2130000-0000-0000-0000-000000000003', 'a2130000-0000-0000-0000-000000000003', 'dos213', 'dos213@demo.ec',
+         'Dos', '213', 'tecnico', '[]'::jsonb, true, 'b2130000-0000-0000-0000-000000000003');
+      INSERT INTO cuadrillas (id, nombre) VALUES ('d2130000-0000-0000-0000-000000000001', 'Cuadrilla 213');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES
+        ('d2130000-0000-0000-0000-000000000001', 'b2130000-0000-0000-0000-000000000001', 'lider'),
+        ('d2130000-0000-0000-0000-000000000001', 'b2130000-0000-0000-0000-000000000002', 'tecnico'),
+        ('d2130000-0000-0000-0000-000000000001', 'b2130000-0000-0000-0000-000000000003', 'tecnico');
+      INSERT INTO tickets (id, nombre, estado, cuadrilla_id, latitud, longitud)
+      VALUES ('12130000-0000-0000-0000-000000000001', 'Cliente 213', 'asignado',
+              'd2130000-0000-0000-0000-000000000001', -0.9300000, -79.4300000);
+  `)
+
+  const modo = async (auth) => {
+    await sesion(db, auth)
+    return (await fila(db, 'SELECT mi_ingreso_de_hoy() AS v')).v
+  }
+
+  const delJefe = await modo('a2130000-0000-0000-0000-000000000001')
+  assert.equal(delJefe.modo, 'grupal')
+  assert.equal(delJefe.integrantes.length, 3)
+
+  const delUno = await modo('a2130000-0000-0000-0000-000000000002')
+  assert.deepEqual({ modo: delUno.modo, jefe: delUno.jefe }, { modo: 'espera_grupal', jefe: 'Jefe 213' })
+
+  // Lejos del cliente (≈1 km), no.
+  await sesion(db, 'a2130000-0000-0000-0000-000000000001')
+  await assert.rejects(
+    db.query(`SELECT ingreso_grupal(ARRAY['b2130000-0000-0000-0000-000000000002']::uuid[], 'ticket',
+                     '12130000-0000-0000-0000-000000000001', -0.9390, -79.4300, 10)`),
+    /Estás a \d+ m del sitio/,
+  )
+
+  // En la puerta, sí. "Dos" no está en la foto.
+  const { id } = await fila(db, `SELECT ingreso_grupal(ARRAY['b2130000-0000-0000-0000-000000000002']::uuid[], 'ticket',
+                                   '12130000-0000-0000-0000-000000000001', -0.9301, -79.4300, 10) AS id`)
+  await db.query(`SELECT foto_ingreso_grupal('${id}', 'grupal/${id}/foto.jpg')`)
+
+  const r = await db.query(`SELECT tecnico_id, distancia_ingreso_m, foto_ingreso
+                              FROM jornadas WHERE ingreso_grupal_id = '${id}' ORDER BY tecnico_id`)
+  assert.equal(r.rows.length, 2, 'el jefe y Uno')
+  assert.ok(r.rows.every((x) => x.distancia_ingreso_m < 30 && x.foto_ingreso === `grupal/${id}/foto.jpg`))
+
+  assert.equal((await modo('a2130000-0000-0000-0000-000000000002')).estado, 'en_servicio')
+  assert.equal((await modo('a2130000-0000-0000-0000-000000000003')).modo, 'individual', 'Dos marca el suyo')
 })

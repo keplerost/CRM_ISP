@@ -3,7 +3,8 @@ import { useConfirmar } from '../../lib/confirmar'
 import { CheckCircle2, MapPinCheck, Navigation } from 'lucide-react'
 import { campoApi } from '../../lib/colaCampo'
 import { RADIO_LLEGADA_M, distanciaEnMetros, ubicacionActual } from '../../lib/soporte'
-import { exigirEnServicio } from '../../lib/servicio'
+import { completarIngreso } from '../../lib/servicio'
+import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
 
 /**
  * "Llegué al domicilio."
@@ -31,6 +32,7 @@ import { exigirEnServicio } from '../../lib/servicio'
  */
 export default function MarcarLlegada({ orden, onMarcada, onError }) {
   const confirmar = useConfirmar()
+  const prepararIngreso = usePrepararIngreso()
   const [ubicando, setUbicando] = useState(false)
 
   // Ya marcada: se muestra el hecho, no el botón. Volver a ofrecerlo invitaría
@@ -72,7 +74,6 @@ export default function MarcarLlegada({ orden, onMarcada, onError }) {
     onError?.(null)
 
     try {
-      await exigirEnServicio()
       const pos = await ubicacionActual()
 
       const metros =
@@ -116,8 +117,12 @@ export default function MarcarLlegada({ orden, onMarcada, onError }) {
         estado: orden.estado === 'agendada' ? 'en_curso' : orden.estado,
       }
 
+      // Si es el primer trabajo del día, esta llegada es el ingreso (212).
+      const foto = orden.estado === 'agendada' ? await prepararIngreso({ tipo: 'instalacion', id: orden.id, lat: orden.latitud, lng: orden.longitud }) : null
+
       // Por la cola: la puerta del cliente es justo donde falta señal.
-      await campoApi.guardarOrden(orden.id, campos)
+      const r = await campoApi.guardarOrden(orden.id, campos)
+      if (!r?.encolado) await completarIngreso(foto)
       await onMarcada?.(campos)
     } catch (err) {
       onError?.(err)

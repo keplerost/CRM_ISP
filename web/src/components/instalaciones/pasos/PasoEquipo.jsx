@@ -4,7 +4,8 @@ import { supabase } from '../../../lib/supabaseClient'
 import { TECNOLOGIAS, leerEtiqueta, normalizarMac } from '../../../lib/instalaciones'
 import EscanerCodigo from '../EscanerCodigo'
 import { Aviso, Button, Field, Input, Select } from '../../ui'
-import { exigirEnServicio } from '../../../lib/servicio'
+import { completarIngreso } from '../../../lib/servicio'
+import { usePrepararIngreso } from '../../tecnico/IngresoGrupal'
 
 /**
  * Paso 1 — qué equipo se está dejando puesto.
@@ -17,6 +18,7 @@ import { exigirEnServicio } from '../../../lib/servicio'
  * o el CPE en el registro del router— no se parece en nada a la causa.
  */
 export default function PasoEquipo({ orden, onError, onGuardado }) {
+  const prepararIngreso = usePrepararIngreso()
   const esFibra = orden.tecnologia !== 'wireless'
 
   const [form, setForm] = useState({
@@ -67,8 +69,9 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
     onError?.(null)
 
     try {
-      // Leer el equipo pasa la orden a "en curso": sin ingreso, no (migración 210).
-      if (orden.estado === 'agendada') await exigirEnServicio()
+      // Leer el equipo pasa la orden a "en curso": si es el primer trabajo del
+      // día, marca el ingreso (migración 212).
+      const foto = orden.estado === 'agendada' ? await prepararIngreso({ tipo: 'instalacion', id: orden.id, lat: orden.latitud, lng: orden.longitud }) : null
       const { error } = await supabase
         .from('instalaciones')
         .update({
@@ -94,6 +97,7 @@ export default function PasoEquipo({ orden, onError, onGuardado }) {
           : error
       }
 
+      await completarIngreso(foto)
       await onGuardado?.()
     } catch (err) {
       onError?.(err)

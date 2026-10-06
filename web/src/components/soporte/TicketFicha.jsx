@@ -20,7 +20,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { campoApi } from '../../lib/colaCampo'
-import { exigirEnServicio } from '../../lib/servicio'
+import { completarIngreso } from '../../lib/servicio'
+import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
 import AvisoIncidencia from '../tecnico/AvisoIncidencia'
 import { Aviso, Button, Card, Field, Input, Textarea } from '../ui'
 import FirmaDigital from './FirmaDigital'
@@ -73,6 +74,7 @@ function Dato({ etiqueta, valor, mono = false }) {
 
 export default function TicketFicha({ ticket, onCambio, onError }) {
   const confirmar = useConfirmar()
+  const prepararIngreso = usePrepararIngreso()
   const [t, setT] = useState(ticket)
   const [guardando, setGuardando] = useState(false)
   const [eventos, setEventos] = useState([])
@@ -145,8 +147,9 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     setGuardando(true)
     onError?.(null)
     try {
-      // Sin ingreso no se inicia nada (migración 210).
-      if (['en_ruta', 'en_proceso'].includes(nuevo)) await exigirEnServicio()
+      // Iniciar el trabajo marca el ingreso si es el primero del día (212).
+      // Salir hacia el domicilio no pide nada: manejar no es empezar.
+      const foto = nuevo === 'en_proceso' ? await prepararIngreso({ tipo: 'ticket', id: t.id, lat: t.latitud, lng: t.longitud }) : null
 
       // `cerrado_por` solo cuando de verdad se está cerrando. Ponerlo en cada
       // cambio de estado hacía figurar como "cerrado por" a quien apenas salió
@@ -168,6 +171,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       setT((v) => ({ ...v, ...campos }))
       if (r.encolado) return
 
+      await completarIngreso(foto)
       await recargar()
       await onCambio?.()
     } catch (err) {
@@ -185,12 +189,6 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
    * cuando lo que quiere es arrancar.
    */
   async function irAlDomicilio() {
-    // Antes de abrir el mapa: si no marcó ingreso, que no salga manejando.
-    try {
-      await exigirEnServicio()
-    } catch (err) {
-      return onError?.(err)
-    }
     const mapa = enlaceMapa(t)
     if (mapa) window.open(mapa, '_blank', 'noopener')
     await cambiarEstado('en_ruta')
@@ -210,7 +208,6 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
     onError?.(null)
 
     try {
-      await exigirEnServicio()
       const pos = await ubicacionActual()
 
       const metros =
@@ -248,6 +245,9 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
         // haría figurar como cerrador a alguien que recién está entrando.
       }
 
+      // Si es el primer trabajo del día, esta llegada es el ingreso (212).
+      const foto = await prepararIngreso({ tipo: 'ticket', id: t.id, lat: t.latitud, lng: t.longitud })
+
       // Pasa por la cola: llegar al domicilio es justo donde suele no haber
       // señal, y perder la marca de llegada obliga a rehacerla desde la
       // memoria — que es como se llena de horarios inventados.
@@ -256,6 +256,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       setT((v) => ({ ...v, ...campos }))
       if (r.encolado) return
 
+      await completarIngreso(foto)
       await recargar()
       await onCambio?.()
     } catch (err) {

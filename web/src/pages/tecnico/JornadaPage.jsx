@@ -75,6 +75,8 @@ export default function JornadaPage() {
     vehiculos.find((v) => v.tecnico_id && v.tecnico_id === perfil?.tecnico_id) ??
     null
   const [otroVehiculo, setOtroVehiculo] = useState(false)
+  // "Marcar ingreso ahora", para el día sin clientes (bodega, capacitación).
+  const [ingresoAhora, setIngresoAhora] = useState(false)
 
   /**
    * Lo que le falta al vehículo de hoy.
@@ -224,6 +226,31 @@ export default function JornadaPage() {
     }
   }
 
+  /**
+   * La salida del vehículo, en la base (migración 212).
+   *
+   * Solo vehículo y km: no es el ingreso. Las horas cuentan desde el primer
+   * cliente, y ahí se marca el ingreso con la foto. La jornada queda con
+   * `inicio_at` vacío hasta entonces.
+   */
+  async function registrarSalida() {
+    if (!form.vehiculo_id || form.km_inicio === '') return
+    setGuardando(true)
+    setError(null)
+    const { error: err } = await supabase.from('jornadas').upsert(
+      {
+        tecnico_id: perfil.tecnico_id,
+        fecha: hoyISO(),
+        vehiculo_id: form.vehiculo_id,
+        km_inicio: Number(form.km_inicio),
+      },
+      { onConflict: 'tecnico_id,fecha' },
+    )
+    setGuardando(false)
+    if (err) return setError(err)
+    await recargar()
+  }
+
   /** Reintentar la foto, o sacarla de nuevo si salió movida. */
   async function guardarFoto() {
     if (!foto || !jornada?.id) return
@@ -299,6 +326,41 @@ export default function JornadaPage() {
     )
   }
 
+  const avisoPrimerCliente = (
+    <p className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-[12px] leading-snug text-sky-200">
+      Tu ingreso se marca solo al llegar a tu <b>primer cliente</b>: la app te pide la foto ahí,
+      y tus horas cuentan desde ese momento.
+    </p>
+  )
+
+  const marcarIngresoAhora = (
+    <div className="border-t border-slate-800 pt-3">
+      {!ingresoAhora ? (
+        <button
+          type="button"
+          onClick={() => setIngresoAhora(true)}
+          className="w-full text-center text-[12px] text-sky-400"
+        >
+          ¿Hoy no tenés clientes (bodega, capacitación)? Marcá tu ingreso ahora
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <FotoIngreso foto={foto} onFoto={setFoto} />
+          <Button
+            variante="primario"
+            icon={PlayCircle}
+            className="w-full py-3"
+            onClick={abrir}
+            cargando={guardando}
+            disabled={guardando || (cargaKm && (!form.vehiculo_id || form.km_inicio === ''))}
+          >
+            Marcar ingreso ahora
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="mx-auto max-w-lg space-y-3">
       {error && (
@@ -349,23 +411,14 @@ export default function JornadaPage() {
 
         {!jornada?.inicio_at && !cargaKm ? (
           <div className="space-y-3">
+            {avisoPrimerCliente}
             <p className="text-[12px] leading-snug text-slate-400">
               El vehículo y los km los registra el jefe de grupo
-              {cuadrilla?.jefe ? ` (${cuadrilla.jefe})` : ''}. Vos marcás tu ingreso con la foto.
+              {cuadrilla?.jefe ? ` (${cuadrilla.jefe})` : ''} al salir de la base.
             </p>
-            <FotoIngreso foto={foto} onFoto={setFoto} />
-            <Button
-              variante="primario"
-              icon={PlayCircle}
-              className="w-full py-3"
-              onClick={abrir}
-              cargando={guardando}
-              disabled={guardando}
-            >
-              Marcar ingreso
-            </Button>
+            {marcarIngresoAhora}
           </div>
-        ) : !jornada?.inicio_at ? (
+        ) : !jornada?.inicio_at && jornada?.km_inicio == null ? (
           <div className="space-y-3">
             {vehiculoFijo && !otroVehiculo && form.vehiculo_id === vehiculoFijo.id ? (
               <div className="flex items-center justify-between gap-2 t-panel px-3 py-2.5">
@@ -409,18 +462,18 @@ export default function JornadaPage() {
                 placeholder="Ej: 84520"
               />
             </Field>
-            <FotoIngreso foto={foto} onFoto={setFoto} />
-
             <Button
               variante="primario"
-              icon={PlayCircle}
+              icon={Route}
               className="w-full py-3"
-              onClick={abrir}
+              onClick={registrarSalida}
               cargando={guardando}
               disabled={!form.vehiculo_id || form.km_inicio === '' || guardando}
             >
-              Iniciar jornada
+              Registrar salida del vehículo
             </Button>
+            {avisoPrimerCliente}
+            {marcarIngresoAhora}
           </div>
         ) : (
           <div className="space-y-3">
@@ -448,12 +501,15 @@ export default function JornadaPage() {
             </div>
             <p className="text-center text-[11px] text-slate-500">
               {jornada.vehiculo}
-              {jornada.placa ? ` · ${jornada.placa}` : ''} · desde las{' '}
-              {new Date(jornada.inicio_at).toLocaleTimeString('es-EC', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {jornada.placa ? ` · ${jornada.placa}` : ''}
+              {jornada.inicio_at
+                ? ` · ingreso a las ${new Date(jornada.inicio_at).toLocaleTimeString('es-EC', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`
+                : ' · salió de la base'}
             </p>
+            {!jornada.inicio_at && avisoPrimerCliente}
             </>
             )}
 
@@ -462,7 +518,9 @@ export default function JornadaPage() {
             {/* La foto, ya con la jornada abierta: dice si está o no, y deja
                 reintentar. Aparece también con la jornada cerrada — quien
                 trabajó todo el día sin señal la sube al volver. */}
-            {jornada.foto_ingreso ? (
+            {!jornada.inicio_at ? (
+              marcarIngresoAhora
+            ) : jornada.foto_ingreso ? (
               <p className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-emerald-400">
                 <Check size={13} /> Foto de ingreso subida
               </p>
@@ -543,7 +601,8 @@ export default function JornadaPage() {
 
       <SalidaEmergencia
         tecnicoId={perfil.tecnico_id}
-        enJornada={Boolean(jornada?.inicio_at && !jornada?.fin_at)}
+        // Salió de la base o ya marcó ingreso: es el día normal, no una emergencia.
+        enJornada={Boolean(jornada && !jornada.fin_at && (jornada.inicio_at || jornada.km_inicio != null))}
         cargaKm={cargaKm}
         vehiculos={vehiculos}
         vehiculoFijo={vehiculoFijo}

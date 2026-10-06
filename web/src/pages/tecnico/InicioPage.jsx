@@ -95,7 +95,7 @@ export default function InicioPage() {
     if (perfil?.tecnico_id) {
       const { data } = await supabase
         .from('v_jornadas')
-        .select('id, inicio_at, foto_ingreso')
+        .select('id, inicio_at, foto_ingreso, km_inicio')
         .eq('tecnico_id', perfil.tecnico_id)
         .eq('fecha', hoyISO())
         .maybeSingle()
@@ -197,7 +197,10 @@ export default function InicioPage() {
           que son tres toques y adentro de donde uno va a cambiar el tema — no
           a empezar el día. Una acción diaria escondida en Ajustes es una
           acción que no se hace. */}
-      <AvisoJornada j={jornadaHoy} />
+      <AvisoJornada
+        j={jornadaHoy}
+        cargaKm={!cuadrilla || cuadrilla.sin_jefe || cuadrilla.soy_jefe}
+      />
 
       <ReparacionesCampo filas={reparaciones} onCambio={recargarReparaciones} />
 
@@ -957,15 +960,19 @@ function duracion(minutos) {
  * de "todo en orden" arriba de la pantalla se vuelve parte del fondo en dos
  * días, y el día que diga otra cosa tampoco se va a leer.
  */
-function AvisoJornada({ j }) {
+function AvisoJornada({ j, cargaKm }) {
   if (j?.inicio_at && j?.foto_ingreso) return null
 
+  // Desde la 212 el ingreso se marca solo en el primer cliente: lo único que
+  // falta antes de salir es la salida del vehículo, y solo para quien maneja.
   const sinIniciar = !j?.inicio_at
+  if (sinIniciar && (!cargaKm || j?.km_inicio != null)) return null
+
   const texto = sinIniciar
     ? {
-        titulo: 'Todavía no iniciaste tu jornada',
-        sub: 'Sin tu ingreso no podés iniciar ningún trabajo. Marcalo con tu foto antes de salir.',
-        accion: 'Iniciar',
+        titulo: 'Registrá la salida del vehículo',
+        sub: 'Los km al salir de la base. Tu ingreso se marca solo al llegar al primer cliente.',
+        accion: 'Registrar',
       }
     : {
         titulo: 'Falta tu foto de ingreso',

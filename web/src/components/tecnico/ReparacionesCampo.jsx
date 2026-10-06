@@ -4,7 +4,8 @@ import { CheckCircle2, ChevronDown, ChevronUp, Hammer, MapPin, MessageSquarePlus
 import { supabase } from '../../lib/supabaseClient'
 import { useConfirmar } from '../../lib/confirmar'
 import { TIPO_AVERIA, useBitacora } from '../red/ReparacionesRed'
-import { exigirEnServicio } from '../../lib/servicio'
+import { completarIngreso } from '../../lib/servicio'
+import { usePrepararIngreso } from './IngresoGrupal'
 
 /**
  * Las reparaciones de red asignadas a la cuadrilla del técnico (migración 209).
@@ -73,6 +74,7 @@ const PRIORIDAD = {
 
 function Reparacion({ r, onCambio }) {
   const confirmar = useConfirmar()
+  const prepararIngreso = usePrepararIngreso()
   // 'avance' | 'cierre' | null
   const [modo, setModo] = useState(null)
   const [texto, setTexto] = useState('')
@@ -94,8 +96,10 @@ function Reparacion({ r, onCambio }) {
     }
     setEnviando(true)
     setError(null)
+    let foto = null
     try {
-      await exigirEnServicio()
+      // El primer reporte del día en el poste es el ingreso (migración 212).
+      foto = await prepararIngreso({ tipo: 'reparacion', id: r.id, lat: null, lng: null })
     } catch (err) {
       setEnviando(false)
       return setError(err.message)
@@ -108,6 +112,7 @@ function Reparacion({ r, onCambio }) {
         : await supabase.rpc('reportar_reparacion', { ...args, p_texto: texto.trim() })
     setEnviando(false)
     if (err) return setError(err.message)
+    await completarIngreso(foto)
 
     if (modo === 'cierre') {
       setHecho(
