@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Activity, ArrowLeft, MapPin, Users, Wifi, WifiOff } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowLeft, MapPin, Users, Wifi, WifiOff } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
+import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
 
 /**
  * El estado de la red, completo — y de solo lectura.
@@ -46,6 +47,7 @@ export default function RedPage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [filtro, setFiltro] = useState('todos')
+  const { filas: reparaciones, recargar: recargarReparaciones } = useReparaciones()
 
   // El nodo abierto viaja en la URL: así el enlace del dashboard —"ver esta
   // incidencia"— abre directamente en ella, y el botón de atrás del teléfono
@@ -65,9 +67,21 @@ export default function RedPage() {
 
   useEffect(() => {
     recargar()
-    const t = setInterval(recargar, 120000)
+    const t = setInterval(() => {
+      recargar()
+      recargarReparaciones()
+    }, 120000)
     return () => clearInterval(t)
-  }, [recargar])
+  }, [recargar, recargarReparaciones])
+
+  /**
+   * Lo que está roto y el ping no ve: cortes masivos, cortes agrupados de la
+   * OLT y cajas NAP degradándose. Activo = sin su renglón de "recuperado".
+   */
+  const averias = useMemo(() => {
+    const volvieron = new Set(novedades.filter((e) => e.clase === 'recuperado').map((e) => e.id))
+    return novedades.filter((e) => AVERIA[e.clase] && !volvieron.has(e.id))
+  }, [novedades])
 
   const visibles = useMemo(() => {
     const f = FILTROS.find((x) => x.clave === filtro)
@@ -98,14 +112,26 @@ export default function RedPage() {
     )
   }
 
+  // Lo que va arriba de todo, haya o no nodos monitoreados: una fibra troncal
+  // cortada no depende de que la oficina haya cargado los equipos.
+  const arriba = (
+    <>
+      <ReparacionesCampo filas={reparaciones} onCambio={() => Promise.all([recargar(), recargarReparaciones()])} />
+      <Averias filas={averias} />
+    </>
+  )
+
   if (!nodos.length) {
     return (
-      <div className="py-16 text-center">
-        <Wifi size={28} className="mx-auto mb-2 text-slate-700" />
-        <p className="text-slate-400">No hay equipos monitoreados.</p>
-        <p className="mt-1 text-[12px] text-slate-600">
-          Cuando la oficina cargue los nodos de red, aparecen acá.
-        </p>
+      <div className="space-y-3">
+        {arriba}
+        <div className="py-16 text-center">
+          <Wifi size={28} className="mx-auto mb-2 text-slate-700" />
+          <p className="text-slate-400">No hay equipos monitoreados.</p>
+          <p className="mt-1 text-[12px] text-slate-600">
+            Cuando la oficina cargue los nodos de red, aparecen acá.
+          </p>
+        </div>
       </div>
     )
   }
@@ -121,6 +147,8 @@ export default function RedPage() {
 
   return (
     <div className="space-y-3">
+      {arriba}
+
       <div className="grid grid-cols-3 gap-2">
         <Cifra n={up} label="en línea" color="text-emerald-400" />
         <Cifra n={warn} label="en alerta" color="text-amber-400" />
@@ -160,6 +188,53 @@ export default function RedPage() {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+
+const AVERIA = {
+  corte_masivo: { punto: 'bg-rose-500', texto: 'text-rose-400' },
+  corte_grupo: { punto: 'bg-rose-500', texto: 'text-rose-400' },
+  nap_degradada: { punto: 'bg-amber-500', texto: 'text-amber-400' },
+}
+
+function Averias({ filas }) {
+  if (!filas.length) return null
+  return (
+    <section className="t-card p-3">
+      <p className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <AlertTriangle size={12} /> Averías en la red ({filas.length})
+      </p>
+      <div className="space-y-2">
+        {filas.map((e) => {
+          const t = AVERIA[e.clase]
+          return (
+            <div key={`${e.fuente}-${e.id}`} className="flex gap-2.5">
+              <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${t.punto}`} />
+              <div className="min-w-0 flex-1 text-[13px]">
+                <p className="text-slate-100">{e.titulo}</p>
+                <p className="text-[11px] text-slate-500">
+                  {[e.detalle, e.punto, e.afectados != null && e.fuente === 'corte' && `${e.afectados} abonados`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {' · desde '}
+                  {new Date(e.momento).toLocaleString('es-EC', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+                <p className={`text-[11px] ${e.reparacion_cuadrilla ? 'text-sky-400' : t.texto}`}>
+                  {e.reparacion_cuadrilla
+                    ? `Reparación asignada a ${e.reparacion_cuadrilla}`
+                    : 'Sin cuadrilla asignada todavía'}
+                </p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
 
 const Cifra = ({ n, label, color }) => (
   <div className="t-card py-3 text-center">

@@ -4517,3 +4517,127 @@ test('a los demas no se les toca la forma de pago', async () => {
   const p = await fila(db, `SELECT forma_pago FROM pagos WHERE n_transaccion = '778003'`)
   assert.equal(p.forma_pago, 'transferencia', 'Pedro no es de recaudacion: cobra como quiera')
 })
+
+/**
+ * La reparación de red (migración 209): la asigna la oficina, la reporta
+ * cualquiera de la cuadrilla y la cierra el jefe de grupo. Si salió de un corte
+ * masivo abierto, cerrarla lo resuelve y encola el "ya está".
+ */
+test('la reparación de red la cierra el jefe de grupo y resuelve el corte', async () => {
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES
+        ('a2090000-0000-0000-0000-000000000001', 'jefe209@demo.ec'),
+        ('a2090000-0000-0000-0000-000000000002', 'ayu209@demo.ec'),
+        ('a2090000-0000-0000-0000-000000000003', 'ofi209@demo.ec');
+
+      INSERT INTO tecnicos (id, nombre, activo) VALUES
+        ('b2090000-0000-0000-0000-000000000001', 'Jefe Doscientos', true),
+        ('b2090000-0000-0000-0000-000000000002', 'Ayudante Doscientos', true);
+
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('c2090000-0000-0000-0000-000000000001', 'a2090000-0000-0000-0000-000000000001', 'jefe209', 'jefe209@demo.ec',
+         'Jefe', 'Doscientos', 'tecnico', '["red.monitoreo_ver"]'::jsonb, true, 'b2090000-0000-0000-0000-000000000001'),
+        ('c2090000-0000-0000-0000-000000000002', 'a2090000-0000-0000-0000-000000000002', 'ayu209', 'ayu209@demo.ec',
+         'Ayudante', 'Doscientos', 'tecnico', '["red.monitoreo_ver"]'::jsonb, true, 'b2090000-0000-0000-0000-000000000002'),
+        ('c2090000-0000-0000-0000-000000000003', 'a2090000-0000-0000-0000-000000000003', 'ofi209', 'ofi209@demo.ec',
+         'Oficina', 'Doscientos', 'admin', '["*"]'::jsonb, true, NULL);
+
+      INSERT INTO cuadrillas (id, nombre) VALUES ('d2090000-0000-0000-0000-000000000001', 'Cuadrilla 209');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES
+        ('d2090000-0000-0000-0000-000000000001', 'b2090000-0000-0000-0000-000000000001', 'lider'),
+        ('d2090000-0000-0000-0000-000000000001', 'b2090000-0000-0000-0000-000000000002', 'ayudante');
+
+      INSERT INTO clientes (id, nombre, estado, zona)
+      VALUES ('e2090000-0000-0000-0000-000000000001', 'Abonado 209', 'activo', 'ZONA 209');
+
+      INSERT INTO incidencias_masivas (id, tipo, titulo, alcance, zona, estado, abierta_at, afectados)
+      VALUES ('f2090000-0000-0000-0000-000000000001', 'fibra_rota', 'Troncal norte cortada',
+              'zona', 'ZONA 209', 'abierta', NOW(), 1);
+      INSERT INTO incidencia_avisos (incidencia_id, client_id, momento, estado)
+      VALUES ('f2090000-0000-0000-0000-000000000001', 'e2090000-0000-0000-0000-000000000001', 'apertura', 'enviado');
+  `)
+
+  // Un técnico no asigna.
+  await sesion(db, 'a2090000-0000-0000-0000-000000000002')
+  await assert.rejects(
+    db.query(`SELECT asignar_reparacion(p_incidencia => 'f2090000-0000-0000-0000-000000000001',
+                                        p_cuadrilla => 'd2090000-0000-0000-0000-000000000001')`),
+    /administración o un jefe técnico/,
+  )
+
+  // La oficina ve el corte sin asignar y se lo asigna a la cuadrilla.
+  await sesion(db, 'a2090000-0000-0000-0000-000000000003')
+  const sinAsignar = await fila(db, `SELECT COUNT(*)::int AS n FROM v_averias_sin_asignar
+                                      WHERE id = 'f2090000-0000-0000-0000-000000000001'`)
+  assert.equal(sinAsignar.n, 1)
+
+  const { id } = await fila(db, `SELECT asignar_reparacion(
+      p_incidencia => 'f2090000-0000-0000-0000-000000000001',
+      p_cuadrilla  => 'd2090000-0000-0000-0000-000000000001',
+      p_instrucciones => 'Llevar empalmadora') AS id`)
+  assert.ok(id)
+
+  const campana = await fila(db, `SELECT COUNT(*)::int AS n FROM notificaciones
+                                   WHERE tipo = 'reparacion_red' AND entidad_id = '${id}'`)
+  assert.equal(campana.n, 2, 'les llega a los dos de la cuadrilla')
+
+  // Asignarla de nuevo la reasigna: no abre una segunda.
+  await db.query(`SELECT asignar_reparacion(p_incidencia => 'f2090000-0000-0000-0000-000000000001',
+                                            p_cuadrilla => 'd2090000-0000-0000-0000-000000000001')`)
+  const abiertas = await fila(db, `SELECT COUNT(*)::int AS n FROM reparaciones_red
+                                    WHERE incidencia_id = 'f2090000-0000-0000-0000-000000000001'`)
+  assert.equal(abiertas.n, 1)
+
+  // El ayudante reporta, pero no cierra.
+  await sesion(db, 'a2090000-0000-0000-0000-000000000002')
+  await db.query(`SELECT reportar_reparacion('${id}', 'Encontramos el corte en el poste 14')`)
+  const enCurso = await fila(db, `SELECT estado, puedo_cerrar, jefe FROM v_reparaciones_red WHERE id = '${id}'`)
+  assert.equal(enCurso.estado, 'en_curso')
+  assert.equal(enCurso.puedo_cerrar, false)
+  assert.equal(enCurso.jefe, 'Jefe Doscientos')
+  await assert.rejects(db.query(`SELECT cerrar_reparacion('${id}', 'Listo')`), /jefe de grupo/)
+
+  // El jefe de grupo la cierra, y el corte se resuelve.
+  await sesion(db, 'a2090000-0000-0000-0000-000000000001')
+  const r = await fila(db, `SELECT cerrar_reparacion('${id}', 'Empalme de 12 hilos hecho') AS r`)
+  assert.equal(r.r.corte_resuelto, true)
+  assert.equal(r.r.avisos, 1)
+
+  const corte = await fila(db, `SELECT estado FROM incidencias_masivas WHERE id = 'f2090000-0000-0000-0000-000000000001'`)
+  assert.equal(corte.estado, 'resuelta')
+
+  const nov = await fila(db, `SELECT clase, fuente FROM v_novedades_red
+                               WHERE id = 'f2090000-0000-0000-0000-000000000001'`)
+  assert.deepEqual({ ...nov }, { clase: 'recuperado', fuente: 'corte' })
+
+  const reportes = await fila(db, `SELECT COUNT(*)::int AS n FROM v_reparacion_reportes WHERE reparacion_id = '${id}'`)
+  assert.equal(reportes.n, 4, 'asignada, reasignada, avance y reparada')
+})
+
+test('un corte agrupado de la OLT aparece en novedades y se puede asignar', async () => {
+  await sesion(db, null)
+  const { id: alerta } = await fila(db, `
+      INSERT INTO alerta_eventos (regla, entidad, entidad_id, etiqueta, zona, abonados)
+      VALUES ('corte_grupo', 'nap', 'nap-209', 'NAP-209', 'ZONA 209', 6)
+      RETURNING id`)
+
+  await sesion(db, 'a2090000-0000-0000-0000-000000000002')
+  const nov = await fila(db, `SELECT clase, titulo FROM v_novedades_red WHERE id = '${alerta}'`)
+  assert.equal(nov.clase, 'corte_grupo')
+  assert.match(nov.titulo, /NAP-209/)
+
+  await sesion(db, 'a2090000-0000-0000-0000-000000000003')
+  const { id } = await fila(db, `SELECT asignar_reparacion(p_alerta => '${alerta}',
+                                   p_cuadrilla => 'd2090000-0000-0000-0000-000000000001') AS id`)
+
+  await sesion(db, 'a2090000-0000-0000-0000-000000000001')
+  const rep = await fila(db, `SELECT tipo, origen_activo, puedo_cerrar FROM v_reparaciones_red WHERE id = '${id}'`)
+  assert.deepEqual({ ...rep }, { tipo: 'corte_grupo', origen_activo: true, puedo_cerrar: true })
+
+  // Cerrarla no cierra la alerta: eso lo deciden las lecturas.
+  const r = await fila(db, `SELECT cerrar_reparacion('${id}', 'Cambié el conector de la caja') AS r`)
+  assert.equal(r.r.corte_resuelto, false)
+  const sigue = await fila(db, `SELECT resuelto_en FROM alerta_eventos WHERE id = '${alerta}'`)
+  assert.equal(sigue.resuelto_en, null)
+})

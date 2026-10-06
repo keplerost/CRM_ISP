@@ -15,6 +15,7 @@ import { api } from '../../lib/apiNetwork'
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { MOTIVOS_CANCELAR_INCIDENCIA } from '../../lib/motivos'
+import ReparacionesRed from '../../components/red/ReparacionesRed'
 import {
   Aviso,
   Badge,
@@ -94,8 +95,10 @@ const duracion = (min) => {
 
 export default function IncidenciasPage() {
   const confirmar = useConfirmar()
-  const { puede } = usePermisos()
+  const { puede, perfil } = usePermisos()
   const puedeAvisar = puede('red.incidencias')
+  // Las mismas que `dirige_cuadrillas()` en la base: la que asigna es la base.
+  const asignaReparaciones = ['super_admin', 'admin', 'jefe_tecnico'].includes(perfil?.rol)
 
   const [estado, setEstado] = useState('abierta')
   const [filas, setFilas] = useState([])
@@ -316,6 +319,8 @@ export default function IncidenciasPage() {
           />
         )}
       </Card>
+
+      {asignaReparaciones && <ReparacionesRed />}
 
       <FormIncidencia
         creando={creando}

@@ -35,6 +35,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
+import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
 
 /**
  * El tablero del técnico de campo.
@@ -60,6 +61,8 @@ export default function InicioPage() {
   const { perfil } = usePermisos()
   // Quién es el jefe de grupo hoy, y si es él: lo primero que tiene que ver.
   const cuadrilla = useMiCuadrilla(perfil?.tecnico_id)
+  // La reparación de red asignada a su cuadrilla: va arriba, es lo urgente.
+  const { filas: reparaciones, recargar: recargarReparaciones } = useReparaciones()
   const { tema, alternar } = useTemaCampo('claro')
   const [d, setD] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -195,6 +198,8 @@ export default function InicioPage() {
           a empezar el día. Una acción diaria escondida en Ajustes es una
           acción que no se hace. */}
       <AvisoJornada j={jornadaHoy} />
+
+      <ReparacionesCampo filas={reparaciones} onCambio={recargarReparaciones} />
 
       {/* ── Fila 2 · Novedades · Jornada · Próxima ── */}
       <section className="grid gap-3 lg:grid-cols-3">
@@ -340,6 +345,11 @@ const CLASE = {
   caida: { punto: 'bg-rose-500', texto: 'perdió comunicación' },
   recuperado: { punto: 'bg-emerald-500', texto: 'recuperado' },
   degradado: { punto: 'bg-amber-500', texto: 'presentó alta latencia' },
+  // Lo que no responde al ping (migración 209). El texto es el detalle de la
+  // vista: "Fibra cortada", "6 ONTs sin señal a la vez", "Bajó 2.4 dB…".
+  corte_masivo: { punto: 'bg-rose-500', texto: null },
+  corte_grupo: { punto: 'bg-rose-500', texto: null },
+  nap_degradada: { punto: 'bg-amber-500', texto: null },
 }
 
 function NovedadesRed({ novedades, nuevas = 0, desde }) {
@@ -392,8 +402,11 @@ function NovedadesRed({ novedades, nuevas = 0, desde }) {
                 </span>
                 <span className={`h-2 w-2 shrink-0 rounded-full ${c.punto}`} />
                 <span className="campo-txt min-w-0 flex-1 truncate text-[13px]">
-                  <b className="font-medium">{e.nodo}</b>{' '}
-                  <span className="campo-suave">{c.texto}</span>
+                  <b className="font-medium">{e.titulo ?? e.nodo}</b>{' '}
+                  <span className="campo-suave">{c.texto ?? e.detalle}</span>
+                  {e.reparacion_cuadrilla && e.clase !== 'recuperado' && (
+                    <span className="text-sky-500"> · {e.reparacion_cuadrilla}</span>
+                  )}
                   {e.duracion_min != null && (
                     <span className="campo-tenue"> · {duracion(e.duracion_min)}</span>
                   )}

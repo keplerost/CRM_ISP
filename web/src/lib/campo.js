@@ -383,7 +383,9 @@ function resumirRed(nodos, novedades = []) {
   // igual que uno que nunca se cayó— sino del historial. Es la cuarta tarjeta
   // del tablero y la única que mira hacia atrás.
   const recuperadosHoy = novedades.filter(
-    (e) => e.clase === 'recuperado' && fechaLocalDe(e.momento) === hoy,
+    // Solo nodos: desde la 209 la vista trae también cortes y alertas de la
+    // OLT, y esta cifra está al lado de las de nodos en línea y caídos.
+    (e) => e.clase === 'recuperado' && (e.fuente ?? 'nodo') === 'nodo' && fechaLocalDe(e.momento) === hoy,
   ).length
   return { ...resumirEstado(nodos), recuperadosHoy }
 }
