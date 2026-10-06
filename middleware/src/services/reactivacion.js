@@ -52,7 +52,7 @@ export async function reactivarServicio(clientId, { motivo = 'Pago registrado' }
 
   try {
     const equipo = await cargarRouter(cliente.router_id)
-    const entradas = await mt.listarBloqueos(equipo)
+    const entradas = await mt.listarBloqueos(equipo, equipo.lista_morosos || mt.LISTA_MOROSOS)
 
     /**
      * La comparación contempla la máscara.

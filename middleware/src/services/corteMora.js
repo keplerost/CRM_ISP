@@ -1,4 +1,5 @@
 import { db, cargarRouter } from '../lib/db.js'
+import { reactivarServicio } from './reactivacion.js'
 import * as mt from './mikrotikService.js'
 import { fechaLocal } from './cortesPromesas.js'
 import { listasQueCortan } from './conciliacionIps.js'
@@ -218,7 +219,10 @@ export async function ejecutarReconexiones() {
     throw new Error(`No se pudo leer la cola de reconexiones: ${error.message}`)
   }
 
-  if (!data?.length) return { reconectados: [], fallidos: [] }
+  // Los cortados sin registro del sistema que pagaron hace poco (la 214).
+  const sinRegistro = await reactivarSinRegistro({ soloConPedido: true })
+
+  if (!data?.length) return sinRegistro
 
   const routers = new Map()
   const equipo = async (id) => {
@@ -226,7 +230,9 @@ export async function ejecutarReconexiones() {
     return routers.get(id)
   }
 
-  const { reconectados, fallidos } = await devolverServicio(data, equipo)
+  const r = await devolverServicio(data, equipo)
+  const reconectados = [...r.reconectados, ...sinRegistro.reconectados]
+  const fallidos = [...r.fallidos, ...sinRegistro.fallidos]
 
   /**
    * Los pedidos se cierran por su id, uno por uno.
@@ -268,7 +274,9 @@ export async function ejecutarReconexiones() {
 export async function barridaCompleta() {
   const { data, error } = await db().from('v_clientes_a_reconectar').select('*')
   if (error) throw new Error(`No se pudo leer a quién reconectar: ${error.message}`)
-  if (!data?.length) return { reconectados: [], fallidos: [] }
+
+  const sinRegistro = await reactivarSinRegistro()
+  if (!data?.length) return sinRegistro
 
   const routers = new Map()
   const equipo = async (id) => {
@@ -276,7 +284,58 @@ export async function barridaCompleta() {
     return routers.get(id)
   }
 
-  return devolverServicio(data, equipo)
+  const r = await devolverServicio(data, equipo)
+  return {
+    reconectados: [...r.reconectados, ...sinRegistro.reconectados],
+    fallidos: [...r.fallidos, ...sinRegistro.fallidos],
+  }
+}
+
+/**
+ * Los cortados que el corte por mora no registró y que ya pagaron.
+ *
+ * ── Por qué aparte ──
+ *
+ * `devolverServicio` deshace un corte que este sistema hizo: tiene su registro
+ * en `firewall_bloqueos` y sabe qué sacar del router. Un abonado que vino
+ * cortado del sistema anterior, o que cortó una promesa incumplida, no tiene
+ * ese registro: pagaba y quedaba cortado (el caso de la 214). Para él se usa
+ * `reactivarServicio`, que busca su IP en la lista de morosos del router.
+ *
+ * `soloConPedido`: la cola corre cada pocos segundos; ahí solo se atiende a
+ * quien acaba de pagar, para no golpear un router caído en cada vuelta. La
+ * barrida, que corre pocas veces por hora, los mira a todos.
+ *
+ * `routerId`: solo los de un router, para "Reparar el router".
+ */
+export async function reactivarSinRegistro({ soloConPedido = false, routerId = null, aplicar = true } = {}) {
+  let q = db().from('v_cortados_sin_registro_a_reconectar').select('*')
+  if (routerId) q = q.eq('router_id', routerId)
+  const { data, error } = await q
+  // Sin la 214, no hay nada que hacer acá.
+  if (error || !data?.length) return { reconectados: [], fallidos: [], pendientes: [] }
+
+  let lista = data
+  if (soloConPedido) {
+    const desde = new Date(Date.now() - 864e5).toISOString()
+    const { data: pedidos } = await db()
+      .from('reconexiones_pendientes')
+      .select('cliente_id')
+      .in('cliente_id', data.map((c) => c.cliente_id))
+      .gte('creado_en', desde)
+    const con = new Set((pedidos ?? []).map((p) => p.cliente_id))
+    lista = data.filter((c) => con.has(c.cliente_id))
+  }
+  if (!aplicar) return { reconectados: [], fallidos: [], pendientes: lista }
+
+  const reconectados = []
+  const fallidos = []
+  for (const c of lista) {
+    const r = await reactivarServicio(c.cliente_id, { motivo: 'Pagó; el corte venía de antes del sistema' })
+    if (r.ok) reconectados.push({ cliente: c.nombre, ip: c.ip, saldo: c.saldo })
+    else fallidos.push({ accion: 'reconectar', cliente: c.nombre, ip: c.ip, router_id: c.router_id, error: r.nota })
+  }
+  return { reconectados, fallidos, pendientes: lista }
 }
 
 /**
@@ -612,15 +671,22 @@ export async function moraDelRouter(routerId, { aplicar = false } = {}) {
 
   const aCortar = rCortar.data ?? []
   const aReconectar = rReconectar.data ?? []
+  // Los cortados sin registro del sistema que ya pagaron (la 214).
+  const { pendientes: sinRegistro } = await reactivarSinRegistro({ routerId, aplicar: false })
   const resumen = {
     a_cortar: aCortar.map((c) => c.nombre),
-    a_reconectar: aReconectar.map((r) => r.nombre),
+    a_reconectar: [...aReconectar, ...sinRegistro].map((r) => r.nombre),
   }
-  if (!aplicar || (!aCortar.length && !aReconectar.length)) {
+  if (!aplicar || (!aCortar.length && !aReconectar.length && !sinRegistro.length)) {
     return { ...resumen, cortados: [], reconectados: [], fallidos: [] }
   }
 
   const r = await aplicarCortes(aCortar, aReconectar)
+  if (sinRegistro.length) {
+    const otros = await reactivarSinRegistro({ routerId })
+    r.reconectados.push(...otros.reconectados)
+    r.fallidos.push(...otros.fallidos)
+  }
 
   // El aviso del panel sale de la última corrida: se sacan de ahí los que
   // ahora sí quedaron hechos, para que no siga diciendo que faltan.

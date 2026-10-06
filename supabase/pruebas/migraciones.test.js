@@ -4811,3 +4811,30 @@ test('la foto grupal en el sitio marca el ingreso de los presentes', async () =>
   assert.equal((await modo('a2130000-0000-0000-0000-000000000002')).estado, 'en_servicio')
   assert.equal((await modo('a2130000-0000-0000-0000-000000000003')).modo, 'individual', 'Dos marca el suyo')
 })
+
+/**
+ * Migración 214: el cortado que no cortó este sistema (vino del anterior, o lo
+ * cortó una promesa) y paga, entra a la reconexión. El que debe, no; el que
+ * tiene su corte registrado sigue por el camino de siempre.
+ */
+test('el cortado sin registro que paga se reconecta', async () => {
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO routers_mikrotik (id, nombre, ip_host, usuario, password_encrypted)
+      VALUES ('7a214000-0000-0000-0000-000000000001', 'CCR 214', '10.0.2.14', 'admin', 'x');
+      INSERT INTO clientes (id, nombre, estado, router_id, ip) VALUES
+        ('c2140000-0000-0000-0000-000000000001', 'PAGO TODO', 'cortado', '7a214000-0000-0000-0000-000000000001', '10.21.4.1'),
+        ('c2140000-0000-0000-0000-000000000002', 'SIGUE DEBIENDO', 'cortado', '7a214000-0000-0000-0000-000000000001', '10.21.4.2'),
+        ('c2140000-0000-0000-0000-000000000003', 'CORTE DEL SISTEMA', 'cortado', '7a214000-0000-0000-0000-000000000001', '10.21.4.3');
+      INSERT INTO facturas (client_id, cliente_nombre, tipo, concepto, fecha_emision, fecha_vencimiento, subtotal, impuesto, total)
+      VALUES ('c2140000-0000-0000-0000-000000000002', 'SIGUE DEBIENDO', 'otro', 'Servicio',
+              CURRENT_DATE - 40, CURRENT_DATE - 35, 20, 3, 23);
+      INSERT INTO firewall_bloqueos (router_id, cliente_id, cliente_ip, tipo_accion, comentario, activo)
+      VALUES ('7a214000-0000-0000-0000-000000000001', 'c2140000-0000-0000-0000-000000000003', '10.21.4.3',
+              'CORTAR_SERVICIO', 'Corte por mora · 40 días de atraso', true);
+  `)
+
+  const r = await db.query(`SELECT nombre FROM v_cortados_sin_registro_a_reconectar
+                             WHERE router_id = '7a214000-0000-0000-0000-000000000001' ORDER BY nombre`)
+  assert.deepEqual(r.rows.map((x) => x.nombre), ['PAGO TODO'])
+})
