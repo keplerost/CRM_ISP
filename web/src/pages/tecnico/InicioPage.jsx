@@ -36,6 +36,7 @@ import { largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
 import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
+import RutaDelDia, { useMiRuta } from '../../components/tecnico/RutaDelDia'
 import { enlaceLlamada } from '../../lib/telefono'
 
 /**
@@ -64,6 +65,8 @@ export default function InicioPage() {
   const cuadrilla = useMiCuadrilla(perfil?.tecnico_id)
   // La reparación de red asignada a su cuadrilla: va arriba, es lo urgente.
   const { filas: reparaciones, recargar: recargarReparaciones } = useReparaciones()
+  // La ruta del día (migración 216): un trabajo a la vez, en el orden fijado.
+  const { ruta, recargar: recargarRuta } = useMiRuta()
   const { tema, alternar } = useTemaCampo('claro')
   const [d, setD] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -109,9 +112,12 @@ export default function InicioPage() {
     // Cada dos minutos. La red cambia sola y el técnico no va a tirar para
     // recargar mientras trabaja; más seguido gastaría datos móviles por un dato
     // que no cambia tan rápido.
-    const t = setInterval(recargar, 120000)
+    const t = setInterval(() => {
+      recargar()
+      recargarRuta()
+    }, 120000)
     return () => clearInterval(t)
-  }, [recargar])
+  }, [recargar, recargarRuta])
 
   const critica = d?.red?.incidencias?.find((n) => n.estado === 'down') ?? null
 
@@ -203,13 +209,18 @@ export default function InicioPage() {
         cargaKm={!cuadrilla || cuadrilla.sin_jefe || cuadrilla.soy_jefe}
       />
 
+      <RutaDelDia ruta={ruta} onCambio={recargarRuta} />
+
       <ReparacionesCampo filas={reparaciones} onCambio={recargarReparaciones} />
 
       {/* ── Fila 2 · Novedades · Jornada · Próxima ── */}
       <section className="grid gap-3 lg:grid-cols-3">
         <NovedadesRed novedades={d?.novedades} nuevas={d?.novedadesNuevas ?? 0} desde={d?.desdeUltimoIngreso} />
         <Jornada j={d?.jornada} resumen={d?.resumen} cargando={cargando} />
-        <Proxima o={d?.proxima} cargando={cargando} />
+        {/* "Próxima" se dejó de mostrar: era solo de instalaciones y podía
+            contradecir el orden de la ruta, que ahora va arriba de todo. Sin
+            ruta (la 216 sin correr), vuelve. */}
+        {!ruta && <Proxima o={d?.proxima} cargando={cargando} />}
       </section>
 
       {/* ── Fila 3 · Ruta y trabajos recientes ── */}

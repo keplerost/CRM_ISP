@@ -65,6 +65,7 @@ const TicketPage = lazy(() => import('./pages/TicketPage'))
 const TecnicosPage = lazy(() => import('./pages/TecnicosPage'))
 const DesempenoEquipoPage = lazy(() => import('./pages/DesempenoEquipoPage'))
 const JornadasPage = lazy(() => import('./pages/soporte/JornadasPage'))
+const RutasPage = lazy(() => import('./pages/soporte/RutasPage'))
 const VehiculosPage = lazy(() => import('./pages/VehiculosPage'))
 const RedesIpv4Page = lazy(() => import('./pages/red/RedesIpv4Page'))
 const AuditoriaPage = lazy(() => import('./pages/red/AuditoriaPage'))
@@ -365,6 +366,7 @@ export default function App() {
         {/* Antes de "soporte/:id": si no, el comodín se lo come y busca un
             ticket con el id "jornadas". */}
         <Route path="soporte/jornadas" element={<JornadasPage />} />
+        <Route path="soporte/rutas" element={<RutasPage />} />
         <Route path="soporte/vehiculos" element={<VehiculosPage />} />
         <Route path="soporte/:id" element={<TicketPage />} />
         {/* Finanzas es solo un grupo del menú: entra por su primera página. */}

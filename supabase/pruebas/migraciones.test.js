@@ -4739,7 +4739,11 @@ test('el ingreso se marca solo al llegar al primer cliente', async () => {
   assert.deepEqual({ ...j }, { km_inicio: 1000, en_la_llegada: true, lat: -0.9, es_la_mia: true })
   assert.equal((await fila(db, 'SELECT estado_de_ingreso() AS v')).v, 'en_servicio')
 
-  // Una llegada anterior que sincroniza tarde adelanta el ingreso.
+  // Una llegada anterior que sincroniza tarde adelanta el ingreso. (Con el
+  // primero ya cerrado: desde la 216 hay un solo trabajo en curso a la vez.)
+  await sesion(db, null)
+  await db.query(`UPDATE tickets SET estado = 'resuelto' WHERE id = '12120000-0000-0000-0000-000000000001'`)
+  await sesion(db, 'a2120000-0000-0000-0000-000000000001')
   await db.query(`UPDATE tickets SET estado = 'en_proceso', llegada_at = NOW() - INTERVAL '1 hour'
                    WHERE id = '12120000-0000-0000-0000-000000000002'`)
   const adelantado = await fila(db, `SELECT inicio_at < NOW() - INTERVAL '59 minutes' AS v FROM jornadas
@@ -4866,4 +4870,74 @@ test('la salida de emergencia es fuera de horario o con la jornada cerrada', asy
 
   await sesion(db, null)
   await db.exec(`UPDATE config_tareas SET horario_desde = '07:00', horario_hasta = '18:00' WHERE id = 1`)
+})
+
+/**
+ * Migración 216: la ruta del día. Un trabajo a la vez; el "no se pudo atender"
+ * exige llegada, foto, llamada y 10 minutos; el ticket vuelve a la oficina y el
+ * siguiente se desbloquea. El orden lo cambia la oficina o el jefe de grupo.
+ */
+test('la ruta del día: un trabajo a la vez y el "no se pudo atender"', async () => {
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO tickets (id, nombre, estado, cuadrilla_id, prioridad, fecha_visita, created_at) VALUES
+        ('12160000-0000-0000-0000-00000000000a', 'Cliente A', 'asignado', 'd2130000-0000-0000-0000-000000000001',
+         'media', hoy_isp(), NOW() - INTERVAL '2 hours'),
+        ('12160000-0000-0000-0000-00000000000b', 'Cliente B', 'asignado', 'd2130000-0000-0000-0000-000000000001',
+         'alta', hoy_isp(), NOW() - INTERVAL '1 hour');
+  `)
+  const A = '12160000-0000-0000-0000-00000000000a'
+  const B = '12160000-0000-0000-0000-00000000000b'
+  const uno = 'a2130000-0000-0000-0000-000000000002'
+  const jefe = 'a2130000-0000-0000-0000-000000000001'
+
+  // La prioridad alta va primero.
+  await sesion(db, uno)
+  const ruta = (await fila(db, 'SELECT mi_ruta_hoy() AS r')).r
+  const nuestros = ruta.items.filter((i) => [A, B].includes(i.id)).map((i) => i.nombre)
+  assert.deepEqual(nuestros, ['Cliente B', 'Cliente A'])
+
+  // Bloqueo estricto: A no, B sí.
+  await assert.rejects(
+    db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW() WHERE id = '${A}'`),
+    /Tu trabajo actual es el ticket/,
+  )
+  await db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW() - INTERVAL '30 minutes' WHERE id = '${B}'`)
+  await db.query(`UPDATE tickets SET estado = 'en_proceso', llegada_at = NOW() - INTERVAL '5 minutes' WHERE id = '${B}'`)
+
+  // No contesta: hace falta esperar 10 minutos, y llamarlo.
+  const noPudo = `SELECT no_se_pudo_atender('${B}', 'no_contesta', NULL, '${B}/fachada.jpg')`
+  await assert.rejects(db.query(noPudo), /Esperá 10 minutos/)
+  await sesion(db, null)
+  await db.query(`UPDATE tickets SET llegada_at = NOW() - INTERVAL '11 minutes' WHERE id = '${B}'`)
+  await sesion(db, uno)
+  await assert.rejects(db.query(noPudo), /Llamá o escribile/)
+  await db.query(`SELECT registrar_llamada('ticket', '${B}', 'llamada')`)
+  await db.query(noPudo)
+
+  const b = await fila(db, `SELECT estado, fecha_visita, reprogramar_desde IS NOT NULL AS espera FROM tickets WHERE id = '${B}'`)
+  assert.deepEqual({ ...b }, { estado: 'asignado', fecha_visita: null, espera: true })
+
+  // El siguiente se desbloquea.
+  await db.query(`UPDATE tickets SET estado = 'en_ruta', salida_at = NOW() WHERE id = '${A}'`)
+
+  // El orden: un técnico no; el jefe de grupo sí, con motivo.
+  const items = JSON.stringify([{ tipo: 'ticket', id: A }])
+  await assert.rejects(db.query(`SELECT ordenar_ruta('${items}'::jsonb, 'x')`), /oficina o el jefe de grupo/)
+  await sesion(db, jefe)
+  await assert.rejects(db.query(`SELECT ordenar_ruta('${items}'::jsonb, NULL)`), /por qué/)
+  await db.query(`SELECT ordenar_ruta('${items}'::jsonb, 'El cliente pidió que vayamos primero')`)
+
+  // La oficina ve la ruta, lo que no se pudo y lo que espera reprogramación.
+  await sesion(db, 'a2090000-0000-0000-0000-000000000003')
+  const rutas = (await fila(db, 'SELECT rutas_del_dia() AS r')).r
+  const la213 = rutas.find((r) => r.nombre === 'Cuadrilla 213')
+  assert.equal(la213.no_se_pudo.length, 1)
+  assert.equal(la213.no_se_pudo[0].motivo, 'no_contesta')
+  const espera = await fila(db, `SELECT COUNT(*)::int AS n FROM v_tickets_por_reprogramar WHERE id = '${B}'`)
+  assert.equal(espera.n, 1)
+
+  // Al darle fecha nueva, deja de esperar.
+  await db.query(`UPDATE tickets SET fecha_visita = hoy_isp() + 1 WHERE id = '${B}'`)
+  assert.equal((await fila(db, `SELECT reprogramar_desde FROM tickets WHERE id = '${B}'`)).reprogramar_desde, null)
 })

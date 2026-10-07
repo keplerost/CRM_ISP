@@ -176,6 +176,7 @@ const RUTAS = [
   // Los vehículos los administra quien maneja el campo. El técnico los ve desde
   // su jornada, para elegir con cuál sale, pero no los da de alta.
   ['/soporte/vehiculos', 'instalaciones.ver'],
+  ['/soporte/rutas', 'soporte.ruta'],
   ['/soporte', ['soporte.ver', 'soporte.asignados']],
 
   // OLT / GPON

@@ -53,6 +53,7 @@ import {
   Settings,
   Landmark,
   ClipboardList,
+  Route,
 } from 'lucide-react'
 
 /**
@@ -165,6 +166,7 @@ const SECCIONES = [
           { to: '/soporte', label: 'Tickets', icon: LifeBuoy, end: true },
           { to: '/soporte/tecnicos', label: 'Técnicos y cuadrillas', icon: HardHat },
           { to: '/soporte/desempeno', label: 'Desempeño del equipo', icon: Gauge },
+          { to: '/soporte/rutas', label: 'Rutas del día', icon: Route },
           { to: '/soporte/jornadas', label: 'Ingresos del día', icon: CalendarDays },
           { to: '/soporte/vehiculos', label: 'Vehículos', icon: Truck },
         ],

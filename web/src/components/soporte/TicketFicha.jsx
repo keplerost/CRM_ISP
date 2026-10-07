@@ -23,6 +23,8 @@ import { campoApi } from '../../lib/colaCampo'
 import { enlaceWhatsApp, separarTelefonos } from '../../lib/telefono'
 import { completarIngreso } from '../../lib/servicio'
 import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
+import { registrarLlamada } from '../tecnico/RutaDelDia'
+import NoSePudoTicket from './NoSePudoTicket'
 import AvisoIncidencia from '../tecnico/AvisoIncidencia'
 import { Aviso, Button, Card, Field, Input, Textarea } from '../ui'
 import FirmaDigital from './FirmaDigital'
@@ -417,6 +419,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       <div className="grid grid-cols-3 gap-2">
         <a
           href={numeros[0] ? `tel:${numeros[0].local}` : undefined}
+          onClick={() => numeros.length && registrarLlamada('ticket', t.id, 'llamada')}
           className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs transition ${
             numeros.length
               ? 'border-sky-500/40 bg-sky-500/10 text-sky-200 active:bg-sky-500/20'
@@ -431,6 +434,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
           href={wa ?? undefined}
           target="_blank"
           rel="noreferrer"
+          onClick={() => wa && registrarLlamada('ticket', t.id, 'whatsapp')}
           className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-xs transition ${
             wa
               ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 active:bg-emerald-500/20'
@@ -465,13 +469,14 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
                 {n.local}
                 {!n.movil && <span className="ml-1 text-[11px] text-slate-500">fijo</span>}
               </span>
-              <a href={`tel:${n.local}`} className="rounded-lg border border-sky-500/40 px-2.5 py-1 text-[12px] text-sky-300">
+              <a href={`tel:${n.local}`} onClick={() => registrarLlamada('ticket', t.id, 'llamada')} className="rounded-lg border border-sky-500/40 px-2.5 py-1 text-[12px] text-sky-300">
                 <Phone size={13} className="mr-1 inline" />
                 Llamar
               </a>
               {n.movil && (
                 <a
                   href={enlaceWhatsApp(n.local, mensajeWa)}
+                  onClick={() => registrarLlamada('ticket', t.id, 'whatsapp')}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-lg border border-emerald-500/40 px-2.5 py-1 text-[12px] text-emerald-300"
@@ -719,6 +724,19 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
       </Card>
 
       {/* ------------------------------------------------ Cierre */}
+      {/* El trabajo que no se pudo hacer también termina (migración 216): vuelve
+          a la oficina para reprogramar y la ruta pasa al siguiente. */}
+      {t.estado === 'en_proceso' && (
+        <NoSePudoTicket
+          t={t}
+          onError={onError}
+          onHecho={async () => {
+            await recargar()
+            await onCambio?.()
+          }}
+        />
+      )}
+
       {t.estado === 'en_proceso' && (
         <Card title="Cerrar el ticket" icon={Check}>
           <form onSubmit={cerrarTicket} className="space-y-4">

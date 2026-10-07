@@ -183,6 +183,11 @@ export const GRUPOS_PERMISOS = [
       { clave: 'soporte.asignados', nombre: 'Ver sus tickets asignados', nota: 'Es lo mínimo del técnico: solo lo suyo.' },
       { clave: 'soporte.crear', nombre: 'Crear tickets' },
       { clave: 'soporte.asignar', nombre: 'Asignar tickets a técnicos' },
+      {
+        clave: 'soporte.ruta',
+        nombre: 'Ordenar la ruta del día de las cuadrillas',
+        nota: 'Ve las rutas de todos en Soporte → Rutas del día y cambia el orden en que se hacen los trabajos.',
+      },
       { clave: 'soporte.estado', nombre: 'Cambiar estados del ticket' },
       { clave: 'soporte.cerrar', nombre: 'Cerrar tickets' },
     ],
