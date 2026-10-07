@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { esVersionVieja, recargarPorVersionNueva } from '../lib/versionNueva'
 
 /**
  * Sin esto, cualquier error de render deja la pantalla en blanco y el único
@@ -13,11 +14,30 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
+    // Una pantalla de la versión anterior que ya no está en el servidor: se
+    // recarga sola y trae la nueva (ver lib/versionNueva.js).
+    if (esVersionVieja(error) && recargarPorVersionNueva()) return
     console.error('Error de render:', error, info)
   }
 
   render() {
     if (!this.state.error) return this.props.children
+
+    if (esVersionVieja(this.state.error)) {
+      return (
+        <div className="grid h-full place-items-center p-6">
+          <div className="w-full max-w-md rounded-xl border border-sky-500/30 bg-sky-500/10 p-6 text-center">
+            <p className="text-sm text-sky-100">Hay una versión nueva del sistema. Actualizando…</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-lg border border-sky-500/40 px-3 py-2 text-sm text-sky-100 transition hover:bg-sky-500/20"
+            >
+              Recargar ahora
+            </button>
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="grid h-full place-items-center p-6">
