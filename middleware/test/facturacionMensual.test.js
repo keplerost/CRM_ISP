@@ -222,3 +222,14 @@ test('la fecha es la local, no la del huso UTC', () => {
   // corrida de la noche facturaría con la fecha de mañana.
   assert.equal(fechaLocal(new Date(2026, 7, 31, 21, 30)), '2026-08-31')
 })
+
+test('una factura no nace vencida: si su día de pago ya pasó, vence el mes siguiente', () => {
+  // Genera el 6 y paga el 5: antes vencía el 5, un día antes de emitirse.
+  const tarde = { ...CLIENTE, dia_generar_factura: 6, dia_facturacion: 5 }
+  const { facturar } = decidirFacturacion([tarde], new Date(2026, 9, 6, 12))
+  assert.equal(facturar[0].vencimiento, '2026-11-05')
+
+  // El mismo día de pago que el de generación vence ese día, como antes.
+  const igual = { ...CLIENTE, dia_generar_factura: 6, dia_facturacion: 6 }
+  assert.equal(decidirFacturacion([igual], new Date(2026, 9, 6, 12)).facturar[0].vencimiento, '2026-10-06')
+})
