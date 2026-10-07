@@ -242,12 +242,12 @@ export function decidirFacturacion(clientes = [], hoy = new Date(), { tarifa = 1
 
     // El vencimiento es su día de pago dentro del mes de emisión.
     //
-    // Si su día de pago ya pasó cuando se genera —genera el 6 y paga el 5—, la
-    // factura nacía vencida: el abonado figuraba en mora el mismo día en que se
-    // le emitía. En ese caso vence en su día de pago del mes siguiente.
+    // Si su día de pago ya pasó cuando se genera —genera el 6 y paga el 5, un
+    // error de configuración—, la factura nacía vencida. Vence el mismo día en
+    // que se emite: no nace en mora, y tampoco se le regala el mes, que es lo
+    // que pasaba si se la mandaba al día de pago del mes siguiente.
     const diaPago = c.dia_facturacion ?? dia
-    let vence = new Date(hoy.getFullYear(), hoy.getMonth(), diaPago, 12)
-    if (diaPago < diaDeHoy) vence = new Date(hoy.getFullYear(), hoy.getMonth() + 1, diaPago, 12)
+    const vence = new Date(hoy.getFullYear(), hoy.getMonth(), Math.max(diaPago, diaDeHoy), 12)
 
     facturar.push({
       cliente: c,

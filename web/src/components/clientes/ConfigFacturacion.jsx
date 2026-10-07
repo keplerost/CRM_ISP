@@ -76,8 +76,23 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
     setForm((f) => ({ ...f, [campo]: valor }))
   }
 
+  // Crear la factura después del día de pago es un error de configuración: la
+  // factura llegaría cuando ya tenía que estar pagada.
+  const creaTarde =
+    form.dia_generar_factura !== '' && form.dia_generar_factura != null &&
+    form.dia_facturacion !== '' && form.dia_facturacion != null &&
+    Number(form.dia_generar_factura) > Number(form.dia_facturacion)
+
   async function guardar(e) {
     e.preventDefault()
+    if (creaTarde) {
+      return onError?.(
+        new Error(
+          `El día de crear la factura (${form.dia_generar_factura}) es después del día de pago (${form.dia_facturacion}). ` +
+            'La factura tiene que crearse el día de pago o antes. Si querías cortar ese día, usá los días de gracia.',
+        ),
+      )
+    }
     setGuardando(true)
     onError?.(null)
 
@@ -157,7 +172,15 @@ export default function ConfigFacturacion({ cliente, onGuardado, onError }) {
 
           <Field
             label="Día de crear la factura"
-            hint="Antes del día de pago, para que llegue con tiempo"
+            hint={
+              creaTarde ? (
+                <span className="text-rose-400">
+                  Es después del día de pago: la factura llegaría vencida.
+                </span>
+              ) : (
+                'Antes del día de pago, para que llegue con tiempo'
+              )
+            }
           >
             <Select value={form.dia_generar_factura ?? ''} onChange={set('dia_generar_factura')}>
               <option value="">— el mismo día de pago —</option>
