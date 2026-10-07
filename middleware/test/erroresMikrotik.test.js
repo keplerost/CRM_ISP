@@ -55,3 +55,19 @@ test('un puerto cerrado no devuelve un error vacío', async () => {
     },
   )
 })
+
+/**
+ * Un error del comando no tira la sesión; uno de la conexión, sí. Antes
+ * cualquier error la cerraba, y un "no such item" reintentado cada cinco
+ * segundos llenaba el log del MikroTik de "logged in / logged out".
+ */
+test('qué error descarta la sesión con el router', async () => {
+  const { esFalloDeConexion } = await import('../src/drivers/mikrotikApi.js')
+  for (const m of ['no such item (4)', 'failure: already have such entry', 'input does not match any value']) {
+    assert.equal(esFalloDeConexion(new Error(m)), false, m)
+  }
+  for (const m of ['Timed out after 10 seconds', 'connect ECONNREFUSED 10.66.0.11:8728', 'socket hang up']) {
+    assert.equal(esFalloDeConexion(new Error(m)), true, m)
+  }
+  assert.equal(esFalloDeConexion(Object.assign(new Error('x'), { errno: 'ECONNRESET' })), true)
+})

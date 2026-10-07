@@ -126,13 +126,27 @@ async function devolverServicio(lista, equipo) {
       // Se saca del address-list por su id de RouterOS si se guardó; si no, se
       // busca por dirección. Un corte hecho antes de que se guardara el id
       // igual tiene que poder deshacerse.
-      if (r.routeros_id) {
-        await mt.desbloquear(eq, r.routeros_id)
-      } else {
-        const entradas = await mt.listarBloqueos(eq, r.lista || eq.lista_morosos)
-        for (const e of entradas.filter((x) => x.address === r.ip)) {
+      //
+      // Si el id ya no existe en el router ("no such item"), la entrada la sacó
+      // otro —una reactivación por promesa, "Reparar", alguien a mano—. No es
+      // un fallo: se busca por dirección por si quedó con otro id y se sigue.
+      // Tomarlo como fallo dejaba el pedido reintentándose cada cinco segundos
+      // para siempre.
+      const quitarPorDireccion = async () => {
+        const entradas = await mt.listarBloqueos(eq, r.lista || eq.lista_morosos || mt.LISTA_MOROSOS)
+        for (const e of entradas.filter((x) => String(x.address ?? '').split('/')[0] === r.ip)) {
           await mt.desbloquear(eq, e['.id'])
         }
+      }
+      if (r.routeros_id) {
+        try {
+          await mt.desbloquear(eq, r.routeros_id)
+        } catch (err) {
+          if (!/no such item/i.test(err.message)) throw err
+          await quitarPorDireccion()
+        }
+      } else {
+        await quitarPorDireccion()
       }
 
       /**
@@ -209,6 +223,9 @@ async function devolverServicio(lista, equipo) {
  * dejaría un abonado cortado que pagó, y ese olvido no da error: simplemente no
  * pasa nada. Con el disparador da igual desde dónde se cobre.
  */
+/** Cuántas veces se reintenta un pedido de reconexión antes de dejarlo. */
+const TOPE_INTENTOS_RECONEXION = 100
+
 export async function ejecutarReconexiones() {
   const { data, error } = await db().from('v_reconexiones_a_procesar').select('*')
 
@@ -253,10 +270,30 @@ export async function ejecutarReconexiones() {
   for (const f of fallidos) {
     const pedido = data.find((p) => p.nombre === f.cliente)
     if (!pedido) continue
-    // Se deja abierto y se anota el error: el próximo intento es en segundos.
+    /**
+     * Se deja abierto y se anota el error: el próximo intento es en segundos.
+     *
+     * Los intentos se leen de la tabla: la vista no los trae, y contar sobre
+     * `undefined` dejaba el contador siempre en 1. Con tope: un pedido que
+     * falla cien veces seguidas no se arregla en la vuelta ciento uno, y cada
+     * vuelta es una sesión contra el router. Se cierra con el error a la
+     * vista; la barrida y "Reparar el router" lo siguen cubriendo.
+     */
+    const { data: actual } = await db()
+      .from('reconexiones_pendientes')
+      .select('intentos')
+      .eq('id', pedido.pedido_id)
+      .maybeSingle()
+    const intentos = (actual?.intentos ?? 0) + 1
     await db()
       .from('reconexiones_pendientes')
-      .update({ error: f.error, intentos: (pedido.intentos ?? 0) + 1 })
+      .update({
+        error: f.error,
+        intentos,
+        ...(intentos >= TOPE_INTENTOS_RECONEXION
+          ? { procesado_en: new Date().toISOString(), error: `Se dejó de reintentar tras ${intentos} intentos: ${f.error}` }
+          : {}),
+      })
       .eq('id', pedido.pedido_id)
   }
 

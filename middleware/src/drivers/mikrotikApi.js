@@ -185,12 +185,26 @@ function conConexion(router, fn) {
     try {
       return await fn(conn)
     } catch (err) {
-      // Ante un fallo la conexión puede haber quedado inservible: se descarta
-      // para que la próxima operación arranque con una sana.
-      await cerrarSesion(clave)
+      /**
+       * Se descarta la sesión solo si el fallo es de la CONEXIÓN.
+       *
+       * Antes se descartaba ante cualquier error. Un "no such item" —el router
+       * contestó bien que esa entrada ya no existe— cerraba la sesión, y la
+       * reconexión que lo reintentaba cada cinco segundos hacía un login nuevo
+       * en cada vuelta: el log del MikroTik se llenaba de "logged in / logged
+       * out" cada cinco segundos.
+       */
+      if (esFalloDeConexion(err) || !conn?.connected) await cerrarSesion(clave)
       throw traducirError(err, router)
     }
   })
+}
+
+/** ¿El error es de la conexión (y la sesión no sirve más) o del comando? */
+export function esFalloDeConexion(err) {
+  const msg = String(err?.message ?? err ?? '')
+  if (err?.errno || err?.code === 'ECONNRESET') return true
+  return /timed?\s*out|ECONN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|EPIPE|socket|closed|not connected/i.test(msg)
 }
 
 function traducirError(err, router) {
