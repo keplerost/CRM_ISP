@@ -250,7 +250,7 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
       }
 
       if (!entrada) return { ok: true, nota: '' }
-      await api.mikrotik.desbloquear(cliente.router_id, entrada.id)
+      await api.mikrotik.desbloquear(cliente.router_id, entrada.id, entrada.address)
       return { ok: true, nota: '' }
     } catch (err) {
       return { ok: false, nota: err.message }
@@ -671,7 +671,8 @@ export default function HerramientasTecnicas({ cliente, onError, onGuardado }) {
       </Modal>
 
       {/* ---------------------------------------------------- Baja */}
-      <Modal abierto={Boolean(baja)} titulo="Dar de baja el servicio" onCerrar={() => setBaja(null)}>
+      <Modal abierto={Boolean(baja)} titulo="Dar de baja el servicio" onCerrar={() => setBaja(null)}>
+
 
         {baja && (
           <form onSubmit={darDeBaja} className="space-y-4">

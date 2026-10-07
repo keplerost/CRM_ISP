@@ -62,7 +62,7 @@ export default function BloqueosManager({ router }) {
   async function restaurar(entrada) {
     if (!await confirmar(`¿Restaurar el servicio de ${entrada.address}?`)) return
     try {
-      await api.mikrotik.desbloquear(router.id, entrada.id)
+      await api.mikrotik.desbloquear(router.id, entrada.id, entrada.address)
       await cargar()
     } catch (err) {
       setError(err)

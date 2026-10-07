@@ -241,8 +241,10 @@ export const api = {
 
     bloqueos: (id) => get(`/api/mikrotik/${id}/bloqueos`),
     bloquear: (id, datos) => post(`/api/mikrotik/${id}/bloqueos`, datos),
-    desbloquear: (id, entradaId) =>
-      del(`/api/mikrotik/${id}/bloqueos/${encodeURIComponent(entradaId)}`),
+    // `ip`: la dirección de la entrada, para cerrar también el registro del
+    // corte en el sistema (sin eso, la reconexión lo seguía buscando).
+    desbloquear: (id, entradaId, ip = null) =>
+      del(`/api/mikrotik/${id}/bloqueos/${encodeURIComponent(entradaId)}${qs({ ip })}`),
     /** La IP del servidor vista desde el router, el puerto y las listas: para llenar el formulario. */
     datosRedireccion: (id) => get(`/api/mikrotik/${id}/redireccion-pago`),
     redireccionPago: (id, datos) => post(`/api/mikrotik/${id}/redireccion-pago`, datos),

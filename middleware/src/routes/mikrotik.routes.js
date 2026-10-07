@@ -153,6 +153,30 @@ router.delete(
   conRouter,
   asyncHandler(async (req, res) => {
     await mt.desbloquear(req.equipo, req.params.entradaId)
+
+    /**
+     * Y el registro del corte en el sistema, si lo había.
+     *
+     * Cobrar desde la ficha, reactivar desde Herramientas o restaurar desde
+     * "Cortes / morosos" sacaban la IP del router pero dejaban el bloqueo
+     * registrado como activo. La reconexión automática lo seguía viendo y
+     * reintentaba quitar una entrada que ya no estaba, cada cinco segundos.
+     * Se cierra por el id de la entrada y, si viene, por la IP.
+     */
+    const ip = String(req.query.ip ?? '').split('/')[0] || null
+    // Entre comillas: los id de RouterOS empiezan con `*` y PostgREST los
+    // tiene que leer como texto literal.
+    const id = String(req.params.entradaId).replace(/"/g, '')
+    const filtro = ip
+      ? `routeros_id.eq."${id}",cliente_ip.eq."${ip.replace(/"/g, '')}"`
+      : `routeros_id.eq."${id}"`
+    await db()
+      .from('firewall_bloqueos')
+      .update({ activo: false })
+      .eq('router_id', req.params.id)
+      .eq('activo', true)
+      .or(filtro)
+
     res.json({ ok: true })
   }),
 )

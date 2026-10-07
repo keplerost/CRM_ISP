@@ -362,7 +362,7 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
 
       if (!entrada) return { ok: true, nota: 'No estaba bloqueado en el router.' }
 
-      await api.mikrotik.desbloquear(cliente.router_id, entrada.id)
+      await api.mikrotik.desbloquear(cliente.router_id, entrada.id, entrada.address)
       return { ok: true, nota: `Se quitó ${cliente.ip} del corte en el router.` }
     } catch (err) {
       return { ok: false, nota: `No se pudo desbloquear en el router: ${err.message}` }
