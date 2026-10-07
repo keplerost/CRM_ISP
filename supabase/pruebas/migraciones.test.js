@@ -4558,9 +4558,11 @@ test('la reparación de red la cierra el jefe de grupo y resuelve el corte', asy
       VALUES ('f2090000-0000-0000-0000-000000000001', 'e2090000-0000-0000-0000-000000000001', 'apertura', 'enviado');
 
       -- Con el ingreso marcado: desde la 210, sin él no se reporta ni se cierra.
+      -- La fecha LOCAL del ISP, no la de UTC: después de las 19:00 en Ecuador
+      -- ya es mañana en UTC, y la prueba fallaba según la hora en que corría.
       INSERT INTO jornadas (tecnico_id, fecha, inicio_at) VALUES
-        ('b2090000-0000-0000-0000-000000000001', CURRENT_DATE, NOW() - INTERVAL '3 hours'),
-        ('b2090000-0000-0000-0000-000000000002', CURRENT_DATE, NOW() - INTERVAL '3 hours');
+        ('b2090000-0000-0000-0000-000000000001', (NOW() AT TIME ZONE zona_horaria())::date, NOW() - INTERVAL '3 hours'),
+        ('b2090000-0000-0000-0000-000000000002', (NOW() AT TIME ZONE zona_horaria())::date, NOW() - INTERVAL '3 hours');
   `)
 
   // Un técnico no asigna.
@@ -4837,4 +4839,31 @@ test('el cortado sin registro que paga se reconecta', async () => {
   const r = await db.query(`SELECT nombre FROM v_cortados_sin_registro_a_reconectar
                              WHERE router_id = '7a214000-0000-0000-0000-000000000001' ORDER BY nombre`)
   assert.deepEqual(r.rows.map((x) => x.nombre), ['PAGO TODO'])
+})
+
+/**
+ * Migración 215: en horario laboral la salida de emergencia exige haber
+ * cerrado la jornada. Fuera de horario, siempre se puede.
+ */
+test('la salida de emergencia es fuera de horario o con la jornada cerrada', async () => {
+  const dos = 'a2130000-0000-0000-0000-000000000003' // sin jornada hoy
+
+  // Todo el día es horario laboral: no se puede.
+  await sesion(db, null)
+  await db.exec(`UPDATE config_tareas SET horario_desde = '00:00', horario_hasta = '23:59:59' WHERE id = 1`)
+  await sesion(db, dos)
+  assert.match((await fila(db, 'SELECT motivo_sin_emergencia() AS m')).m, /horario laboral/)
+  await assert.rejects(db.query(`SELECT abrir_emergencia('Torre caída')`), /horario laboral/)
+
+  // Ningún minuto es horario laboral: se puede.
+  await sesion(db, null)
+  await db.exec(`UPDATE config_tareas SET horario_desde = '23:59:59', horario_hasta = '23:59:59' WHERE id = 1`)
+  await sesion(db, dos)
+  assert.equal((await fila(db, 'SELECT motivo_sin_emergencia() AS m')).m, null)
+  const { id } = await fila(db, `SELECT abrir_emergencia('Torre caída') AS id`)
+  await db.query(`SELECT cerrar_emergencia('listo')`)
+  assert.ok(id)
+
+  await sesion(db, null)
+  await db.exec(`UPDATE config_tareas SET horario_desde = '07:00', horario_hasta = '18:00' WHERE id = 1`)
 })

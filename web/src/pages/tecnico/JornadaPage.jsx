@@ -647,6 +647,9 @@ function SalidaEmergencia({ tecnicoId, enJornada, cargaKm, vehiculos, vehiculoFi
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
   const [aviso, setAviso] = useState(null)
+  // Por qué no puede salir por emergencia ahora (migración 215): en horario
+  // laboral, sin haber cerrado la jornada. null = puede.
+  const [bloqueo, setBloqueo] = useState(null)
   const { filas: reparaciones } = useReparaciones()
 
   const recargar = useCallback(async () => {
@@ -658,6 +661,8 @@ function SalidaEmergencia({ tecnicoId, enJornada, cargaKm, vehiculos, vehiculoFi
       .maybeSingle()
     // Sin la 210 no hay emergencias: la sección no se dibuja.
     setAbierta(err ? undefined : (data ?? null))
+    const { data: motivo, error: errMotivo } = await supabase.rpc('motivo_sin_emergencia')
+    setBloqueo(errMotivo ? null : (motivo ?? null))
   }, [tecnicoId])
 
   useEffect(() => {
@@ -780,6 +785,8 @@ function SalidaEmergencia({ tecnicoId, enJornada, cargaKm, vehiculos, vehiculoFi
             Terminar emergencia
           </Button>
         </div>
+      ) : !form && bloqueo ? (
+        <p className="text-[12px] leading-snug text-slate-400">{bloqueo}</p>
       ) : !form ? (
         <div className="space-y-3">
           <p className="text-[12px] leading-snug text-slate-400">
