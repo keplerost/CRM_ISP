@@ -4,6 +4,7 @@ import { dineroCero as dinero } from '../lib/formato'
 import {
   Ban,
   CalendarClock,
+  ExternalLink,
   CreditCard,
   Inbox,
   Landmark,
@@ -21,6 +22,7 @@ import FormPago from '../components/pagos/FormPago'
 import PromesasPago from '../components/pagos/PromesasPago'
 import PagosReportados from '../components/pagos/PagosReportados'
 import { usePermisos } from '../lib/AuthContext'
+import { puedeEntrar } from '../lib/rutasPermisos'
 import ConPermiso from '../components/layout/ConPermiso'
 import { MOTIVOS_ANULACION } from '../lib/motivos'
 import { Aviso, Badge, Button, Card, Cargando, ErrorBanner, PedirMotivo, Stat, Table } from '../components/ui'
@@ -116,8 +118,29 @@ export default function PagosPage() {
 // ---------------------------------------------------------------------------
 
 function Registrar({ onError }) {
+  const { puede } = usePermisos()
   const [cliente, setCliente] = useState(null)
   const [resultado, setResultado] = useState(null)
+  const verFicha = cliente && puedeEntrar(puede, `/clientes/${cliente.id}`)
+
+  /**
+   * Al volver a esta pestaña, los datos del cliente se leen de nuevo.
+   *
+   * La ficha se abre en otra pestaña para revisar o corregir algo —un teléfono,
+   * la dirección— sin perder el cobro a medio llenar. Al volver, el formulario
+   * tiene que mostrar lo que se acaba de guardar allá, no lo de hace un rato.
+   */
+  const idCliente = cliente?.id
+  useEffect(() => {
+    if (!idCliente) return undefined
+    const refrescar = async () => {
+      if (document.visibilityState !== 'visible') return
+      const { data } = await supabase.from('clientes').select('*').eq('id', idCliente).maybeSingle()
+      if (data) setCliente((c) => (c?.id === data.id ? { ...c, ...data } : c))
+    }
+    document.addEventListener('visibilitychange', refrescar)
+    return () => document.removeEventListener('visibilitychange', refrescar)
+  }, [idCliente])
 
   function registrado({ pago, promesa, pasos }) {
     setResultado({ pago, promesa, pasos, cliente })
@@ -193,9 +216,24 @@ function Registrar({ onError }) {
               entrada si el cliente está cortado. */}
           <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F6F8FB] px-4 py-3">
             <div className="flex items-center gap-3">
-              <span className="font-semibold uppercase tracking-wide text-slate-100">
-                {cliente.nombre}
-              </span>
+              {/* El nombre abre la ficha en otra pestaña: revisar o corregir un
+                  dato antes de cobrar, sin perder lo que se lleva cargado. */}
+              {verFicha ? (
+                <a
+                  href={`/clientes/${cliente.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Abrir la ficha del cliente en otra pestaña"
+                  className="flex items-center gap-1.5 font-semibold uppercase tracking-wide text-slate-100 hover:text-sky-400 hover:underline"
+                >
+                  {cliente.nombre}
+                  <ExternalLink size={14} className="shrink-0 text-slate-500" />
+                </a>
+              ) : (
+                <span className="font-semibold uppercase tracking-wide text-slate-100">
+                  {cliente.nombre}
+                </span>
+              )}
               <Badge color={COLOR_ESTADO[cliente.estado] ?? 'gris'}>{cliente.estado}</Badge>
               {cliente.ip && <span className="font-mono text-xs text-slate-500">{cliente.ip}</span>}
             </div>
