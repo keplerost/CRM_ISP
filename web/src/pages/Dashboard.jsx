@@ -599,13 +599,20 @@ export default function Dashboard() {
     const idsVencidos = clientesConVencido(d.facturas, hoy)
     const vencidas = conSaldo.filter((f) => idsVencidos.has(f.client_id))
 
+    /* Al día = activo y sin ninguna factura con saldo. Antes se restaba a los
+       activos la cantidad de abonados con saldo, pero esos incluyen cortados y
+       de baja: con más deudores cortados que activos daba negativo y la
+       tarjeta mostraba 0 aunque hubiera abonados al día. */
+    const idsConSaldo = new Set(conSaldo.map((f) => f.client_id))
+    const alDia = d.clientes.filter((c) => c.estado === 'activo' && !idsConSaldo.has(c.id)).length
+
     return {
       activos: d.clientes.filter((c) => c.estado === 'activo').length,
       abiertos: d.tickets.filter(ABIERTO),
       vencidoMonto: vencidas.reduce((s, f) => s + Number(f.saldo || 0), 0),
       vencidasCuentas: idsVencidos.size,
       cartera: [
-        { nombre: 'Al día', valor: d.clientes.filter((c) => c.estado === 'activo').length - new Set(conSaldo.map((f) => f.client_id)).size, color: '#10B981' },
+        { nombre: 'Al día', valor: alDia, color: '#10B981' },
         { nombre: 'Por vencer', valor: new Set(porVencer.map((f) => f.client_id)).size, color: '#F59E0B' },
         { nombre: 'Vencido', valor: idsVencidos.size, color: '#EF4444' },
       ].map((x) => ({ ...x, valor: Math.max(0, x.valor) })),
