@@ -37,6 +37,14 @@ router.get(
     const nodos = data ?? []
     const cuenta = (e) => nodos.filter((n) => n.estado === e).length
 
+    // Si el servidor llega a cada router. Sin la migración 217 no hay columnas
+    // y la pantalla simplemente no lo muestra.
+    const { data: routers } = await db()
+      .from('routers_mikrotik')
+      .select('id, nombre, ip_host, conexion_estado, conexion_fallas, conexion_desde, conexion_chequeo, conexion_detalle')
+      .eq('activo', true)
+      .order('nombre')
+
     res.json({
       ...estadoNms(),
       configurado: {
@@ -54,6 +62,7 @@ router.get(
       warning: cuenta('warning'),
       down: cuenta('down'),
       desconocido: cuenta('desconocido'),
+      routers: routers ?? [],
     })
   }),
 )

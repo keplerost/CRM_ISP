@@ -75,6 +75,18 @@ const CAMPOS = {
       tipo: 'numero',
       hint: 'Con menos, una pérdida puntual se lee como caída',
     },
+    {
+      campo: 'nms_router_fallas',
+      label: 'Router sin conexión tras',
+      tipo: 'numero',
+      hint: 'Pasadas seguidas sin respuesta antes de avisar que el router no contesta',
+    },
+    {
+      campo: 'nms_gracia_minutos',
+      label: 'Espera al arrancar',
+      tipo: 'minutos',
+      hint: 'Después de reiniciar el servidor no se cuenta ninguna falla: la VPN tarda en levantar',
+    },
   ],
   optica: [{ campo: 'optica_cada_minutos', label: 'Cada', tipo: 'minutos' }],
   esperando: [{ campo: 'esperando_cada_minutos', label: 'Cada', tipo: 'minutos' }],

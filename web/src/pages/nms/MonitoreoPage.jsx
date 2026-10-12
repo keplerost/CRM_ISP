@@ -256,6 +256,34 @@ export default function MonitoreoPage() {
         </Aviso>
       )}
 
+      {/* El router mismo no se puede sondear desde sí mismo: esto lo mira el
+          servidor, probando la API en cada pasada. */}
+      {estadoNms?.routers?.some((r) => r.conexion_estado) && (
+        <div className="t-card flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 text-xs">
+          <span className="text-slate-500">Conexión del servidor con los routers:</span>
+          {estadoNms.routers.map((r) => {
+            const caido = r.conexion_estado === 'down'
+            const dudoso = !caido && r.conexion_fallas > 0
+            const minutos = r.conexion_desde ? (Date.now() - new Date(r.conexion_desde)) / 60_000 : null
+            return (
+              <span key={r.id} title={r.conexion_detalle ?? r.ip_host}>
+                {caido ? '🔴' : dudoso ? '🟡' : '🟢'}{' '}
+                <b className="text-slate-200">{r.nombre}</b>{' '}
+                <span className={caido ? 'text-rose-300' : dudoso ? 'text-amber-300' : 'text-slate-500'}>
+                  {caido
+                    ? `sin conexión hace ${duracion(minutos)}`
+                    : dudoso
+                      ? `${r.conexion_fallas} ${r.conexion_fallas === 1 ? 'falla' : 'fallas'} seguidas`
+                      : r.conexion_chequeo
+                        ? 'responde'
+                        : 'sin probar todavía'}
+                </span>
+              </span>
+            )
+          })}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="🔴 Caídos" valor={cuenta('down')} color="text-rose-400" icon={Zap} />
         <Stat label="🟡 Degradados" valor={cuenta('warning')} color="text-amber-400" />

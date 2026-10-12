@@ -266,6 +266,10 @@ const DEL_ARCHIVO = () => ({
   nms_automatico: config.nms.automatico,
   nms_cada_minutos: config.nms.cada_minutos,
   nms_paquetes: config.nms.paquetes,
+  // Contra el aviso falso de "router caído": cuántas pasadas seguidas sin
+  // respuesta hacen falta, y cuánto se espera a la VPN después de arrancar.
+  nms_router_fallas: 3,
+  nms_gracia_minutos: 5,
   optica_automatica: config.optica.automatica,
   optica_cada_minutos: config.optica.cada_minutos,
   esperando_automatico: config.esperando.automatico,

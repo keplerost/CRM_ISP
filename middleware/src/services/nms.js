@@ -39,6 +39,9 @@ const estado = {
 
 export const estadoNms = () => ({ ...estado })
 
+// Cuándo arrancó este proceso: la gracia de arranque se cuenta desde acá.
+const ARRANQUE = Date.now()
+
 /**
  * Ordena los nodos de arriba hacia abajo del árbol.
  *
@@ -89,12 +92,17 @@ export function evaluar({ recibidos, enviados, latencia_ms }, nodo) {
 }
 
 /** Le pregunta al router si el nodo responde. */
-async function sondearNodo(nodo, equipos) {
+async function sondearNodo(nodo, equipos, sinConexion = new Map()) {
   if (!nodo.router_id) {
     return {
       medicion: { enviados: 0, recibidos: 0, latencia_ms: null },
       detalle: 'El nodo no tiene router desde el cual sondearlo',
     }
+  }
+  // El router ya no contestó en esta pasada: preguntarle por cada nodo sería
+  // esperar el mismo timeout veinte veces para llegar a la misma respuesta.
+  if (sinConexion.has(nodo.router_id)) {
+    throw new Error(`Sin conexión con su router: ${sinConexion.get(nodo.router_id)}`)
   }
 
   let equipo = equipos.get(nodo.router_id)
@@ -256,6 +264,210 @@ async function avisar(nodo, nuevo, cuando, minutos, plantillas = null) {
   }
 }
 
+// --- El router mismo -------------------------------------------------------
+
+/**
+ * ¿El error dice que no se llega al router?
+ *
+ * Usuario o clave incorrectos, o un comando que RouterOS no conoce, son el
+ * router CONTESTANDO: está vivo. Avisar "caído" por una clave cambiada mandaría
+ * a alguien a la torre por algo que se arregla en Ajustes.
+ */
+export function esSinConexion(err) {
+  return ![400, 401].includes(err?.status)
+}
+
+/**
+ * Qué le pasa a un router con la prueba de esta pasada.
+ *
+ * Es pura a propósito: las tres reglas contra los avisos falsos viven acá y se
+ * prueban sin red ni base.
+ *
+ *   1. En la gracia de arranque no se cuenta ninguna falla.
+ *   2. Hacen falta `umbral` fallas seguidas para pasar a 'down'.
+ *   3. El estado viene de la base: un reinicio no lo pierde.
+ *
+ * Y una cuarta, chica: dos fallas a menos de 45 segundos cuentan como una.
+ * Apretar "Sondear ahora" tres veces seguidas no puede valer como seis minutos
+ * sin conexión.
+ *
+ * Devuelve las columnas a guardar y `aviso`: 'down', 'up' o null.
+ */
+export function evaluarRouter(router, { contesto, ahora, enGracia, umbral }) {
+  const anterior = router.conexion_estado === 'down' ? 'down' : 'up'
+  const igual = {
+    conexion_estado: anterior,
+    conexion_fallas: router.conexion_fallas ?? 0,
+    conexion_falla_en: router.conexion_falla_en ?? null,
+    conexion_desde: router.conexion_desde ?? null,
+    aviso: null,
+  }
+
+  if (contesto) {
+    return {
+      conexion_estado: 'up',
+      conexion_fallas: 0,
+      conexion_falla_en: null,
+      conexion_desde: anterior === 'down' || !router.conexion_desde ? ahora : router.conexion_desde,
+      aviso: anterior === 'down' ? 'up' : null,
+    }
+  }
+
+  if (enGracia) return igual
+
+  const recien =
+    igual.conexion_fallas > 0 &&
+    router.conexion_chequeo &&
+    new Date(ahora) - new Date(router.conexion_chequeo) < 45_000
+  if (recien) return igual
+
+  const fallas = igual.conexion_fallas + 1
+  const fallaEn = igual.conexion_falla_en ?? ahora
+
+  // Ya estaba caído y ya se avisó: se sigue contando, nada más.
+  if (anterior === 'down') return { ...igual, conexion_fallas: fallas, conexion_falla_en: fallaEn }
+
+  if (fallas >= umbral) {
+    return {
+      conexion_estado: 'down',
+      conexion_fallas: fallas,
+      conexion_falla_en: fallaEn,
+      // La hora de la primera falla, no la de la que lo confirmó.
+      conexion_desde: fallaEn,
+      aviso: 'down',
+    }
+  }
+
+  return { ...igual, conexion_fallas: fallas, conexion_falla_en: fallaEn }
+}
+
+/** El texto del aviso del router. Dice lo que se sabe y nada más. */
+export function mensajeDeRouter(router, aviso, { cuando, minutos, afectados }) {
+  const abonados = afectados != null ? `\n${afectados} abonados en este router` : ''
+  if (aviso === 'down') {
+    return (
+      `🔴 SIN CONEXIÓN — ${router.nombre}\n${router.ip_host}\n` +
+      `El servidor no llega al router desde: ${hora(cuando)}${abonados}\n` +
+      'Puede ser el router, la VPN o el internet del servidor.'
+    )
+  }
+  const duracion = minutos != null ? `\nEstuvo sin conexión ${Math.round(minutos)} min` : ''
+  return `🟢 CONEXIÓN RECUPERADA — ${router.nombre}\n${router.ip_host}\nA las: ${hora(cuando)}${duracion}`
+}
+
+async function avisarRouter(router, aviso, { cuando, minutos }) {
+  const { nms } = await credenciales()
+  if (!nms.destino) {
+    return { enviado: false, motivo: 'Falta el destino de los avisos de red en Ajustes → Mensajería' }
+  }
+
+  const { count } = await db()
+    .from('clientes')
+    .select('id', { count: 'exact', head: true })
+    .eq('router_id', router.id)
+    .eq('estado', 'activo')
+
+  try {
+    await enviarCrudo({
+      canal: nms.canal,
+      destino: nms.destino,
+      asunto: `${aviso === 'down' ? 'SIN CONEXIÓN' : 'RECUPERADO'} · ${router.nombre}`,
+      cuerpo: mensajeDeRouter(router, aviso, { cuando, minutos, afectados: count }),
+    })
+    return { enviado: true }
+  } catch (err) {
+    return { enviado: false, motivo: err.message }
+  }
+}
+
+/** Los dos tiempos de Ajustes → Tareas. Sin la migración 217, los de fábrica. */
+async function reglasDeRouter() {
+  const { data } = await db()
+    .from('config_tareas')
+    .select('nms_router_fallas, nms_gracia_minutos')
+    .eq('id', 1)
+    .maybeSingle()
+  return {
+    umbral: data?.nms_router_fallas ?? 3,
+    graciaMin: data?.nms_gracia_minutos ?? 5,
+  }
+}
+
+/**
+ * Prueba la API de cada router activo y avisa si uno deja de contestar.
+ *
+ * ── Por qué desde el servidor ──
+ *
+ * Los nodos se sondean desde el router. El router mismo no: si está caído, no
+ * hay quién haga el ping, y sus nodos quedan "sin datos" sin que salga ningún
+ * aviso. El servidor es el único que puede notar que el router no está.
+ *
+ * Devuelve los que no contestaron, para que la pasada no espere el mismo
+ * timeout por cada nodo que cuelga de ellos.
+ */
+async function vigilarRouters(equipos) {
+  const sinConexion = new Map()
+  const resumen = []
+
+  const { data: routers, error } = await db()
+    .from('routers_mikrotik')
+    .select('id, nombre, ip_host, conexion_estado, conexion_fallas, conexion_falla_en, conexion_desde, conexion_chequeo')
+    .eq('activo', true)
+  // Sin la migración 217 no hay dónde guardar el estado: no se vigila.
+  if (error) return { sinConexion, routers: resumen, error: error.message }
+
+  const { umbral, graciaMin } = await reglasDeRouter()
+  const enGracia = Date.now() - ARRANQUE < graciaMin * 60_000
+
+  for (const r of routers ?? []) {
+    const ahora = new Date().toISOString()
+    let equipo
+    try {
+      equipo = equipos.get(r.id) ?? (await cargarRouter(r.id))
+    } catch (err) {
+      // No se pudo ni leer el router de la base: eso no dice nada de la red.
+      resumen.push({ router: r.nombre, estado: r.conexion_estado, error: err.message })
+      continue
+    }
+
+    let contesto = true
+    let detalle = null
+    try {
+      await mk.probarConexion(equipo)
+      equipos.set(r.id, equipo)
+    } catch (err) {
+      if (esSinConexion(err)) {
+        contesto = false
+        detalle = err.message
+        sinConexion.set(r.id, err.message)
+      }
+    }
+
+    const { aviso, ...columnas } = evaluarRouter(r, { contesto, ahora, enGracia, umbral })
+    await db()
+      .from('routers_mikrotik')
+      .update({ ...columnas, conexion_chequeo: ahora, conexion_detalle: detalle })
+      .eq('id', r.id)
+
+    const fila = {
+      router: r.nombre,
+      estado: columnas.conexion_estado,
+      fallas: columnas.conexion_fallas,
+      en_gracia: !contesto && enGracia,
+    }
+    if (aviso) {
+      const minutos =
+        aviso === 'up' && r.conexion_desde ? (new Date(ahora) - new Date(r.conexion_desde)) / 60_000 : null
+      const cuando = aviso === 'down' ? columnas.conexion_desde : ahora
+      fila.aviso = { estado: aviso, ...(await avisarRouter(r, aviso, { cuando, minutos })) }
+      console.log(`[nms] router ${r.nombre}: ${aviso === 'down' ? 'SIN CONEXIÓN' : 'recuperado'}`)
+    }
+    resumen.push(fila)
+  }
+
+  return { sinConexion, routers: resumen }
+}
+
 /**
  * Una pasada completa sobre todos los nodos monitoreados.
  *
@@ -277,6 +489,14 @@ export async function sondear({ incidencias = { activo: false, minutos: 15 } } =
 
     const nodos = ordenarPorJerarquia(data ?? [])
     const equipos = new Map()
+
+    // Primero los routers: si uno no contesta, sus nodos no se sondean uno por
+    // uno. Que falle esto no puede impedir el sondeo de los nodos.
+    const vigilancia = await vigilarRouters(equipos).catch((err) => ({
+      sinConexion: new Map(),
+      routers: [],
+      error: err.message,
+    }))
     // El estado de ESTA corrida, para decidir sobre los hijos con el dato
     // fresco y no con el que había en la base al empezar.
     const reciente = new Map()
@@ -304,7 +524,7 @@ export async function sondear({ incidencias = { activo: false, minutos: 15 } } =
       let detalle = null
 
       try {
-        const r = await sondearNodo(nodo, equipos)
+        const r = await sondearNodo(nodo, equipos, vigilancia.sinConexion)
         medicion = { ...medicion, ...r.medicion }
         detalle = r.detalle
         const evaluado = evaluar(medicion, nodo)
@@ -418,6 +638,8 @@ export async function sondear({ incidencias = { activo: false, minutos: 15 } } =
       avisos,
       masivos,
       fallidos,
+      routers: vigilancia.routers,
+      ...(vigilancia.error ? { error_routers: vigilancia.error } : {}),
       corrida: new Date().toISOString(),
     }
 

@@ -1,7 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { ordenarPorJerarquia, evaluar, mensajeDe } from '../src/services/nms.js'
+import {
+  ordenarPorJerarquia,
+  evaluar,
+  mensajeDe,
+  evaluarRouter,
+  esSinConexion,
+  mensajeDeRouter,
+} from '../src/services/nms.js'
 
 /**
  * La lógica que decide si algo está caído y a quién se le avisa.
@@ -118,4 +125,90 @@ test('un nodo sin punto cargado no deja un separador suelto', () => {
   const t = mensajeDe({ nombre: 'PTP Norte', ip: '10.0.0.9' }, 'down', CUANDO)
   assert.ok(!t.includes(' · \n'), t)
   assert.match(t, /10\.0\.0\.9/)
+})
+
+// --- El router que no contesta ----------------------------------------------
+
+const T0 = '2026-10-12T17:00:00.000Z'
+const mas = (min) => new Date(Date.parse(T0) + min * 60_000).toISOString()
+const sano = { conexion_estado: 'up', conexion_fallas: 0, conexion_desde: T0, conexion_chequeo: T0 }
+
+/** Corre varias pasadas seguidas, cada dos minutos, como la tarea. */
+function pasadas(router, resultados, { umbral = 3, enGracia = false } = {}) {
+  let r = router
+  const avisos = []
+  resultados.forEach((contesto, i) => {
+    const ahora = mas((i + 1) * 2)
+    const { aviso, ...cols } = evaluarRouter(r, { contesto, ahora, enGracia, umbral })
+    r = { ...cols, conexion_chequeo: ahora }
+    avisos.push(aviso)
+  })
+  return { r, avisos }
+}
+
+test('el router: una o dos fallas no avisan; la tercera seguida sí', () => {
+  const { r, avisos } = pasadas(sano, [false, false, false])
+  assert.deepEqual(avisos, [null, null, 'down'])
+  assert.equal(r.conexion_estado, 'down')
+  // La hora de la caída es la primera falla, no la que la confirmó.
+  assert.equal(r.conexion_desde, mas(2))
+})
+
+test('el router: una falla suelta y vuelve, no avisa nada y la cuenta se reinicia', () => {
+  const { r, avisos } = pasadas(sano, [false, true, false, false, true])
+  assert.deepEqual(avisos, [null, null, null, null, null])
+  assert.equal(r.conexion_estado, 'up')
+  assert.equal(r.conexion_fallas, 0)
+  assert.equal(r.conexion_desde, T0)
+})
+
+test('el router: caído avisa una sola vez, y avisa cuando vuelve', () => {
+  const { r, avisos } = pasadas(sano, [false, false, false, false, false, true])
+  assert.deepEqual(avisos, [null, null, 'down', null, null, 'up'])
+  assert.equal(r.conexion_estado, 'up')
+  assert.equal(r.conexion_desde, mas(12))
+})
+
+test('el router: en la gracia de arranque no se cuenta ninguna falla', () => {
+  const { r, avisos } = pasadas(sano, [false, false, false, false], { enGracia: true })
+  assert.deepEqual(avisos, [null, null, null, null])
+  assert.equal(r.conexion_estado, 'up')
+  assert.equal(r.conexion_fallas, 0)
+})
+
+test('el router: si contesta durante la gracia, todo sigue normal', () => {
+  const { avisos } = pasadas(sano, [true, true], { enGracia: true })
+  assert.deepEqual(avisos, [null, null])
+})
+
+test('el router: un reinicio no vuelve a avisar lo que ya estaba avisado', () => {
+  // El estado viene de la base: ya estaba caído antes del reinicio.
+  const caido = { conexion_estado: 'down', conexion_fallas: 5, conexion_falla_en: T0, conexion_desde: T0, conexion_chequeo: T0 }
+  assert.deepEqual(pasadas(caido, [false, false], { enGracia: true }).avisos, [null, null])
+  assert.deepEqual(pasadas(caido, [false, false]).avisos, [null, null])
+  // Y si volvió mientras el servidor estaba apagado, eso sí se avisa.
+  assert.deepEqual(pasadas(caido, [true], { enGracia: true }).avisos, ['up'])
+})
+
+test('el router: apretar "Sondear ahora" seguido no suma fallas de golpe', () => {
+  const unaFalla = { ...sano, conexion_fallas: 1, conexion_falla_en: T0, conexion_chequeo: T0 }
+  const r = evaluarRouter(unaFalla, { contesto: false, ahora: mas(0.5), enGracia: false, umbral: 2 })
+  assert.equal(r.conexion_fallas, 1)
+  assert.equal(r.aviso, null)
+})
+
+test('el router: una clave mal cargada no es un router caído', () => {
+  assert.equal(esSinConexion({ status: 401 }), false)
+  assert.equal(esSinConexion({ status: 504 }), true)
+  assert.equal(esSinConexion({ status: 502 }), true)
+  assert.equal(esSinConexion(new Error('socket hang up')), true)
+})
+
+test('el aviso del router no afirma más de lo que se sabe', () => {
+  const r = { nombre: 'RB_LOS_RIOS', ip_host: '10.66.0.11' }
+  const caido = mensajeDeRouter(r, 'down', { cuando: T0, afectados: 27 })
+  assert.match(caido, /SIN CONEXIÓN — RB_LOS_RIOS/)
+  assert.match(caido, /la VPN o el internet del servidor/)
+  assert.match(caido, /27 abonados/)
+  assert.match(mensajeDeRouter(r, 'up', { cuando: T0, minutos: 14.6 }), /RECUPERADA[\s\S]*15 min/)
 })

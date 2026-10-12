@@ -313,6 +313,14 @@ const MIGRACIONES = [
     partes: [],
     sinVerificar: 'cambia el filtro de v_aviso_pantalla_a_poner; PostgREST no lo distingue. Se comprueba con lista_aviso vacía.',
   },
+  {
+    numero: 217,
+    nombre: 'El router que no contesta',
+    partes: [
+      ['routers_mikrotik', ['conexion_estado', 'conexion_fallas', 'conexion_falla_en', 'conexion_desde', 'conexion_chequeo', 'conexion_detalle']],
+      ['config_tareas', ['nms_router_fallas', 'nms_gracia_minutos']],
+    ],
+  },
 ]
 
 console.log(`\nBase: ${url}\n`)
