@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { marcaDeCorte, programarCorteMora } from '../src/services/corteMora.js'
+import { marcaDeCorte, programarCorteMora, olvidarFallidosResueltos, estadoMora } from '../src/services/corteMora.js'
 
 /**
  * El corte por mora, y la reconexión.
@@ -106,4 +106,31 @@ test('volver a programar no deja dos relojes de reconexión corriendo', () => {
   clearInterval(segundo)
   // Apagarla cancela el de la reconexión, que es el que no devuelve.
   assert.equal(programarCorteMora({ activo: false }), null)
+})
+
+test('el aviso del panel suelta a los que ya no están pendientes en ese router', () => {
+  // La corrida no pudo cortar a dos porque el router no respondía. Después los
+  // cortó el corte de promesas: Reparar no encuentra nada que aplicar, y el
+  // aviso no puede seguir diciendo que navegan sin pagar.
+  estadoMora.ultimoResultado = {
+    fallidos: [
+      { accion: 'cortar', cliente: 'JENNY', ip: '10.10.7.17', router_id: 'r1', error: 'No hay respuesta' },
+      { accion: 'cortar', cliente: 'GALO', ip: '10.10.7.14', router_id: 'r1', error: 'No hay respuesta' },
+      { accion: 'cortar', cliente: 'OTRO', ip: '10.20.0.5', router_id: 'r2', error: 'No hay respuesta' },
+    ],
+  }
+  olvidarFallidosResueltos('r1', [])
+  assert.deepEqual(estadoMora.ultimoResultado.fallidos.map((f) => f.cliente), ['OTRO'])
+
+  // El que sigue pendiente se queda, y se distingue por IP aunque haya otro con
+  // el mismo nombre.
+  estadoMora.ultimoResultado = {
+    fallidos: [
+      { cliente: 'JENNY', ip: '10.10.7.17', router_id: 'r1' },
+      { cliente: 'GALO', ip: '10.10.7.14', router_id: 'r1' },
+    ],
+  }
+  olvidarFallidosResueltos('r1', [{ nombre: 'JENNY', ip: '10.10.7.31' }, { nombre: 'GALO', ip: '10.10.7.14' }])
+  assert.deepEqual(estadoMora.ultimoResultado.fallidos.map((f) => f.cliente), ['GALO'])
+  estadoMora.ultimoResultado = null
 })

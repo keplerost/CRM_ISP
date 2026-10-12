@@ -714,7 +714,9 @@ export async function moraDelRouter(routerId, { aplicar = false } = {}) {
     a_cortar: aCortar.map((c) => c.nombre),
     a_reconectar: [...aReconectar, ...sinRegistro].map((r) => r.nombre),
   }
-  if (!aplicar || (!aCortar.length && !aReconectar.length && !sinRegistro.length)) {
+  const pendientes = [...aCortar, ...aReconectar, ...sinRegistro]
+  if (!aplicar || !pendientes.length) {
+    olvidarFallidosResueltos(routerId, pendientes)
     return { ...resumen, cortados: [], reconectados: [], fallidos: [] }
   }
 
@@ -725,15 +727,34 @@ export async function moraDelRouter(routerId, { aplicar = false } = {}) {
     r.fallidos.push(...otros.fallidos)
   }
 
-  // El aviso del panel sale de la última corrida: se sacan de ahí los que
-  // ahora sí quedaron hechos, para que no siga diciendo que faltan.
-  const hechos = new Set([...r.cortados, ...r.reconectados].map((x) => x.cliente))
-  const ult = estadoMora.ultimoResultado
-  if (ult?.fallidos?.length) {
-    estadoMora.ultimoResultado = { ...ult, fallidos: ult.fallidos.filter((f) => !hechos.has(f.cliente)) }
-  }
+  // Lo que sigue pendiente es lo que falló recién.
+  olvidarFallidosResueltos(routerId, r.fallidos)
 
   return { ...resumen, ...r }
+}
+
+/**
+ * El aviso del panel sale de la última corrida: de este router se dejan solo
+ * los que siguen pendientes.
+ *
+ * No alcanza con sacar los que se acaban de aplicar. Entre la corrida y el
+ * "Reparar" el abonado pudo pagar, recibir una promesa o quedar cortado por
+ * otro camino —el corte de promesas, por ejemplo—; ninguno vuelve a estar en
+ * las vistas, y el aviso seguiría diciendo que falta hasta la madrugada.
+ *
+ * Se compara por IP cuando la hay: dos abonados pueden llamarse igual. Los
+ * fallos de IPv6 no traen IP y van por nombre.
+ */
+export function olvidarFallidosResueltos(routerId, pendientes) {
+  const ult = estadoMora.ultimoResultado
+  if (!ult?.fallidos?.length) return
+  const ips = new Set(pendientes.map((p) => p.ip).filter(Boolean))
+  const nombres = new Set(pendientes.map((p) => p.cliente ?? p.nombre).filter(Boolean))
+  const sigue = (f) => (f.ip ? ips.has(f.ip) : nombres.has(f.cliente))
+  estadoMora.ultimoResultado = {
+    ...ult,
+    fallidos: ult.fallidos.filter((f) => f.router_id !== routerId || sigue(f)),
+  }
 }
 
 /**
