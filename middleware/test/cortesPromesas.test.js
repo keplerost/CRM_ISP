@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { decidirCortes, programarCortes, fechaLocal, estadoCortes } from '../src/services/cortesPromesas.js'
+import { decidirCortes, programarCortes, fechaLocal, estadoCortes, saldoPrometido } from '../src/services/cortesPromesas.js'
 
 /**
  * Cortar solo es dejar a alguien sin internet sin que nadie lo revise. Cada
@@ -64,6 +64,38 @@ test('el tope por corrida evita dejar sin internet a todos por un error', () => 
   assert.equal(cortes.length, 3)
   assert.equal(omitidos.length, 7)
   assert.match(omitidos[0].motivo, /tope de 3/)
+})
+
+// --- La deuda prometida -----------------------------------------------------
+
+test('pagó la factura prometida: la del mes siguiente, sin vencer, no la vuelve a cortar', () => {
+  // Caso real (código 52): prometió octubre, lo pagó en dos partes el día
+  // después y quedó "incumplida". Con noviembre emitido se lo cortaba cada día.
+  const promesa = { ...PROMESA, factura_id: 'oct', created_at: '2026-10-06T17:03:53Z' }
+  const porCobrar = [{ id: 'nov', client_id: 'c1', saldo: 23.1, fecha_emision: '2026-11-01' }]
+
+  assert.equal(saldoPrometido(promesa, porCobrar), 0)
+})
+
+test('la factura prometida sigue impaga: se corta por lo de esa factura', () => {
+  const promesa = { ...PROMESA, factura_id: 'oct' }
+  const porCobrar = [
+    { id: 'oct', client_id: 'c1', saldo: 10, fecha_emision: '2026-10-01' },
+    { id: 'nov', client_id: 'c1', saldo: 23.1, fecha_emision: '2026-11-01' },
+  ]
+
+  assert.equal(saldoPrometido(promesa, porCobrar), 10)
+})
+
+test('promesa sin factura: cubre lo emitido hasta el día en que se prometió', () => {
+  const promesa = { ...PROMESA, factura_id: null, created_at: '2026-10-06T17:00:00Z' }
+  const porCobrar = [
+    { id: 'oct', client_id: 'c1', saldo: 5, fecha_emision: '2026-10-01' },
+    { id: 'nov', client_id: 'c1', saldo: 23.1, fecha_emision: '2026-11-01' },
+    { id: 'otro', client_id: 'c2', saldo: 99, fecha_emision: '2026-09-01' },
+  ]
+
+  assert.equal(saldoPrometido(promesa, porCobrar), 5)
 })
 
 // --- Fecha ------------------------------------------------------------------

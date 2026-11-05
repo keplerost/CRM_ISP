@@ -63,7 +63,40 @@ export function decidirCortes(promesas = [], saldos = new Map(), { limite = 200 
   return { cortes, omitidos }
 }
 
-/** Promesas vencidas que habían habilitado el servicio, con su deuda actual. */
+/**
+ * Lo que sigue impago DE LO QUE SE PROMETIÓ.
+ *
+ * ── Por qué no el saldo total del abonado ──
+ *
+ * Porque la promesa cubría una deuda puntual, no todo lo que venga después.
+ * Con el saldo total, el que prometió pagar octubre y lo pagó —aunque sea tarde
+ * o en dos partes— volvía a cortarse todos los días apenas se le emitía
+ * noviembre, con noviembre todavía sin vencer. Y como noviembre no estaba
+ * vencido, la reconexión lo devolvía un rato después: un corte diario de quince
+ * minutos a alguien que estaba al día.
+ *
+ * Si la promesa apunta a una factura, manda el saldo de esa factura. Las viejas,
+ * sin factura, cubren lo que ya estaba emitido el día en que se prometió.
+ *
+ * @param promesa   fila de `v_promesas_a_cortar`
+ * @param facturas  filas de `v_facturas_por_cobrar` (id, client_id, saldo, fecha_emision)
+ */
+export function saldoPrometido(promesa, facturas = []) {
+  const suma = (fs) => fs.reduce((t, f) => t + Number(f.saldo ?? 0), 0)
+
+  if (promesa.factura_id) {
+    // Si la factura ya no figura por cobrar, está pagada (o anulada): cero.
+    return suma(facturas.filter((f) => f.id === promesa.factura_id))
+  }
+
+  const delCliente = facturas.filter((f) => f.client_id === promesa.client_id)
+  if (!promesa.created_at) return suma(delCliente)
+
+  const dia = fechaLocal(new Date(promesa.created_at))
+  return suma(delCliente.filter((f) => !f.fecha_emision || String(f.fecha_emision).slice(0, 10) <= dia))
+}
+
+/** Promesas vencidas que habían habilitado el servicio, con la deuda prometida. */
 export async function candidatos() {
   const { data: promesas, error } = await db().from('v_promesas_a_cortar').select('*')
   if (error) throw new Error(`No se pudieron leer las promesas vencidas: ${error.message}`)
@@ -72,13 +105,15 @@ export async function candidatos() {
   const ids = [...new Set(promesas.map((p) => p.client_id).filter(Boolean))]
   const { data: facturas, error: errFac } = await db()
     .from('v_facturas_por_cobrar')
-    .select('client_id, saldo')
+    .select('id, client_id, saldo, fecha_emision')
     .in('client_id', ids)
   if (errFac) throw new Error(`No se pudieron leer los saldos: ${errFac.message}`)
 
+  // La vista devuelve una promesa por cliente, así que el mapa por cliente
+  // alcanza para `decidirCortes`.
   const saldos = new Map()
-  for (const f of facturas ?? []) {
-    saldos.set(f.client_id, Number(saldos.get(f.client_id) ?? 0) + Number(f.saldo ?? 0))
+  for (const p of promesas) {
+    saldos.set(p.client_id, saldoPrometido(p, facturas ?? []))
   }
 
   return { promesas, saldos }
