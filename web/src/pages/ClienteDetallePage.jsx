@@ -12,11 +12,14 @@ import {
   LifeBuoy,
   Receipt,
   Send,
+  Trash2,
   Wifi,
   Wrench,
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
-import { Badge, Cargando, ErrorBanner } from '../components/ui'
+import { Badge, Button, Cargando, ErrorBanner } from '../components/ui'
+import ConPermiso from '../components/layout/ConPermiso'
+import { useConfirmar } from '../lib/confirmar'
 import FichaResumen from '../components/clientes/FichaResumen'
 import FichaServicio from '../components/clientes/FichaServicio'
 import FichaFacturacion from '../components/clientes/FichaFacturacion'
@@ -76,6 +79,7 @@ const PESTANAS = [
 export default function ClienteDetallePage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const confirmar = useConfirmar()
 
   const [cliente, setCliente] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -142,6 +146,27 @@ export default function ClienteDetallePage() {
     recargar()
   }, [recargar])
 
+  /**
+   * Borrar al cliente del sistema.
+   *
+   * Vive acá y no en el listado: el nombre ya abre la ficha, y un tacho en cada
+   * fila de la lista estaba a un clic equivocado de borrar a otro abonado. Para
+   * el que deja el servicio está la baja, que guarda el motivo; esto es para la
+   * ficha cargada por error.
+   */
+  async function eliminar() {
+    const ok = await confirmar({
+      titulo: 'Eliminar cliente',
+      mensaje: `¿Eliminar a "${cliente.nombre}" del sistema? No se puede deshacer.`,
+      etiquetaAccion: 'Eliminar',
+    })
+    if (!ok) return
+
+    const { error: err } = await supabase.from('clientes').delete().eq('id', cliente.id)
+    if (err) return setError(err)
+    navigate('/clientes')
+  }
+
   if (cargando) return <Cargando texto="Cargando la ficha…" />
 
   if (!cliente) {
@@ -184,6 +209,9 @@ export default function ClienteDetallePage() {
             <Badge color="rojo">debe ${Number(cliente.saldo).toFixed(2)}</Badge>
           )}
           <Badge color={COLOR_ESTADO[cliente.estado] ?? 'gris'}>{cliente.estado}</Badge>
+          <ConPermiso permiso="clientes.eliminar" envezDe={null}>
+            <Button variante="fantasma" icon={Trash2} title="Eliminar cliente" onClick={eliminar} />
+          </ConPermiso>
         </div>
       </div>
 

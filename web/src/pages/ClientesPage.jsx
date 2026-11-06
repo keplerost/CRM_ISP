@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useConfirmar } from '../lib/confirmar'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Check,
@@ -8,14 +7,11 @@ import {
   Columns3,
   DollarSign,
   Download,
-  ExternalLink,
   Filter,
   ListPlus,
-  Pencil,
   Plus,
   RotateCcw,
   Rows3,
-  Trash2,
   Upload,
   Users,
   X,
@@ -110,7 +106,6 @@ const CUANTOS = [
  * que es donde además queda registrado por qué.
  */
 export default function ClientesPage() {
-  const confirmar = useConfirmar()
   const {
     filas: clientes,
     cargando,
@@ -354,10 +349,6 @@ export default function ClientesPage() {
     },
     [recargar, setError],
   )
-
-  const borrar = async (c) =>
-    (await confirmar(`¿Eliminar a "${c.nombre}" del sistema?`)) &&
-    escribir(() => supabase.from('clientes').delete().eq('id', c.id))
 
   const alternar = (clave) =>
     setVisibles((v) => (v.includes(clave) ? v.filter((x) => x !== clave) : [...v, clave]))
@@ -625,8 +616,6 @@ export default function ClientesPage() {
                     c={c}
                     columnas={columnas}
                     ctx={ctx}
-                    onBorrar={borrar}
-                    onEditar={setEnFormulario}
                   />
                 )}
               />
@@ -928,14 +917,17 @@ const Paso = ({ icono: Icono, disabled, onClick }) => (
 
 // ---------------------------------------------------------------------------
 
-function Fila({ c, columnas, ctx, onBorrar, onEditar }) {
+function Fila({ c, columnas, ctx }) {
   return (
     <tr className="text-slate-300">
       {columnas.map((col) => (
         <td
           key={col.clave}
           className={[
-            'px-3 py-2',
+            // En una línea: cada columna toma el ancho de lo que muestra. Si no
+            // entra, la tabla se desliza hacia el costado; partido en renglones,
+            // el nombre de dos apellidos quedaba amontonado e ilegible.
+            'whitespace-nowrap px-3 py-2',
             col.mono ? 'font-mono text-[11px]' : 'text-xs',
             col.centro ? 'text-center' : '',
             col.derecha ? 'text-right' : '',
@@ -947,23 +939,9 @@ function Fila({ c, columnas, ctx, onBorrar, onEditar }) {
         </td>
       ))}
 
-      <td className="px-3 py-2">
-        <div className="flex justify-end gap-1">
-          <Link
-            to={`/clientes/${c.id}`}
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-            title="Abrir la ficha completa"
-          >
-            <ExternalLink size={15} />
-          </Link>
-          <ConPermiso permiso="clientes.editar" envezDe={null}>
-            <Button variante="fantasma" icon={Pencil} title="Editar" onClick={() => onEditar(c)} />
-          </ConPermiso>
-          <ConPermiso permiso="clientes.eliminar" envezDe={null}>
-            <Button variante="fantasma" icon={Trash2} onClick={() => onBorrar(c)} />
-          </ConPermiso>
-        </div>
-      </td>
+      {/* La columna del botón "Limpiar búsquedas": abrir, editar y eliminar
+          se hacen desde la ficha, a la que lleva el nombre. */}
+      <td />
     </tr>
   )
 }
@@ -982,7 +960,7 @@ function Celda({ col, c, ctx }) {
   if (col.clave === 'nombre') {
     const e = ESTADO[c.estado] ?? { label: c.estado, color: 'gris' }
     return (
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex items-center gap-1.5">
         <Link
           to={`/clientes/${c.id}`}
           className="font-medium text-slate-100 hover:text-sky-400 hover:underline"
