@@ -112,7 +112,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
   const ivaGeneral = useIvaGeneral()
   const [facturas, setFacturas] = useState([])
   const [pagosPorFactura, setPagosPorFactura] = useState({})
-  const [cerradas, setCerradas] = useState(() => new Set())
+  const [abiertas, setAbiertas] = useState(() => new Set())
   const [cargando, setCargando] = useState(true)
 
   const [cobrando, setCobrando] = useState(null)
@@ -718,9 +718,10 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
             filas={facturas}
             renderFila={(f) => {
               const pagos = pagosPorFactura[f.id] ?? []
-              // Los pagos se muestran de entrada: son lo que hay que revisar
-              // cuando el abonado dice que pagó y el sistema dice que no.
-              const desplegada = pagos.length > 0 && !cerradas.has(f.id)
+              // Los pagos arrancan plegados y se abren con la flecha. Desplegados
+              // de entrada, un abonado con varios meses llenaba la pantalla de
+              // filas de pago y costaba encontrar la factura que había que mirar.
+              const desplegada = pagos.length > 0 && abiertas.has(f.id)
 
               return (
                 <>
@@ -729,7 +730,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                       {pagos.length > 0 && (
                         <button
                           onClick={() =>
-                            setCerradas((prev) => {
+                            setAbiertas((prev) => {
                               const s = new Set(prev)
                               if (s.has(f.id)) s.delete(f.id)
                               else s.add(f.id)
