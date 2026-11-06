@@ -912,6 +912,10 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
         abierto={Boolean(cobrando)}
         titulo={`Pago de la factura N° ${String(cobrando?.factura?.numero ?? '').padStart(8, '0')}`}
         onCerrar={() => setCobrando(null)}
+        // Más ancho que el de fábrica: la cuenta de destino lleva el número
+        // ("Pichincha Corriente — 2100300272") y en media ventana angosta
+        // quedaba al borde del cuadro.
+        ancho="max-w-2xl"
       >
         {cobrando && (
           <form onSubmit={registrarPago} className="space-y-4">
