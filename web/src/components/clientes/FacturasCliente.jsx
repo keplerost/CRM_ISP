@@ -799,7 +799,9 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                                 monto: Number(f.saldo).toFixed(2),
                                 comision: '0',
                                 forma_pago: 'efectivo',
-                                cuenta_id: cuentasPara(cuentas, 'efectivo')[0]?.id ?? '',
+                                cuenta_id: cuentasPara(cuentas, 'efectivo').length === 1
+                                  ? cuentasPara(cuentas, 'efectivo')[0].id
+                                  : '',
                                 n_transaccion: '',
                                 fecha_pago: hoy(),
                                 notas: '',
@@ -948,7 +950,11 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                       return {
                         ...c,
                         forma_pago: forma,
-                        cuenta_id: sigue ? c.cuenta_id : (posibles[0]?.id ?? ''),
+                        // Con una sola posible se elige sola; con varias queda
+                        // en blanco para que se elija a cuál entró, como en
+                        // Cobros. Proponer la primera hacía que la transferencia
+                        // quedara en el Pichincha que viniera primero.
+                        cuenta_id: sigue ? c.cuenta_id : (posibles.length === 1 ? posibles[0].id : ''),
                       }
                     })
                   }}
@@ -960,7 +966,14 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                   ))}
                 </Select>
               </Field>
-              <Field label="Cuenta de destino">
+              <Field
+                label={cobrando.forma_pago === 'efectivo' ? 'Caja' : 'Cuenta de destino'}
+                hint={
+                  cobrando.forma_pago === 'efectivo'
+                    ? 'El efectivo entra a caja, no a una cuenta del banco'
+                    : 'A qué cuenta del banco entró la plata'
+                }
+              >
                 <Select
                   value={cobrando.cuenta_id}
                   onChange={(e) => setCobrando((c) => ({ ...c, cuenta_id: e.target.value }))}
@@ -970,9 +983,16 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                   {cuentasPara(cuentas, cobrando.forma_pago).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombre}
+                      {c.numero ? ` — ${c.numero}` : ''}
+                      {c.propia && c.tipo === 'efectivo' ? ' (tu caja)' : ''}
                     </option>
                   ))}
                 </Select>
+                {cuentasPara(cuentas, cobrando.forma_pago).length === 0 && (
+                  <p className="mt-1 text-[11px] text-amber-400">
+                    No hay ninguna cuenta para esta forma de pago. Se cargan en Ajustes → Cuentas de pago.
+                  </p>
+                )}
               </Field>
 
               <Field
