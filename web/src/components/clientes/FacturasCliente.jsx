@@ -16,6 +16,8 @@ import { supabase } from '../../lib/supabaseClient'
 import { api } from '../../lib/apiNetwork'
 import { useTabla } from '../../lib/useTabla'
 import { errorTransaccionRepetida } from '../../lib/pagos'
+import { usePermisos } from '../../lib/AuthContext'
+import { cuentasPara, formasPara } from '../pagos/FormPago'
 import {
   Aviso,
   Badge,
@@ -96,8 +98,6 @@ const COLOR_ESTADO = {
   anulada: 'gris',
 }
 
-const FORMAS = ['efectivo', 'transferencia', 'deposito', 'tarjeta', 'otro']
-
 async function abrirPdf(descargar) {
   const blob = await descargar()
   const url = URL.createObjectURL(blob)
@@ -107,7 +107,18 @@ async function abrirPdf(descargar) {
 
 export default function FacturasCliente({ cliente, onError, onGuardado }) {
   const confirmar = useConfirmar()
-  const { filas: cuentas } = useTabla('cuentas_pago', { orderBy: 'nombre', ascending: true })
+  /**
+   * Las mismas cuentas y formas de pago que en Cobros.
+   *
+   * Las cuentas son las de este usuario —su caja, o la de la oficina— más las
+   * del banco, y cada forma de pago ofrece solo las suyas: el efectivo entra a
+   * caja y la transferencia a una cuenta del banco. Antes este botón ofrecía
+   * todas las cuentas sin mirar la forma, y el efectivo terminaba imputado al
+   * banco.
+   */
+  const { filas: cuentas } = useTabla('v_mis_cuentas_de_cobro', { orderBy: 'nombre', ascending: true })
+  const { puede } = usePermisos()
+  const formas = formasPara(puede)
 
   const ivaGeneral = useIvaGeneral()
   const [facturas, setFacturas] = useState([])
@@ -788,7 +799,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                                 monto: Number(f.saldo).toFixed(2),
                                 comision: '0',
                                 forma_pago: 'efectivo',
-                                cuenta_id: cuentas[0]?.id ?? '',
+                                cuenta_id: cuentasPara(cuentas, 'efectivo')[0]?.id ?? '',
                                 n_transaccion: '',
                                 fecha_pago: hoy(),
                                 notas: '',
@@ -926,11 +937,25 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
               <Field label="Forma de pago">
                 <Select
                   value={cobrando.forma_pago}
-                  onChange={(e) => setCobrando((c) => ({ ...c, forma_pago: e.target.value }))}
+                  onChange={(e) => {
+                    const forma = e.target.value
+                    // Si la cuenta elegida no sirve para la forma nueva, se
+                    // cambia por la primera que sí: la que quedaba ya no aparece
+                    // en la lista y se guardaría igual sin que nadie la vea.
+                    setCobrando((c) => {
+                      const posibles = cuentasPara(cuentas, forma)
+                      const sigue = posibles.some((x) => x.id === c.cuenta_id)
+                      return {
+                        ...c,
+                        forma_pago: forma,
+                        cuenta_id: sigue ? c.cuenta_id : (posibles[0]?.id ?? ''),
+                      }
+                    })
+                  }}
                 >
-                  {FORMAS.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
+                  {formas.map((f) => (
+                    <option key={f.valor} value={f.valor}>
+                      {f.label}
                     </option>
                   ))}
                 </Select>
@@ -942,7 +967,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                   required
                 >
                   <option value="">— elegí una cuenta —</option>
-                  {cuentas.map((c) => (
+                  {cuentasPara(cuentas, cobrando.forma_pago).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nombre}
                     </option>
