@@ -17,6 +17,7 @@ import {
   Headphones,
   Import,
   KeyRound,
+  Landmark,
   LayoutTemplate,
   LifeBuoy,
   Mail,
@@ -118,6 +119,13 @@ export const AJUSTES = [
     icono: FileText,
     a: '/ajustes/plantillas',
     para: 'Todo lo que el sistema le dice al abonado: documentos que se imprimen, correos, mensajes de SMS y Telegram, y las páginas web del aviso y del corte.',
+  },
+  {
+    slug: 'cuentas-cobro',
+    nombre: 'Cuentas de cobro',
+    icono: Landmark,
+    a: '/ajustes/cuentas-cobro',
+    para: 'Las cajas y las cuentas del banco donde entra la plata: nombre, número y titular. Son las que se eligen al registrar un pago y las que ve el abonado cortado para depositar.',
   },
   {
     slug: 'pagina-corte',

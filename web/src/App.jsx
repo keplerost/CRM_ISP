@@ -37,6 +37,7 @@ const ComisionesPage = lazy(() => import('./pages/ajustes/ComisionesPage'))
 const SimuladorComisionesPage = lazy(() => import('./pages/ajustes/SimuladorComisionesPage'))
 const AlertasPage = lazy(() => import('./pages/ajustes/AlertasPage'))
 const PaginaCortePage = lazy(() => import('./pages/ajustes/PaginaCortePage'))
+const CuentasCobroPage = lazy(() => import('./pages/ajustes/CuentasCobroPage'))
 const PlantillasPage = lazy(() => import('./pages/ajustes/PlantillasPage'))
 const PrestadorPage = lazy(() => import('./pages/ajustes/PrestadorPage'))
 const FirmaPage = lazy(() => import('./pages/ajustes/FirmaPage'))
@@ -302,6 +303,7 @@ export default function App() {
             genérica de "esta sección todavía no existe". */}
         <Route path="ajustes/alertas" element={<AlertasPage />} />
         <Route path="ajustes/pagina-corte" element={<PaginaCortePage />} />
+        <Route path="ajustes/cuentas-cobro" element={<CuentasCobroPage />} />
         <Route path="ajustes/plantillas" element={<PlantillasPage />} />
         <Route path="ajustes/prestador" element={<PrestadorPage />} />
         <Route path="ajustes/firma" element={<FirmaPage />} />

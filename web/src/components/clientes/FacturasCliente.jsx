@@ -994,7 +994,7 @@ export default function FacturasCliente({ cliente, onError, onGuardado }) {
                 </Select>
                 {cuentasPara(cuentas, cobrando.forma_pago).length === 0 && (
                   <p className="mt-1 text-[11px] text-amber-400">
-                    No hay ninguna cuenta para esta forma de pago. Se cargan en Ajustes → Cuentas de pago.
+                    No hay ninguna cuenta para esta forma de pago. Se cargan en Ajustes → Cuentas de cobro.
                   </p>
                 )}
               </Field>

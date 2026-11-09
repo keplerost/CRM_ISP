@@ -836,8 +836,8 @@ export default function FormPago({ cliente, onRegistrado, onCancelar, onError })
                   {!cuentasPara(cuentas, form.forma_pago).length && (
                     <p className="mt-1 text-xs text-amber-400">
                       {form.forma_pago === 'efectivo'
-                        ? 'No tenés una caja asignada. Pedila en Ajustes → Cuentas de pago: sin caja propia no se puede cobrar en efectivo.'
-                        : 'No hay ninguna cuenta de este tipo cargada. Creala en Ajustes → Cuentas de pago.'}
+                        ? 'No tenés una caja asignada. Pedila en Ajustes → Cuentas de cobro: sin caja propia no se puede cobrar en efectivo.'
+                        : 'No hay ninguna cuenta de este tipo cargada. Creala en Ajustes → Cuentas de cobro.'}
                     </p>
                   )}
                 </Field>

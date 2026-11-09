@@ -3,6 +3,7 @@ import { useConfirmar } from '../lib/confirmar'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   FileText,
+  Landmark,
   Mail,
   Plus,
   Printer,
@@ -18,7 +19,6 @@ import { api } from '../lib/apiNetwork'
 import { CODIGO_SRI, TARIFA_DE_CODIGO, fijarIvaGeneral, useIvaGeneral } from '../lib/iva'
 import { usePais } from '../lib/pais'
 import CertificadoFirma from '../components/sri/CertificadoFirma'
-import CuentasPago from '../components/pagos/CuentasPago'
 import PorFacturar from '../components/sri/PorFacturar'
 import FacturasDelMes from '../components/sri/FacturasDelMes'
 import { usePermisos } from '../lib/AuthContext'
@@ -123,9 +123,18 @@ export default function FacturacionPage() {
           <Configuracion onError={setError} />
           {/* El certificado se maneja aparte: se sube una vez y se valida solo. */}
           <CertificadoFirma />
-          {/* Las cuentas de cobro también son configuración: se cargan una vez y
-              después solo se eligen al registrar un pago. */}
-          <CuentasPago />
+          {/* Las cuentas de cobro se mudaron a Ajustes: las usan Pagos, Cobros y la
+              página del cortado, no solo la facturación. Queda el enlace para
+              quien las busque donde estaban. */}
+          <Card title="Cuentas de cobro" icon={Landmark}>
+            <p className="text-sm text-slate-400">
+              Las cajas y las cuentas del banco ahora se editan en{' '}
+              <Link to="/ajustes/cuentas-cobro" className="text-sky-400 hover:underline">
+                Ajustes → Cuentas de cobro
+              </Link>
+              .
+            </p>
+          </Card>
         </div>
       )}
     </div>

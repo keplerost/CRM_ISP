@@ -235,6 +235,9 @@ const RUTAS = [
   ['/ajustes/integraciones', 'config.integraciones'],
   ['/ajustes/crontab', 'config.tareas'],
   ['/ajustes/facturacion-electronica', 'config.facturacion'],
+  // El mismo permiso que tenía en Facturación → Configuración: moverla de
+  // lugar no cambia quién puede editar las cuentas.
+  ['/ajustes/cuentas-cobro', 'config.facturacion'],
   // Va ANTES de '/ajustes' por el prefijo más largo. Mismo permiso que la
   // mensajería: una plantilla sin aprobar no manda un mensaje feo, no manda
   // nada, y el abonado no se entera de que le van a cortar.
