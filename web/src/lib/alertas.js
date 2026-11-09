@@ -18,6 +18,7 @@ const ICONO = {
   potencia_critica: '🟡',
   degradacion: '🟡',
   subida_saturada: '⬆️',
+  plazo_atencion: '⏰',
 }
 
 const hora = (f) => {
@@ -51,6 +52,8 @@ export function haceCuanto(desde, ahora = new Date()) {
 export function textoAlerta(evento, ahora = new Date()) {
   const e = evento ?? {}
   const icono = ICONO[e.regla] ?? '⚠️'
+
+  if (e.regla === 'plazo_atencion') return textoPlazo(e, ahora)
 
   if (e.resuelto) {
     return `✅ ${e.etiqueta ?? 'Servicio'} — se restableció (${hora(new Date())})`
@@ -157,6 +160,55 @@ export function textoAlerta(evento, ahora = new Date()) {
   return `${icono} ${e.nombre ?? e.regla ?? 'Alerta'} — ${e.etiqueta ?? ''}`.trim()
 }
 
+/** "45 min", "2 h 10 min", "3 d". Para decir cuánto falta o cuánto se pasó. */
+export function duracion(min) {
+  const m = Math.max(0, Math.round(Number(min) || 0))
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  if (h < 24) return m % 60 ? `${h} h ${m % 60} min` : `${h} h`
+  return `${Math.floor(h / 24)} d`
+}
+
+/**
+ * Un trabajo que está por vencer su plazo, o que ya se venció.
+ *
+ * Lo lee quien asigna: tiene que decir QUÉ trabajo, CUÁNTO falta y QUIÉN lo
+ * tiene —o que no lo tiene nadie, que es el caso más urgente—, con la dirección
+ * y el teléfono para resolverlo sin abrir el sistema.
+ *
+ * El cierre no dice "se restableció": un plazo no se restablece. Dice que el
+ * trabajo ya se atendió o se cerró.
+ */
+function textoPlazo(e, ahora) {
+  const d = e.detalle ?? {}
+  const clase = e.entidad === 'instalacion' ? 'Instalación' : 'Ticket'
+  const cual = `${clase}${d.numero != null ? ` N° ${d.numero}` : ''}`
+
+  if (e.resuelto) {
+    return `✅ ${cual} — ${e.etiqueta ?? 'abonado'}: ya llegó el técnico o se cerró (${hora(new Date())})`
+  }
+
+  const vence = d.vence_at ? new Date(d.vence_at) : null
+  const falta = vence ? Math.round((vence - ahora) / 60000) : null
+  const vencido = falta != null && falta <= 0
+
+  return [
+    `${ICONO.plazo_atencion} ${vencido ? 'PLAZO VENCIDO' : 'Plazo por vencer'} — ${cual}`,
+    `${d.tipo_nombre ?? 'Trabajo'} · ${e.etiqueta ?? 'abonado'}`,
+    vence
+      ? vencido
+        ? `Venció a las ${hora(vence)} (hace ${duracion(-falta)}) y el técnico no llegó.`
+        : `Vence a las ${hora(vence)} (en ${duracion(falta)}).`
+      : null,
+    d.tecnico ? `Técnico: ${d.tecnico}` : 'SIN TÉCNICO ASIGNADO',
+    d.direccion ? `📍 ${d.direccion}` : null,
+    e.zona ? `Zona: ${e.zona}` : null,
+    d.telefono ? `Tel: ${d.telefono}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 /**
  * ¿Este destino tiene que recibir este evento?
  *
@@ -214,4 +266,5 @@ export const UNIDAD_UMBRAL = {
   potencia_critica: 'dBm',
   degradacion: 'dB de caída del promedio de la caja (7 días)',
   subida_saturada: '% del límite de subida',
+  plazo_atencion: 'minutos antes del vencimiento',
 }

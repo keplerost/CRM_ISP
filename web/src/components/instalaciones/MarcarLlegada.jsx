@@ -5,6 +5,8 @@ import { campoApi } from '../../lib/colaCampo'
 import { RADIO_LLEGADA_M, distanciaEnMetros, ubicacionActual } from '../../lib/soporte'
 import { completarIngreso } from '../../lib/servicio'
 import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
+import { PlazoTrabajo, useJustificarDemora, usePlazosAtencion } from '../soporte/PlazoTrabajo'
+import { etiquetaMotivo, pideJustificacion, venceEl } from '../../lib/plazos'
 
 /**
  * "Llegué al domicilio."
@@ -33,6 +35,8 @@ import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
 export default function MarcarLlegada({ orden, onMarcada, onError }) {
   const confirmar = useConfirmar()
   const prepararIngreso = usePrepararIngreso()
+  const plazos = usePlazosAtencion()
+  const [pedirJustificacion, ventanaJustificacion] = useJustificarDemora()
   const [ubicando, setUbicando] = useState(false)
 
   // Ya marcada: se muestra el hecho, no el botón. Volver a ofrecerlo invitaría
@@ -64,15 +68,32 @@ export default function MarcarLlegada({ orden, onMarcada, onError }) {
           ) : (
             <span className="text-emerald-200/70"> · sin confirmación de GPS</span>
           )}
+          {orden.demora_motivo && (
+            <span className="block text-amber-200">
+              Fuera de plazo: {etiquetaMotivo(orden.demora_motivo)}
+              {orden.demora_nota ? ` — ${orden.demora_nota}` : ''}
+            </span>
+          )}
         </p>
       </div>
     )
   }
 
   async function marcar() {
-    setUbicando(true)
     onError?.(null)
 
+    // Fuera de plazo, primero el motivo; la hora de llegada es la del toque.
+    // Igual que en el ticket (TicketFicha).
+    const llegada = new Date()
+    const vence = venceEl(orden, plazos ?? [], 'instalacion')
+    let demora = {}
+    if (pideJustificacion(vence, llegada)) {
+      const j = await pedirJustificacion({ minutos: Math.round((llegada - vence) / 60000) })
+      if (!j) return
+      demora = { ...j, demora_registrada_at: new Date().toISOString() }
+    }
+
+    setUbicando(true)
     try {
       const pos = await ubicacionActual()
 
@@ -110,7 +131,8 @@ export default function MarcarLlegada({ orden, onMarcada, onError }) {
        * "sí, ya está ahí".
        */
       const campos = {
-        llegada_at: new Date().toISOString(),
+        llegada_at: llegada.toISOString(),
+        ...demora,
         llegada_lat: pos?.lat ?? null,
         llegada_lng: pos?.lng ?? null,
         llegada_precision_m: pos?.precision ? Math.round(pos.precision) : null,
@@ -132,21 +154,25 @@ export default function MarcarLlegada({ orden, onMarcada, onError }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={marcar}
-      disabled={ubicando}
-      className="flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 py-3 text-[14px] font-semibold text-sky-300 active:bg-sky-500/20 disabled:opacity-60"
-    >
-      {ubicando ? (
-        <>
-          <Navigation size={17} className="animate-pulse" /> Tomando ubicación…
-        </>
-      ) : (
-        <>
-          <MapPinCheck size={17} /> Llegué al domicilio
-        </>
-      )}
-    </button>
+    <>
+      {ventanaJustificacion}
+      <PlazoTrabajo trabajo={orden} clase="instalacion" className="mb-2" />
+      <button
+        type="button"
+        onClick={marcar}
+        disabled={ubicando}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 py-3 text-[14px] font-semibold text-sky-300 active:bg-sky-500/20 disabled:opacity-60"
+      >
+        {ubicando ? (
+          <>
+            <Navigation size={17} className="animate-pulse" /> Tomando ubicación…
+          </>
+        ) : (
+          <>
+            <MapPinCheck size={17} /> Llegué al domicilio
+          </>
+        )}
+      </button>
+    </>
   )
 }

@@ -9,6 +9,7 @@ import { HORA, faltaPara, hoyISO } from '../../lib/campo'
 import { conCache } from '../../lib/cacheLocal'
 import { usePermisos } from '../../lib/AuthContext'
 import { enlaceLlamada } from '../../lib/telefono'
+import { PlazoTrabajo } from '../../components/soporte/PlazoTrabajo'
 
 /**
  * Las órdenes del técnico.
@@ -166,6 +167,8 @@ function Tarjeta({ o }) {
           </a>
         )}
       </div>
+
+      <PlazoTrabajo trabajo={o} clase="instalacion" className="mt-2" />
 
       {/* Qué le falta, antes de manejar hasta el domicilio. */}
       {falta.length > 0 && (

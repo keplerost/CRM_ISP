@@ -43,6 +43,23 @@ export async function ejecutarAlertas({ ahora = new Date() } = {}) {
     resultado.detectados = det?.[0] ?? det
   }
 
+  /*
+   * ── 1b. Mirar la agenda ──
+   *
+   * Los trabajos que están por vencer su plazo sin que haya llegado el técnico.
+   * Va aparte de la red: si una de las dos detecciones falla, la otra sigue.
+   * Sin la migración 219 la función no existe, y eso no es un error que valga
+   * la pena repetir cada cinco minutos.
+   */
+  const { data: pla, error: ePla } = await db().rpc('detectar_plazos')
+  if (ePla) {
+    if (!/could not find the function|schema cache/i.test(ePla.message)) {
+      avisar(`La detección de plazos falló: ${ePla.message}`)
+    }
+  } else {
+    resultado.plazos = pla?.[0] ?? pla
+  }
+
   // ── 2. Qué hay para avisar ──
   const { data: eventos, error: eEv } = await db().rpc('alertas_por_enviar')
   if (eEv) {

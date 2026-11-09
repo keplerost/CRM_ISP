@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, MapPin, Navigation, Ticket } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { ESTADOS, PRIORIDADES, enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
+import { PlazoTrabajo } from '../../components/soporte/PlazoTrabajo'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { conCache } from '../../lib/cacheLocal'
 import { usePermisos } from '../../lib/AuthContext'
@@ -241,6 +242,7 @@ function Tarjeta({ t }) {
             #{t.numero}
             {est ? ` · ${est.label}` : ''}
           </p>
+          <PlazoTrabajo trabajo={t} clase="ticket" className="mt-1.5" />
         </div>
         {!cerrado && t.prioridad && (
           <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${p.clase}`}>

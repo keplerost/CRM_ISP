@@ -6,6 +6,7 @@ import {
   haceCuanto,
   leCorresponde,
   textoAlerta,
+  duracion,
 } from '../../web/src/lib/alertas.js'
 
 /**
@@ -160,4 +161,58 @@ test('la dirección va antes que la zona: es con lo que se llega a la puerta', (
   })
 
   assert.ok(t.indexOf('Calle 5') < t.indexOf('Zona: Centro'))
+})
+
+
+// --- Plazo de atención (migración 219) ---------------------------------------
+
+const PLAZO = {
+  regla: 'plazo_atencion',
+  entidad: 'ticket',
+  etiqueta: 'Ana Pérez',
+  zona: 'Centro',
+  detalle: {
+    numero: '128',
+    tipo_nombre: 'Sin internet',
+    tecnico: 'Carlos',
+    direccion: 'Av. Principal y Calle 5',
+    telefono: '0991234567',
+  },
+}
+
+test('plazo por vencer: qué trabajo, cuánto falta, quién lo tiene y dónde', () => {
+  const vence = new Date(AHORA.getTime() + 45 * 60000)
+  const t = textoAlerta({ ...PLAZO, detalle: { ...PLAZO.detalle, vence_at: vence.toISOString() } }, AHORA)
+
+  assert.match(t, /Plazo por vencer — Ticket N° 128/)
+  assert.match(t, /Sin internet · Ana Pérez/)
+  assert.match(t, /en 45 min/)
+  assert.match(t, /Técnico: Carlos/)
+  assert.match(t, /📍 Av. Principal/)
+  assert.match(t, /Tel: 0991234567/)
+})
+
+test('plazo vencido y sin técnico: lo dice en mayúsculas', () => {
+  const vence = new Date(AHORA.getTime() - 130 * 60000)
+  const t = textoAlerta(
+    { ...PLAZO, entidad: 'instalacion', detalle: { ...PLAZO.detalle, tecnico: undefined, vence_at: vence.toISOString() } },
+    AHORA,
+  )
+
+  assert.match(t, /PLAZO VENCIDO — Instalación N° 128/)
+  assert.match(t, /hace 2 h 10 min/)
+  assert.match(t, /SIN TÉCNICO ASIGNADO/)
+})
+
+test('el cierre de un plazo no dice "se restableció"', () => {
+  const t = textoAlerta({ ...PLAZO, resuelto: true }, AHORA)
+  assert.match(t, /ya llegó el técnico o se cerró/)
+  assert.doesNotMatch(t, /restableció/)
+})
+
+test('duracion: minutos, horas y días', () => {
+  assert.equal(duracion(45), '45 min')
+  assert.equal(duracion(120), '2 h')
+  assert.equal(duracion(130), '2 h 10 min')
+  assert.equal(duracion(3 * 24 * 60 + 5), '3 d')
 })

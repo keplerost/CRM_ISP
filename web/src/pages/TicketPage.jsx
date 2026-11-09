@@ -38,14 +38,23 @@ export default function TicketPage() {
   const [cargando, setCargando] = useState(true)
 
   const cargar = useCallback(async () => {
-    const { data, error: err } = await supabase
-      .from('v_tickets')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle()
+    /*
+     * La vista y la fila cruda, mezcladas.
+     *
+     * `v_tickets` es `SELECT t.*` de la migración 28 y congeló sus columnas ahí:
+     * lo agregado después —el motivo de la demora de la 219, entre otros— no
+     * aparece hasta que alguien la recrea. La fila cruda gana, así la pantalla
+     * muestra siempre todos los campos del ticket. Igual que la ficha del
+     * cliente.
+     */
+    const [vista, fila] = await Promise.all([
+      supabase.from('v_tickets').select('*').eq('id', id).maybeSingle(),
+      supabase.from('tickets').select('*').eq('id', id).maybeSingle(),
+    ])
 
-    if (err) setError(err)
-    setTicket(data ?? null)
+    if (vista.error) setError(vista.error)
+    const data = vista.data || fila.data ? { ...(vista.data ?? {}), ...(fila.data ?? {}) } : null
+    setTicket(data)
     setCargando(false)
   }, [id])
 

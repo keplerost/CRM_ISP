@@ -4941,3 +4941,97 @@ test('la ruta del día: un trabajo a la vez y el "no se pudo atender"', async ()
   await db.query(`UPDATE tickets SET fecha_visita = hoy_isp() + 1 WHERE id = '${B}'`)
   assert.equal((await fila(db, `SELECT reprogramar_desde FROM tickets WHERE id = '${B}'`)).reprogramar_desde, null)
 })
+
+/**
+ * Migración 219: cada trabajo tiene un plazo según su tipo, se mide la espera
+ * del abonado hasta la llegada, y se avisa antes de que venza.
+ */
+test('el plazo de cada trabajo: espera, en plazo y el aviso antes de vencer', async () => {
+  await sesion(db, null)
+  const TEC = '21900000-0000-0000-0000-0000000000aa'
+  const VENCIDO = '21900000-0000-0000-0000-000000000001' // sin internet, 5 h sin llegada
+  const POR_VENCER = '21900000-0000-0000-0000-000000000002' // sin internet, 3 h 30 min
+  const TRANQUILO = '21900000-0000-0000-0000-000000000003' // lentitud, 3 h de 24
+  const ATENDIDO = '21900000-0000-0000-0000-000000000004' // sin internet, llegó a las 2 h
+
+  await db.exec(`
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${TEC}', 'Técnico 219', true);
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, tecnico_id, created_at) VALUES
+        ('${VENCIDO}',    'Abonado vencido',    'sin_internet', 'asignado', '${TEC}', NOW() - INTERVAL '5 hours'),
+        ('${POR_VENCER}', 'Abonado por vencer', 'sin_internet', 'abierto',  NULL,     NOW() - INTERVAL '210 minutes'),
+        ('${TRANQUILO}',  'Abonado tranquilo',  'lentitud',     'asignado', '${TEC}', NOW() - INTERVAL '3 hours');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, tecnico_id, created_at, llegada_at, cerrado_at) VALUES
+        ('${ATENDIDO}', 'Abonado atendido', 'sin_internet', 'resuelto', '${TEC}',
+         NOW() - INTERVAL '3 hours', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '30 minutes');
+  `)
+
+  const p = async (id) => fila(db, `SELECT * FROM v_plazos_trabajo WHERE id = '${id}'`)
+
+  const vencido = await p(VENCIDO)
+  assert.equal(Number(vencido.plazo_horas), 4)
+  assert.equal(vencido.pendiente, true)
+  assert.equal(vencido.en_plazo, false, 'esperando y pasado de plazo cuenta como fuera de plazo')
+
+  const tranquilo = await p(TRANQUILO)
+  assert.equal(tranquilo.en_plazo, null, 'todavía no se puede juzgar')
+
+  const atendido = await p(ATENDIDO)
+  assert.equal(atendido.minutos_espera, 120)
+  assert.equal(atendido.en_plazo, true)
+
+  // El aviso: el vencido y el que vence en 30 min (umbral 60). El de 24 h, no.
+  const det = await fila(db, 'SELECT * FROM detectar_plazos()')
+  assert.equal(det.abiertos, 2)
+  const eventos = (await db.query(
+    `SELECT entidad_id, detalle FROM alerta_eventos WHERE regla = 'plazo_atencion' AND resuelto_en IS NULL`,
+  )).rows
+  assert.deepEqual(eventos.map((e) => e.entidad_id).sort(), [VENCIDO, POR_VENCER].sort())
+  assert.equal(eventos.find((e) => e.entidad_id === VENCIDO).detalle.tecnico, 'Técnico 219')
+
+  // Volver a correr no duplica.
+  assert.equal((await fila(db, 'SELECT * FROM detectar_plazos()')).abiertos, 0)
+
+  // Se cancela uno: su aviso se cierra.
+  await db.query(`UPDATE tickets SET estado = 'cancelado' WHERE id = '${POR_VENCER}'`)
+  assert.equal((await fila(db, 'SELECT * FROM detectar_plazos()')).cerrados, 1)
+
+  // Dos que llegaron tarde (a las 5 h de un plazo de 4): uno con motivo, otro sin.
+  const TARDE_CON = '21900000-0000-0000-0000-000000000005'
+  const TARDE_SIN = '21900000-0000-0000-0000-000000000006'
+  await db.exec(`
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, tecnico_id, created_at, llegada_at, demora_motivo) VALUES
+        ('${TARDE_CON}', 'Tarde con motivo', 'sin_internet', 'en_proceso', '${TEC}',
+         NOW() - INTERVAL '6 hours', NOW() - INTERVAL '1 hour', 'asignado_tarde'),
+        ('${TARDE_SIN}', 'Tarde sin motivo', 'sin_internet', 'en_proceso', '${TEC}',
+         NOW() - INTERVAL '6 hours', NOW() - INTERVAL '1 hour', NULL);
+  `)
+
+  // Un motivo que no está en la lista no entra.
+  await assert.rejects(
+    db.query(`UPDATE tickets SET demora_motivo = 'me_dormi' WHERE id = '${TARDE_SIN}'`),
+    /demora_motivo_check/,
+  )
+
+  // Por técnico: 1 de 4 en plazo. Fuera: el vencido que espera, uno justificado
+  // y uno sin justificar. Espera mediana de 120, 300 y 300 minutos: 300.
+  const mes = await fila(db, `SELECT * FROM v_plazos_tecnico WHERE tecnico_id = '${TEC}'`)
+  assert.equal(Number(mes.con_plazo), 4)
+  assert.equal(Number(mes.en_plazo), 1)
+  assert.equal(Number(mes.pct_en_plazo), 25)
+  assert.equal(mes.espera_mediana_min, 300)
+  assert.equal(Number(mes.fuera_plazo), 3)
+  assert.equal(Number(mes.esperando), 1)
+  assert.equal(Number(mes.sin_justificar), 1)
+  assert.deepEqual(mes.motivos, { asignado_tarde: 1 })
+
+  // El técnico no puede cambiarse el plazo; quien asigna, sí.
+  assert.equal((await fila(db, 'SELECT puede_editar_plazos() AS v')).v, false)
+
+  // Volver a correr la migración no pisa un plazo ya ajustado ni duplica nada.
+  await db.query(`UPDATE plazos_atencion SET horas = 6 WHERE clave = 'sin_internet'`)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-219-el-plazo-de-cada-trabajo.sql'), 'utf8')
+  await db.exec(sql)
+  await db.exec(sql)
+  assert.equal(Number((await fila(db, `SELECT horas FROM plazos_atencion WHERE clave = 'sin_internet'`)).horas), 6)
+  assert.equal(Number((await fila(db, `SELECT count(*) AS n FROM alerta_reglas WHERE clave = 'plazo_atencion'`)).n), 1)
+})

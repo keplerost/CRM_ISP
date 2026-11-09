@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Info, TriangleAlert } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { Card, ErrorBanner, Select, SkeletonTabla } from '../components/ui'
+import { PendientesConPlazo, PlazosPorTipo } from '../components/soporte/PlazosAtencion'
+import { duracion } from '../lib/alertas'
+import { desgloseFuera } from '../lib/plazos'
 
 /**
  * Comparar el rendimiento de los técnicos.
@@ -37,15 +40,22 @@ export default function DesempenoEquipoPage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [mes, setMes] = useState(null)
+  /**
+   * La espera del abonado y el cumplimiento del plazo (migración 219), por
+   * técnico y mes. Van aparte de `v_desempeno_tecnico` y se juntan acá: sin la
+   * migración la consulta falla y el tablero sigue mostrando lo de siempre.
+   */
+  const [plazos, setPlazos] = useState(new Map())
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const { data, error: err } = await supabase
-      .from('v_desempeno_tecnico')
-      .select('*')
-      .order('mes', { ascending: false })
-    setError(err ?? null)
-    setFilas(data ?? [])
+    const [d, p] = await Promise.all([
+      supabase.from('v_desempeno_tecnico').select('*').order('mes', { ascending: false }),
+      supabase.from('v_plazos_tecnico').select('*'),
+    ])
+    setError(d.error ?? null)
+    setFilas(d.data ?? [])
+    setPlazos(new Map((p.data ?? []).map((x) => [`${x.tecnico_id}|${x.mes}`, x])))
     setCargando(false)
   }, [])
 
@@ -128,6 +138,12 @@ export default function DesempenoEquipoPage() {
                 <tr>
                   <th className="pb-2 pr-4 font-medium">Técnico</th>
                   <th className="pb-2 pr-4 font-medium">Trabajos</th>
+                  <th className="pb-2 pr-4 font-medium" title="Desde que se registró el trabajo hasta que llegó el técnico (mediana)">
+                    Espera del cliente
+                  </th>
+                  <th className="pb-2 pr-4 font-medium" title="Llegadas dentro del plazo de su tipo de trabajo">
+                    En plazo
+                  </th>
                   <th className="pb-2 pr-4 font-medium">Puntualidad</th>
                   <th className="pb-2 pr-4 font-medium">Tiempo</th>
                   <th className="pb-2 pr-4 font-medium">Señal óptima</th>
@@ -137,39 +153,52 @@ export default function DesempenoEquipoPage() {
                 </tr>
               </thead>
               <tbody>
-                {delMes.map((f) => (
-                  <tr key={f.tecnico_id} className="border-t border-slate-800">
-                    <td className="py-3 pr-4">
-                      <p className="font-medium text-slate-100">
-                        {String(f.tecnico ?? '—').trim()}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        {f.instalaciones} inst · {f.tickets} tickets
-                        {f.visitas_fallidas > 0 && ` · ${f.visitas_fallidas} fallidas`}
-                      </p>
-                    </td>
-                    <td className="py-3 pr-4 text-lg font-semibold tabular-nums text-slate-100">
-                      {f.trabajos}
-                    </td>
-                    <Celda valor={f.pct_puntual} sufijo="%" base={f.con_hora_y_llegada} />
-                    <Celda valor={f.minutos_mediana} sufijo=" min" base={f.trabajos} />
-                    <Celda valor={f.pct_senal_optima} sufijo="%" base={f.con_medicion} />
-                    <Celda
-                      valor={f.pct_reincidencia}
-                      sufijo="%"
-                      base={f.trabajos}
-                      detalle={f.trabajos_con_reclamo ? `${f.trabajos_con_reclamo} clientes` : null}
-                    />
-                    <Celda valor={f.metros_por_instalacion} sufijo=" m" base={f.instalaciones} />
-                    <Celda
-                      valor={f.km_por_trabajo}
-                      sufijo=" km"
-                      base={f.dias_con_km}
-                      unidadBase="días"
-                      resaltar
-                    />
-                  </tr>
-                ))}
+                {delMes.map((f) => {
+                  const pl = plazos.get(`${f.tecnico_id}|${f.mes}`)
+                  return (
+                    <tr key={f.tecnico_id} className="border-t border-slate-800">
+                      <td className="py-3 pr-4">
+                        <p className="font-medium text-slate-100">
+                          {String(f.tecnico ?? '—').trim()}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {f.instalaciones} inst · {f.tickets} tickets
+                          {f.visitas_fallidas > 0 && ` · ${f.visitas_fallidas} fallidas`}
+                        </p>
+                      </td>
+                      <td className="py-3 pr-4 text-lg font-semibold tabular-nums text-slate-100">
+                        {f.trabajos}
+                      </td>
+                      <Celda
+                        valor={pl?.espera_mediana_min != null ? duracion(pl.espera_mediana_min) : null}
+                        base={pl?.con_espera}
+                      />
+                      <Celda
+                        valor={pl?.pct_en_plazo}
+                        sufijo="%"
+                        base={pl?.con_plazo}
+                        detalle={desgloseFuera(pl)}
+                      />
+                      <Celda valor={f.pct_puntual} sufijo="%" base={f.con_hora_y_llegada} />
+                      <Celda valor={f.minutos_mediana} sufijo=" min" base={f.trabajos} />
+                      <Celda valor={f.pct_senal_optima} sufijo="%" base={f.con_medicion} />
+                      <Celda
+                        valor={f.pct_reincidencia}
+                        sufijo="%"
+                        base={f.trabajos}
+                        detalle={f.trabajos_con_reclamo ? `${f.trabajos_con_reclamo} clientes` : null}
+                      />
+                      <Celda valor={f.metros_por_instalacion} sufijo=" m" base={f.instalaciones} />
+                      <Celda
+                        valor={f.km_por_trabajo}
+                        sufijo=" km"
+                        base={f.dias_con_km}
+                        unidadBase="días"
+                        resaltar
+                      />
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -183,7 +212,18 @@ export default function DesempenoEquipoPage() {
             técnico todavía no generó el dato — no es un cero.
           </p>
         </div>
+        <div className="mt-2 flex items-start gap-2 text-[11px] text-slate-500">
+          <Info size={13} className="mt-0.5 shrink-0" />
+          <p>
+            <b>Espera del cliente</b> y <b>En plazo</b> cuentan desde que se registró el trabajo,
+            así que incluyen lo que tardó la oficina en asignarlo. <b>Puntualidad</b> es solo del
+            técnico: si llegó a la hora agendada. Mirá las dos juntas antes de evaluar a alguien.
+          </p>
+        </div>
       </Card>
+
+      <PendientesConPlazo />
+      <PlazosPorTipo />
     </div>
   )
 }

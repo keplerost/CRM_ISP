@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { campoApi } from '../../lib/colaCampo'
+import { PlazoTrabajo, useJustificarDemora, usePlazosAtencion } from './PlazoTrabajo'
+import { etiquetaMotivo, pideJustificacion, venceEl } from '../../lib/plazos'
 import { enlaceWhatsApp, separarTelefonos } from '../../lib/telefono'
 import { completarIngreso } from '../../lib/servicio'
 import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
@@ -78,6 +80,8 @@ function Dato({ etiqueta, valor, mono = false }) {
 export default function TicketFicha({ ticket, onCambio, onError }) {
   const confirmar = useConfirmar()
   const prepararIngreso = usePrepararIngreso()
+  const plazos = usePlazosAtencion()
+  const [pedirJustificacion, ventanaJustificacion] = useJustificarDemora()
   const [t, setT] = useState(ticket)
   const [guardando, setGuardando] = useState(false)
   const [eventos, setEventos] = useState([])
@@ -210,9 +214,25 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
    * asentado desde dónde marcó.
    */
   async function iniciarTrabajo() {
-    setUbicando(true)
     onError?.(null)
 
+    /*
+     * Fuera de plazo, primero el motivo.
+     *
+     * La hora de llegada es la del toque, no la de después de elegir el motivo:
+     * el minuto que tarda en leer la ventana no es atraso. Y se pregunta antes
+     * del GPS para que, si se arrepiente, no quede nada a medio marcar.
+     */
+    const llegada = new Date()
+    const vence = venceEl(t, plazos ?? [], 'ticket')
+    let demora = {}
+    if (pideJustificacion(vence, llegada)) {
+      const j = await pedirJustificacion({ minutos: Math.round((llegada - vence) / 60000) })
+      if (!j) return
+      demora = { ...j, demora_registrada_at: new Date().toISOString() }
+    }
+
+    setUbicando(true)
     try {
       const pos = await ubicacionActual()
 
@@ -243,7 +263,8 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
 
       const campos = {
         estado: 'en_proceso',
-        llegada_at: new Date().toISOString(),
+        llegada_at: llegada.toISOString(),
+        ...demora,
         llegada_lat: pos?.lat ?? null,
         llegada_lng: pos?.lng ?? null,
         llegada_precision_m: pos?.precision ? Math.round(pos.precision) : null,
@@ -517,6 +538,14 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
         </Button>
       )}
 
+      {ventanaJustificacion}
+
+      {['asignado', 'en_ruta'].includes(t.estado) && (
+        <div className="flex justify-center">
+          <PlazoTrabajo trabajo={t} clase="ticket" />
+        </div>
+      )}
+
       {t.estado === 'en_ruta' && (
         <Button
           variante="primario"
@@ -605,6 +634,14 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
                 {t.llegada_precision_m ? ` · GPS ±${t.llegada_precision_m} m` : ''}
               </p>
             ))}
+
+          {/* Por qué llegó fuera de plazo, dicho por el técnico al llegar. */}
+          {t.demora_motivo && (
+            <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[12px] text-amber-200">
+              Llegó fuera de plazo: <b>{etiquetaMotivo(t.demora_motivo)}</b>
+              {t.demora_nota ? ` — ${t.demora_nota}` : ''}
+            </p>
+          )}
         </div>
       )}
 

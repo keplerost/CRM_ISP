@@ -29,6 +29,7 @@ import { nombreRol } from '../../lib/permisos'
 import { useTemaCampo } from '../../lib/temaCampo'
 import BotonTema from '../../components/ventas/BotonTema'
 import { enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
+import { PlazoTrabajo } from '../../components/soporte/PlazoTrabajo'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
 import { supabase } from '../../lib/supabaseClient'
@@ -524,6 +525,7 @@ function Proxima({ o, cargando }) {
   return (
     <Panel>
       <Titulo>Próxima {o.tipo === 'nueva' ? 'instalación' : 'visita'}</Titulo>
+      <PlazoTrabajo trabajo={o} clase="instalacion" className="mb-2" />
 
       {/* El mapa arriba: lo primero que se mira antes de salir es dónde queda.
           Si no hay coordenadas o no hay señal, la tarjeta lo dice en vez de
