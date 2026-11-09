@@ -152,3 +152,91 @@ export function largoDeRuta(ruta, { desde = null } = {}) {
 
   return { metros, tramosMedidos: medidos }
 }
+
+/** Cuánto antes del vencimiento un trabajo pasa adelante: dos horas. */
+export const URGENCIA_MIN = 120
+
+/** El orden de las franjas que se le prometen al abonado. */
+const GRUPO_FRANJA = { manana: 0, exacta: 0, tarde: 2 }
+
+/**
+ * El orden automático de la ruta de un técnico, para la oficina.
+ *
+ * Arma la propuesta en este orden de importancia:
+ *
+ *   1. Lo que ya está en curso, primero. No se le cambia el trabajo a quien
+ *      está parado en la puerta de un cliente.
+ *   2. Lo URGENTE: prioridad alta, o un plazo que vence en menos de dos horas
+ *      (o ya vencido). Entre ellos, por cercanía.
+ *   3. El resto por FRANJA —mañana, sin franja, tarde—, porque la franja es lo
+ *      que se le prometió al abonado. Dentro de cada una, por cercanía, y los
+ *      que tienen hora exacta conservan su hora (eso ya lo hace
+ *      `ordenarPorCercania`).
+ *
+ * Cada tramo arranca donde terminó el anterior: así los cuatro clientes de un
+ * mismo sector quedan seguidos aunque estén en tramos distintos de la lista.
+ *
+ * Propone, no impone: la oficina lo ve, lo corrige con las flechas y lo guarda.
+ *
+ * @param items  los pendientes de la ruta (de `rutas_del_dia`)
+ * @param vence  (item) => fecha de vencimiento del plazo, o null
+ * @param desde  de dónde arranca el técnico, si se sabe
+ */
+export function ordenarRutaAutomatica(items, { vence = () => null, desde = null, ahora = new Date() } = {}) {
+  const lista = [...(items ?? [])]
+  const enCurso = lista.filter((i) => i.en_curso)
+  const resto = lista.filter((i) => !i.en_curso)
+
+  const urgente = (i) => {
+    if (i.hora) return false // la hora acordada manda; se queda en su franja
+    if (i.prioridad === 'alta') return true
+    const v = vence(i)
+    return Boolean(v) && new Date(v) - ahora <= URGENCIA_MIN * 60000
+  }
+
+  // Dónde está parado ahora, o de dónde sale.
+  const ultimoPunto = (ruta, inicial) => {
+    for (let k = ruta.length - 1; k >= 0; k--) {
+      const p = punto(ruta[k])
+      if (p) return p
+    }
+    return inicial
+  }
+
+  let salida = ultimoPunto(enCurso, desde)
+  const tramos = []
+
+  const urgentes = resto.filter(urgente)
+  const normales = resto.filter((i) => !urgente(i))
+
+  const grupos = [0, 1, 2].map((g) => normales.filter((i) => (GRUPO_FRANJA[i.franja] ?? 1) === g))
+
+  for (const grupo of [urgentes, ...grupos]) {
+    if (!grupo.length) continue
+    const ordenado = ordenarPorCercania(grupo, { desde: salida })
+    tramos.push(...ordenado)
+    salida = ultimoPunto(ordenado, salida)
+  }
+
+  return [...enCurso, ...tramos]
+}
+
+/**
+ * Coordenadas a partir de lo que se pegue: "-0.815962, -79.281162" (como lo
+ * copia MikroWISP), "-0.815962 -79.281162", o un enlace de Google Maps
+ * (`?q=lat,lng`, `@lat,lng,17z`, `/place/lat,lng`).
+ *
+ * Devuelve `{ lat, lng }` como texto, o null si no reconoce dos números que
+ * puedan ser una coordenada. Es para no tener que separar a mano la latitud de
+ * la longitud cada vez que se carga un ticket.
+ */
+export function coordenadasDeTexto(texto) {
+  const t = String(texto ?? '').trim()
+  if (!t) return null
+  const m = t.match(/(-?\d{1,2}\.\d+)\s*[,;\s]\s*(-?\d{1,3}\.\d+)/)
+  if (!m) return null
+  const lat = Number(m[1])
+  const lng = Number(m[2])
+  if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return null
+  return { lat: m[1], lng: m[2] }
+}

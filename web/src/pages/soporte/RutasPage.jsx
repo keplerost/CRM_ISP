@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, ListOrdered, PhoneOff, Route } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, ListOrdered, PhoneOff, Route, Wand2 } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { etiquetaIncidencia } from '../../lib/soporte'
+import { largoDeRuta, ordenarRutaAutomatica } from '../../lib/ruta'
+import { estadoPlazo } from '../../lib/plazos'
+import { duracion } from '../../lib/alertas'
 import { Badge, Button, Card, ErrorBanner, Input, Modal, SkeletonTabla } from '../../components/ui'
 
 /**
@@ -52,6 +55,12 @@ export default function RutasPage() {
   const [porReprogramar, setPorReprogramar] = useState([])
   const [error, setError] = useState(null)
   const [foto, setFoto] = useState(null)
+  /**
+   * El vencimiento del plazo de cada pendiente (migración 219), por
+   * "tipo:id". Lo usa el orden automático para pasar adelante lo urgente. Si la
+   * vista no está, queda vacío y el orden se arma solo por cercanía y franja.
+   */
+  const [vencimientos, setVencimientos] = useState(new Map())
 
   const recargar = useCallback(async () => {
     setRutas(null)
@@ -62,6 +71,17 @@ export default function RutasPage() {
     if (r.error) setError(r.error)
     setRutas(r.data ?? [])
     setPorReprogramar(p.data ?? [])
+
+    const ids = (r.data ?? []).flatMap((ru) => (ru.pendientes ?? []).map((i) => i.id))
+    if (ids.length) {
+      const { data: pl } = await supabase
+        .from('v_plazos_trabajo')
+        .select('clase, id, vence_at')
+        .in('id', ids)
+      setVencimientos(new Map((pl ?? []).map((x) => [`${x.clase}:${x.id}`, x.vence_at])))
+    } else {
+      setVencimientos(new Map())
+    }
   }, [fecha])
 
   useEffect(() => {
@@ -110,7 +130,15 @@ export default function RutasPage() {
         </Card>
       ) : (
         rutas.map((r) => (
-          <RutaCard key={`${r.clase}-${r.id}`} r={r} editable={esHoy} onVerFoto={verFoto} onGuardado={recargar} onError={setError} />
+          <RutaCard
+            key={`${r.clase}-${r.id}`}
+            r={r}
+            editable={esHoy}
+            vencimientos={vencimientos}
+            onVerFoto={verFoto}
+            onGuardado={recargar}
+            onError={setError}
+          />
         ))
       )}
 
@@ -125,10 +153,35 @@ export default function RutasPage() {
   )
 }
 
-function RutaCard({ r, editable, onVerFoto, onGuardado, onError }) {
+function RutaCard({ r, editable, vencimientos, onVerFoto, onGuardado, onError }) {
   const [orden, setOrden] = useState(r.pendientes)
   const [guardando, setGuardando] = useState(false)
-  useEffect(() => setOrden(r.pendientes), [r.pendientes])
+  // Lo que cambió el orden automático, para decirlo al lado del botón.
+  const [propuesta, setPropuesta] = useState(null)
+  useEffect(() => {
+    setOrden(r.pendientes)
+    setPropuesta(null)
+  }, [r.pendientes])
+
+  const venceDe = (i) => vencimientos?.get(`${i.tipo}:${i.id}`) ?? null
+
+  /**
+   * Propone el orden: lo urgente primero, después por franja y por cercanía.
+   * No guarda: queda en pantalla para revisarlo y se guarda con el botón de
+   * siempre. Los kilómetros son en línea recta y sirven para comparar, no como
+   * distancia real.
+   */
+  function ordenarAuto() {
+    const antes = largoDeRuta(orden)
+    const nuevo = ordenarRutaAutomatica(orden, { vence: venceDe })
+    const despues = largoDeRuta(nuevo)
+    setOrden(nuevo)
+    setPropuesta({
+      antesKm: antes.metros / 1000,
+      despuesKm: despues.metros / 1000,
+      sinUbicacion: nuevo.filter((i) => i.latitud == null || i.longitud == null).length,
+    })
+  }
 
   const cambio = orden.some((i, idx) => i.id !== r.pendientes[idx]?.id)
   const mover = (idx, delta) =>
@@ -163,12 +216,29 @@ function RutaCard({ r, editable, onVerFoto, onGuardado, onError }) {
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               <ListOrdered size={12} /> Pendientes
             </p>
-            {editable && cambio && (
-              <Button variante="primario" onClick={guardar} cargando={guardando}>
-                Guardar el orden
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {editable && orden.length >= 2 && (
+                <Button variante="secundario" icon={Wand2} onClick={ordenarAuto}>
+                  Ordenar automáticamente
+                </Button>
+              )}
+              {editable && cambio && (
+                <Button variante="primario" onClick={guardar} cargando={guardando}>
+                  Guardar el orden
+                </Button>
+              )}
+            </div>
           </div>
+          {propuesta && (
+            <p className="mb-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
+              Orden propuesto: lo urgente primero, después por franja y por cercanía.
+              {propuesta.antesKm > 0 &&
+                ` Recorrido en línea recta: ${propuesta.despuesKm.toFixed(1)} km (antes ${propuesta.antesKm.toFixed(1)} km).`}
+              {propuesta.sinUbicacion > 0 &&
+                ` ${propuesta.sinUbicacion} sin coordenadas quedaron al final: cargá su ubicación en el ticket.`}
+              {cambio ? ' Revisalo y guardalo.' : ' Ya estaba en el mejor orden.'}
+            </p>
+          )}
           {!orden.length ? (
             <p className="text-sm text-slate-500">Nada pendiente.</p>
           ) : (
@@ -184,6 +254,12 @@ function RutaCard({ r, editable, onVerFoto, onGuardado, onError }) {
                   </Link>
                   {i.en_curso && <Badge color="ambar">{i.llegada_at ? 'en el sitio' : 'en camino'}</Badge>}
                   {i.prioridad === 'alta' && <Badge color="rojo">alta</Badge>}
+                  <VencePlazo vence={venceDe(i)} />
+                  {(i.latitud == null || i.longitud == null) && (
+                    <span className="text-[11px] text-slate-500" title="Sin coordenadas: no entra en el orden por cercanía">
+                      sin ubicación
+                    </span>
+                  )}
                   {editable && (
                     <>
                       <button type="button" onClick={() => mover(idx, -1)} className="p-1 text-slate-500 hover:text-slate-200" aria-label="Subir">
@@ -300,5 +376,17 @@ function Reprogramar({ t, onVerFoto, onHecho, onError }) {
         Reprogramar
       </Button>
     </li>
+  )
+}
+
+/** "vence 15:30" o "vencido hace 40 min", solo si importa (≤ 2 h o vencido). */
+function VencePlazo({ vence }) {
+  if (!vence) return null
+  const e = estadoPlazo(vence)
+  if (!e || e.min > 120) return null
+  return e.nivel === 'vencido' ? (
+    <Badge color="rojo">vencido hace {duracion(-e.min)}</Badge>
+  ) : (
+    <Badge color="ambar">vence en {duracion(e.min)}</Badge>
   )
 }

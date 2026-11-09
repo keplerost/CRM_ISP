@@ -10,6 +10,7 @@ import {
   User,
   Wrench,
 } from 'lucide-react'
+import { coordenadasDeTexto } from '../../lib/ruta'
 import { supabase } from '../../lib/supabaseClient'
 import { Aviso, Button, Field, Input, Select, Textarea } from '../ui'
 import { FRANJAS, INCIDENCIAS } from '../../lib/soporte'
@@ -86,6 +87,20 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
 
   const set = (campo) => (e) =>
     setForm((f) => ({ ...f, [campo]: e.target.value }))
+
+  /*
+   * Pegar las dos coordenadas juntas.
+   *
+   * MikroWISP y WhatsApp las dan en un solo texto ("-0.81, -79.28") o como
+   * enlace de Google Maps. Si lo pegado en la latitud trae las dos, se reparten
+   * solas; si no, el campo se comporta como siempre.
+   */
+  const pegarCoordenadas = (e) => {
+    const c = coordenadasDeTexto(e.clipboardData?.getData('text'))
+    if (!c) return
+    e.preventDefault()
+    setForm((f) => ({ ...f, latitud: c.lat, longitud: c.lng }))
+  }
 
   useEffect(() => {
     async function cargar() {
@@ -397,7 +412,12 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
           <div className="t-card-sm p-3">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Latitud">
-                <Input value={form.latitud} onChange={set('latitud')} placeholder="-0.9312500" />
+                <Input
+                  value={form.latitud}
+                  onChange={set('latitud')}
+                  onPaste={pegarCoordenadas}
+                  placeholder="-0.9312500 · o pegá las dos juntas"
+                />
               </Field>
               <Field label="Longitud">
                 <Input value={form.longitud} onChange={set('longitud')} placeholder="-78.6155000" />
@@ -420,8 +440,9 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
               )}
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              Con coordenadas el técnico navega al punto exacto. Sin ellas tiene que preguntar en
-              el barrio.
+              Con coordenadas el técnico navega al punto exacto y la ruta del día se ordena por
+              cercanía. Podés pegar en la latitud las dos juntas, como vienen de MikroWISP
+              (“-0.815962, -79.281162”), o un enlace de Google Maps.
             </p>
           </div>
         </div>

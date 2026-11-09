@@ -152,3 +152,63 @@ test('el largo dice cuántos tramos pudo medir, no solo el total', () => {
   assert.equal(r.tramosMedidos, 2)
   assert.ok(r.metros > 0)
 })
+
+// --- Orden automático (plazos + cercanía) ------------------------------------
+
+import { ordenarRutaAutomatica } from '../../web/src/lib/ruta.js'
+
+/**
+ * Un pueblo en línea: la oficina en 0, un sector al norte (0.01–0.012) y otro
+ * al sur (-0.02). Una centésima de grado son ~1,1 km.
+ */
+const Q = (id, lat, extra = {}) => ({ tipo: 'ticket', id, latitud: lat, longitud: -79.3, ...extra })
+const AHORA_R = new Date('2026-11-09T14:00:00Z')
+
+test('los del mismo sector quedan seguidos, sin cruzar dos veces', () => {
+  const r = ordenarRutaAutomatica(
+    [Q('norte1', 0.01), Q('sur', -0.02), Q('norte2', 0.011), Q('norte3', 0.012)],
+    { desde: { lat: 0, lng: -79.3 }, ahora: AHORA_R },
+  )
+  const ids = r.map((i) => i.id)
+  const norte = ids.filter((x) => x.startsWith('norte')).map((x) => ids.indexOf(x))
+  assert.equal(Math.max(...norte) - Math.min(...norte), 2, 'los tres del norte tienen que ir juntos')
+})
+
+test('lo urgente va primero aunque esté lejos: plazo por vencer o prioridad alta', () => {
+  const vence = (i) => (i.id === 'lejos_vence' ? new Date(AHORA_R.getTime() + 30 * 60000) : null)
+  const r = ordenarRutaAutomatica(
+    [Q('cerca', 0.001), Q('lejos_vence', -0.05), Q('alta', 0.03, { prioridad: 'alta' })],
+    { vence, desde: { lat: 0, lng: -79.3 }, ahora: AHORA_R },
+  )
+  assert.deepEqual(new Set(r.slice(0, 2).map((i) => i.id)), new Set(['lejos_vence', 'alta']))
+  assert.equal(r[2].id, 'cerca')
+})
+
+test('lo que está en curso no se mueve, y la franja de la tarde va al final', () => {
+  const r = ordenarRutaAutomatica(
+    [Q('tarde', 0.001, { franja: 'tarde' }), Q('curso', 0.05, { en_curso: true }), Q('libre', 0.002)],
+    { desde: { lat: 0, lng: -79.3 }, ahora: AHORA_R },
+  )
+  assert.deepEqual(r.map((i) => i.id), ['curso', 'libre', 'tarde'])
+})
+
+test('los que no tienen coordenadas quedan al final de su tramo, no se inventan', () => {
+  const r = ordenarRutaAutomatica([{ tipo: 'ticket', id: 'sin' }, Q('con', 0.01)], { ahora: AHORA_R })
+  assert.deepEqual(r.map((i) => i.id), ['con', 'sin'])
+})
+
+test('coordenadas pegadas: como MikroWISP, con espacio o desde Google Maps', async () => {
+  const { coordenadasDeTexto } = await import('../../web/src/lib/ruta.js')
+  assert.deepEqual(coordenadasDeTexto('-0.815962, -79.281162'), { lat: '-0.815962', lng: '-79.281162' })
+  assert.deepEqual(coordenadasDeTexto('-0.815962 -79.281162'), { lat: '-0.815962', lng: '-79.281162' })
+  assert.deepEqual(
+    coordenadasDeTexto('https://www.google.com/maps?q=-0.8159,-79.2811'),
+    { lat: '-0.8159', lng: '-79.2811' },
+  )
+  assert.deepEqual(
+    coordenadasDeTexto('https://www.google.com/maps/@-0.8159,-79.2811,17z'),
+    { lat: '-0.8159', lng: '-79.2811' },
+  )
+  assert.equal(coordenadasDeTexto('-0.815962'), null)
+  assert.equal(coordenadasDeTexto('Av. Principal 123'), null)
+})
