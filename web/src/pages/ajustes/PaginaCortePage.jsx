@@ -87,13 +87,24 @@ export default function PaginaCortePage() {
     }
   }
 
-  const cambiarCuenta = async (cuenta, campo, valor) => {
+  // Qué cuenta se acaba de guardar, para decirlo al lado del campo. Sin esa
+  // marca la cédula se guardaba igual, pero nadie se enteraba y se buscaba un
+  // botón que no hacía falta.
+  const [cuentaGuardada, setCuentaGuardada] = useState(null)
+
+  const editarCuenta = (cuenta, campo, valor) => {
     setCuentas((cs) => cs.map((c) => (c.id === cuenta.id ? { ...c, [campo]: valor } : c)))
+    setCuentaGuardada(null)
+  }
+
+  const cambiarCuenta = async (cuenta, campo, valor) => {
+    editarCuenta(cuenta, campo, valor)
     const { error: e } = await supabase
       .from('cuentas_pago')
       .update({ [campo]: valor === '' ? null : valor })
       .eq('id', cuenta.id)
     if (e) setError(e)
+    else setCuentaGuardada(cuenta.id)
   }
 
   if (cargando) return <SkeletonTabla filas={6} columnas={3} />
@@ -261,7 +272,7 @@ export default function PaginaCortePage() {
 
       <Card
         title="Dónde depositar"
-        subtitle="Solo las cuentas que marques acá aparecen en la página. Las de efectivo nunca."
+        subtitle="Solo las cuentas que marques acá aparecen en la página. Las de efectivo nunca. Cada cambio se guarda solo, al salir del campo."
       >
         <div className="p-4">
           <table className="w-full text-xs">
@@ -277,7 +288,7 @@ export default function PaginaCortePage() {
                         onChange={(e) => cambiarCuenta(c, 'mostrar_en_corte', e.target.checked)}
                       />
                       <span className={c.tipo === 'efectivo' ? 'text-slate-600' : 'text-slate-200'}>
-                        {c.banco || c.nombre}
+                        {c.nombre}
                         {c.tipo === 'efectivo' && (
                           <span className="ml-1 text-[11px]">
                             — no se publica: no significa nada para alguien en su casa
@@ -290,9 +301,12 @@ export default function PaginaCortePage() {
                   <td className="py-2">
                     {/* En Ecuador el cajero la pide. Sin ella el abonado llega a
                         la ventanilla y no puede completar el depósito. */}
+                    <div className="flex items-center gap-2">
                     <Input
                       value={c.identificacion ?? ''}
-                      onChange={(e) => cambiarCuenta(c, 'identificacion', e.target.value)}
+                      onChange={(e) => editarCuenta(c, 'identificacion', e.target.value)}
+                      onBlur={(e) => cambiarCuenta(c, 'identificacion', e.target.value.trim())}
+                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                       placeholder={cedulaEmpresa ? `${cedulaEmpresa} (de la empresa)` : 'C.I./RUC del titular'}
                       title={
                         cedulaEmpresa
@@ -302,6 +316,13 @@ export default function PaginaCortePage() {
                       className="max-w-[220px] py-1 text-xs"
                       disabled={c.tipo === 'efectivo'}
                     />
+                    {cuentaGuardada === c.id && (
+                      <span className="whitespace-nowrap text-[11px] text-emerald-400">
+                        <Check size={12} className="mr-1 inline" />
+                        Guardado
+                      </span>
+                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
