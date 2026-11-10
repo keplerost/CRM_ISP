@@ -192,6 +192,50 @@ test('lo que está en curso no se mueve, y la franja de la tarde va al final', (
   assert.deepEqual(r.map((i) => i.id), ['curso', 'libre', 'tarde'])
 })
 
+test('una cita temprana no queda detrás de trabajos sueltos ni de urgentes', () => {
+  // El caso de TROOPER: la reconexión de las 08:30 salía en el puesto 14.
+  const sueltos = Array.from({ length: 6 }, (_, k) => Q(`s${k}`, 0.001 * (k + 1), { franja: 'manana' }))
+  const r = ordenarRutaAutomatica(
+    [...sueltos, Q('alta', 0.002, { prioridad: 'alta' }), Q('cita', 0.05, { franja: 'exacta', hora: '08:30:00' })],
+    { desde: { lat: 0, lng: -79.3 }, ahora: AHORA_R },
+  )
+  assert.equal(r[0].id, 'cita')
+})
+
+test('una cita a las 10:00 tiene delante a lo sumo las paradas que entran antes', () => {
+  const sueltos = Array.from({ length: 6 }, (_, k) => Q(`s${k}`, 0.001 * (k + 1)))
+  const r = ordenarRutaAutomatica([...sueltos, Q('cita', 0.05, { franja: 'exacta', hora: '10:00' })], {
+    desde: { lat: 0, lng: -79.3 },
+    ahora: AHORA_R,
+  })
+  // 08:00 + 2 × 45 min = 09:30: entran dos antes, la tercera ya no.
+  assert.ok(r.findIndex((i) => i.id === 'cita') <= 2)
+})
+
+test('lo que está en curso sigue primero, aun con una cita temprana', () => {
+  const r = ordenarRutaAutomatica(
+    [Q('cita', 0.05, { franja: 'exacta', hora: '08:30' }), Q('curso', 0.01, { en_curso: true }), Q('libre', 0.002)],
+    { desde: { lat: 0, lng: -79.3 }, ahora: AHORA_R },
+  )
+  assert.deepEqual(r.map((i) => i.id), ['curso', 'cita', 'libre'])
+})
+
+test('una cita "exacta" de la tarde va con la tarde, no con la mañana', () => {
+  const r = ordenarRutaAutomatica(
+    [Q('cita', 0.001, { franja: 'exacta', hora: '16:00' }), Q('m1', 0.01, { franja: 'manana' }), Q('m2', 0.02, { franja: 'manana' })],
+    { desde: { lat: 0, lng: -79.3 }, ahora: AHORA_R },
+  )
+  assert.equal(r.at(-1).id, 'cita')
+})
+
+test('las citas nunca se bajan, y entre ellas conservan su hora', async () => {
+  const { respetarHoras } = await import('../../web/src/lib/ruta.js')
+  const r = respetarHoras([{ id: 'a' }, { id: 'b' }, { id: 'c9', hora: '09:00' }, { id: 'c8', hora: '08:20' }, { id: 'd' }])
+  assert.deepEqual(r.map((o) => o.id), ['c8', 'c9', 'a', 'b', 'd'])
+  const tarde = respetarHoras([{ id: 'c', hora: '15:00' }, { id: 'a' }])
+  assert.deepEqual(tarde.map((o) => o.id), ['c', 'a'])
+})
+
 test('los que no tienen coordenadas quedan al final de su tramo, no se inventan', () => {
   const r = ordenarRutaAutomatica([{ tipo: 'ticket', id: 'sin' }, Q('con', 0.01)], { ahora: AHORA_R })
   assert.deepEqual(r.map((i) => i.id), ['con', 'sin'])

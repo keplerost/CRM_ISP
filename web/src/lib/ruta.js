@@ -133,7 +133,51 @@ export function ordenarPorCercania(ordenes, { desde = null } = {}) {
 
   // Las que nadie ubicó van al final: no se pueden comparar con nada, y
   // meterlas en el medio sería inventar una posición.
-  return [...ruta, ...sinCoordenada]
+  return respetarHoras([...ruta, ...sinCoordenada])
+}
+
+/** A qué hora sale el técnico, y cuánto lleva cada parada contando el viaje. */
+export const INICIO_JORNADA = '08:00'
+export const MINUTOS_POR_PARADA = 45
+
+const minutosDe = (hora) => {
+  const m = String(hora ?? '').match(/^(\d{1,2}):(\d{2})/)
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+
+/**
+ * Que a una cita no le lleguen tarde por las paradas que se le pusieron antes.
+ *
+ * Conservar el orden entre las que tienen hora no alcanza: una cita a las 08:30
+ * con trece trabajos sueltos delante queda, en la práctica, para el mediodía.
+ * Pasó en la ruta de TROOPER: la reconexión de las 08:30 salía en el puesto 14.
+ *
+ * La cuenta es simple a propósito: el técnico sale a las 08:00 y cada parada le
+ * lleva unos 45 minutos con el viaje. Antes de una cita a las 10:00 entran dos
+ * paradas; antes de una a las 08:30, ninguna. Si tiene más, la cita sube hasta
+ * donde llega a tiempo. Nunca se la baja: llegar antes no rompe nada.
+ *
+ * @param ruta     el orden propuesto
+ * @param fijas    cuántas del principio no se tocan (lo que ya está en curso)
+ */
+export function respetarHoras(ruta, { fijas = 0, inicio = INICIO_JORNADA, porParada = MINUTOS_POR_PARADA } = {}) {
+  const lista = [...(ruta ?? [])]
+  const base = minutosDe(inicio)
+  const citas = lista
+    .filter((o, k) => k >= fijas && minutosDe(o.hora) != null)
+    .sort((a, b) => minutosDe(a.hora) - minutosDe(b.hora))
+
+  let piso = fijas
+  for (const c of citas) {
+    const actual = lista.indexOf(c)
+    const tope = Math.max(piso, fijas + Math.floor((minutosDe(c.hora) - base) / porParada))
+    if (actual > tope) {
+      lista.splice(actual, 1)
+      lista.splice(tope, 0, c)
+    }
+    piso = lista.indexOf(c) + 1
+  }
+  return lista
 }
 
 /**
@@ -180,7 +224,11 @@ const GRUPO_FRANJA = { manana: 0, exacta: 0, tarde: 2 }
  *   3. El resto por FRANJA —mañana, sin franja, tarde—, porque la franja es lo
  *      que se le prometió al abonado. Dentro de cada una, por cercanía, y los
  *      que tienen hora exacta conservan su hora (eso ya lo hace
- *      `ordenarPorCercania`).
+ *      `ordenarPorCercania`). Una cita con hora va a la mitad del día de su
+ *      hora, aunque diga "exacta".
+ *   4. Al final, ninguna cita queda con más paradas delante de las que entran
+ *      antes de su hora (`respetarHoras`): la de las 08:30 sale primera aunque
+ *      haya urgentes.
  *
  * Cada tramo arranca donde terminó el anterior: así los cuatro clientes de un
  * mismo sector quedan seguidos aunque estén en tramos distintos de la lista.
@@ -218,7 +266,13 @@ export function ordenarRutaAutomatica(items, { vence = () => null, desde = null,
   const urgentes = resto.filter(urgente)
   const normales = resto.filter((i) => !urgente(i))
 
-  const grupos = [0, 1, 2].map((g) => normales.filter((i) => (GRUPO_FRANJA[i.franja] ?? 1) === g))
+  // Una cita va con la mitad del día de su hora: "exacta 16:00" es de la tarde.
+  const grupoDe = (i) => {
+    const m = minutosDe(i.hora)
+    if (m != null) return m < 12 * 60 ? 0 : 2
+    return GRUPO_FRANJA[i.franja] ?? 1
+  }
+  const grupos = [0, 1, 2].map((g) => normales.filter((i) => grupoDe(i) === g))
 
   for (const grupo of [urgentes, ...grupos]) {
     if (!grupo.length) continue
@@ -227,7 +281,9 @@ export function ordenarRutaAutomatica(items, { vence = () => null, desde = null,
     salida = ultimoPunto(ordenado, salida)
   }
 
-  return [...enCurso, ...tramos]
+  // Lo urgente y los tramos anteriores también ocupan tiempo: la cita de las
+  // 08:30 tiene que ganarles a todos, no solo a los de su tramo.
+  return respetarHoras([...enCurso, ...tramos], { fijas: enCurso.length })
 }
 
 /**
