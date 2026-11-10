@@ -69,12 +69,37 @@ const VACIO = {
   cuadrilla_id: '',
 }
 
+/**
+ * El ticket ya guardado, puesto en la forma del formulario: los nulos pasan a
+ * texto vacío para que los campos queden controlados.
+ */
+function formDeTicket(t) {
+  const f = { ...VACIO }
+  for (const k of Object.keys(VACIO)) {
+    if (t[k] !== null && t[k] !== undefined) f[k] = t[k]
+  }
+  if (f.hora_visita) f.hora_visita = String(f.hora_visita).slice(0, 5)
+  return f
+}
+
 const soloNumero = (v) => (v === '' || v === null ? null : Number(v))
 const soloTexto = (v) => (String(v ?? '').trim() === '' ? null : String(v).trim())
 
-export default function TicketForm({ onCreado, onCancelar, onError, clienteInicial = null }) {
+/**
+ * Con `ticketInicial` el mismo formulario sirve para corregir un ticket ya
+ * creado: llega lleno, y guardar actualiza en vez de crear otro.
+ */
+export default function TicketForm({
+  onCreado,
+  onGuardado,
+  onCancelar,
+  onError,
+  clienteInicial = null,
+  ticketInicial = null,
+}) {
+  const editando = Boolean(ticketInicial)
   const [paso, setPaso] = useState(0)
-  const [form, setForm] = useState(VACIO)
+  const [form, setForm] = useState(() => (ticketInicial ? formDeTicket(ticketInicial) : VACIO))
   const [guardando, setGuardando] = useState(false)
 
   const [busqueda, setBusqueda] = useState('')
@@ -218,12 +243,9 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
         hora_visita: form.franja === 'exacta' ? form.hora_visita || null : null,
         tecnico_id: form.tecnico_id || null,
         cuadrilla_id: form.cuadrilla_id || null,
-        // Asignado desde el arranque si ya se decidió quién va: obliga a menos
-        // clics y el estado dice la verdad.
-        estado: form.tecnico_id || form.cuadrilla_id ? 'asignado' : 'abierto',
-        created_by: sesion?.user?.id ?? null,
         // Solo los campos de la tecnología elegida: guardar los otros dejaría
-        // datos de fibra en un ticket de radio.
+        // datos de fibra en un ticket de radio. Al corregir se vacían los de la
+        // otra, por si se había elegido mal la tecnología.
         ...(form.tecnologia === 'ftth'
           ? {
               nap_id: form.nap_id || null,
@@ -231,6 +253,9 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
               ont_modelo: soloTexto(form.ont_modelo),
               ont_serie: soloTexto(form.ont_serie),
               potencia_dbm: soloNumero(form.potencia_dbm),
+              ...(editando && {
+                torre_id: null, cpe_ip: null, frecuencia: null, senal_dbm: null, antena_modelo: null,
+              }),
             }
           : {
               torre_id: form.torre_id || null,
@@ -238,8 +263,37 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
               frecuencia: soloTexto(form.frecuencia),
               senal_dbm: soloNumero(form.senal_dbm),
               antena_modelo: soloTexto(form.antena_modelo),
+              ...(editando && {
+                nap_id: null, puerto_nap: null, ont_modelo: null, ont_serie: null, potencia_dbm: null,
+              }),
             }),
       }
+
+      const asignado = Boolean(form.tecnico_id || form.cuadrilla_id)
+
+      if (editando) {
+        // El estado solo se toca entre "abierto" y "asignado", que es lo que
+        // depende de lo que se corrige acá. Un ticket en camino o en curso
+        // sigue como está aunque se cambie el técnico.
+        const antes = ticketInicial.estado
+        if (antes === 'abierto' && asignado) fila.estado = 'asignado'
+        if (antes === 'asignado' && !asignado) fila.estado = 'abierto'
+
+        const { data, error } = await supabase
+          .from('tickets')
+          .update(fila)
+          .eq('id', ticketInicial.id)
+          .select()
+          .single()
+        if (error) throw error
+        onGuardado?.(data)
+        return
+      }
+
+      // Asignado desde el arranque si ya se decidió quién va: obliga a menos
+      // clics y el estado dice la verdad.
+      fila.estado = asignado ? 'asignado' : 'abierto'
+      fila.created_by = sesion?.user?.id ?? null
 
       const { data, error } = await supabase.from('tickets').insert(fila).select().single()
       if (error) throw error
@@ -654,9 +708,9 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
         <div className="flex gap-2">
           {paso < PASOS.length - 1 ? (
             <>
-              {paso > 0 && (
+              {(paso > 0 || editando) && (
                 <Button type="submit" variante="secundario" icon={Save} cargando={guardando}>
-                  Guardar así
+                  {editando ? 'Guardar cambios' : 'Guardar así'}
                 </Button>
               )}
               <Button
@@ -671,7 +725,7 @@ export default function TicketForm({ onCreado, onCancelar, onError, clienteInici
             </>
           ) : (
             <Button type="submit" variante="primario" icon={Save} cargando={guardando}>
-              Crear ticket
+              {editando ? 'Guardar cambios' : 'Crear ticket'}
             </Button>
           )}
         </div>

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, Package, Printer } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Package, Pencil, Printer } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { api } from '../lib/apiNetwork'
 import { abrirPdf } from '../lib/pdf'
-import { Card, ErrorBanner } from '../components/ui'
+import { Card, ErrorBanner, Modal } from '../components/ui'
 import TicketFicha from '../components/soporte/TicketFicha'
+import TicketForm from '../components/soporte/TicketForm'
 import CambioDeEquipo from '../components/soporte/CambioDeEquipo'
 import MaterialUsado from '../components/inventario/MaterialUsado'
 import ConPermiso from '../components/layout/ConPermiso'
@@ -36,6 +37,7 @@ export default function TicketPage() {
   const [ticket, setTicket] = useState(null)
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(true)
+  const [editando, setEditando] = useState(false)
 
   const cargar = useCallback(async () => {
     /*
@@ -88,6 +90,20 @@ export default function TicketPage() {
             </button>
           )}
 
+          {/* Corregir lo que se cargó mal al crearlo. Desde la oficina y con el
+              ticket todavía abierto: uno resuelto o cancelado ya es historia. */}
+          {ticket && !enCampo && !['resuelto', 'cancelado'].includes(ticket.estado) && (
+            <ConPermiso permiso="soporte.crear" envezDe={null}>
+              <button
+                type="button"
+                onClick={() => setEditando(true)}
+                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200"
+              >
+                <Pencil size={15} /> Editar
+              </button>
+            </ConPermiso>
+          )}
+
           {ticket?.client_id && !enCampo && (
             <Link
               to={`/clientes/${ticket.client_id}`}
@@ -133,6 +149,25 @@ export default function TicketPage() {
             </Card>
           </ConPermiso>
         </>
+      )}
+
+      {editando && ticket && (
+        <Modal
+          abierto
+          titulo={`Editar ticket ${ticket.codigo ?? ''}`}
+          onCerrar={() => setEditando(false)}
+          ancho="max-w-3xl"
+        >
+          <TicketForm
+            ticketInicial={ticket}
+            onError={setError}
+            onCancelar={() => setEditando(false)}
+            onGuardado={() => {
+              setEditando(false)
+              cargar()
+            }}
+          />
+        </Modal>
       )}
     </div>
   )
