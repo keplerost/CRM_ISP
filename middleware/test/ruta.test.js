@@ -45,12 +45,15 @@ test('las sueltas dejan de amontonarse al final', () => {
    * en el medio. Antes salían al final —cruzar, volver, cruzar— y ahora se
    * insertan de paso.
    */
-  const r = ordenarPorCercania([
-    orden('cita_oeste', { hora: '09:00', ...P(0) }),
-    orden('cita_este', { hora: '16:00', ...P(9) }),
-    orden('suelta_3', P(3)),
-    orden('suelta_6', P(6)),
-  ])
+  const r = ordenarPorCercania(
+    [
+      orden('cita_oeste', { hora: '09:00', ...P(0) }),
+      orden('cita_este', { hora: '16:00', ...P(9) }),
+      orden('suelta_3', P(3)),
+      orden('suelta_6', P(6)),
+    ],
+    { ahora: new Date(2026, 10, 10, 9, 0) },
+  )
 
   assert.deepEqual(r.map((o) => o.id), ['cita_oeste', 'suelta_3', 'suelta_6', 'cita_este'])
 })
@@ -243,12 +246,27 @@ test('una cita "exacta" de la tarde va con la tarde, no con la mañana', () => {
   assert.equal(r.at(-1).id, 'cita')
 })
 
-test('las citas nunca se bajan, y entre ellas conservan su hora', async () => {
+test('entre citas se respeta el orden de sus horas', async () => {
   const { respetarHoras } = await import('../../web/src/lib/ruta.js')
-  const r = respetarHoras([{ id: 'a' }, { id: 'b' }, { id: 'c9', hora: '09:00' }, { id: 'c8', hora: '08:20' }, { id: 'd' }])
+  const temprano = { ahora: new Date(2026, 10, 10, 7, 0) }
+  const r = respetarHoras([{ id: 'a' }, { id: 'b' }, { id: 'c9', hora: '09:00' }, { id: 'c8', hora: '08:20' }, { id: 'd' }], temprano)
   assert.deepEqual(r.map((o) => o.id), ['c8', 'c9', 'a', 'b', 'd'])
-  const tarde = respetarHoras([{ id: 'c', hora: '15:00' }, { id: 'a' }])
-  assert.deepEqual(tarde.map((o) => o.id), ['c', 'a'])
+})
+
+test('una cita de la tarde no se hace a media mañana: va donde se llega cerca de su hora', async () => {
+  // El N° 48 (Edwin Cuchipe, 14:30): salía en el puesto 10, entre los de la mañana.
+  const { respetarHoras } = await import('../../web/src/lib/ruta.js')
+  const sueltos = Array.from({ length: 10 }, (_, k) => ({ id: `s${k}` }))
+  const once = { ahora: new Date(2026, 10, 10, 11, 0) }
+  // A las 11:00, hasta las 14:30 entran 4 paradas de 45 min: va quinta.
+  const r = respetarHoras([{ id: 'cita', hora: '14:30:00' }, ...sueltos], once)
+  assert.equal(r.findIndex((o) => o.id === 'cita'), 4)
+  // Con la hora ya pasada, lo antes posible (después de lo que está en curso).
+  const tarde = respetarHoras([{ id: 'curso' }, ...sueltos, { id: 'cita', hora: '10:00' }], { ...once, fijas: 1 })
+  assert.equal(tarde.findIndex((o) => o.id === 'cita'), 1)
+  // Con pocas paradas, al final: no hay con qué llenar la espera.
+  const pocas = respetarHoras([{ id: 'cita', hora: '15:00' }, { id: 'a' }], once)
+  assert.deepEqual(pocas.map((o) => o.id), ['a', 'cita'])
 })
 
 test('los que no tienen coordenadas quedan al final de su tramo, no se inventan', () => {

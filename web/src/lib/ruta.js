@@ -94,7 +94,7 @@ function costoDeInsertar(ruta, i, o, desde) {
  * @param desde    dónde arranca el técnico, si se sabe. Sin esto, la primera
  *                 parada libre se ubica respecto de las demás y no de él.
  */
-export function ordenarPorCercania(ordenes, { desde = null } = {}) {
+export function ordenarPorCercania(ordenes, { desde = null, ahora = new Date() } = {}) {
   const lista = [...(ordenes ?? [])]
 
   // El esqueleto: lo comprometido, en su orden.
@@ -133,7 +133,7 @@ export function ordenarPorCercania(ordenes, { desde = null } = {}) {
 
   // Las que nadie ubicó van al final: no se pueden comparar con nada, y
   // meterlas en el medio sería inventar una posición.
-  return respetarHoras([...ruta, ...sinCoordenada])
+  return respetarHoras([...ruta, ...sinCoordenada], { ahora })
 }
 
 /** A qué hora sale el técnico, y cuánto lleva cada parada contando el viaje. */
@@ -146,23 +146,32 @@ const minutosDe = (hora) => {
 }
 
 /**
- * Que a una cita no le lleguen tarde por las paradas que se le pusieron antes.
+ * Que la cuadrilla llegue a cada cita CERCA de su hora: ni tarde ni temprano.
  *
- * Conservar el orden entre las que tienen hora no alcanza: una cita a las 08:30
- * con trece trabajos sueltos delante queda, en la práctica, para el mediodía.
- * Pasó en la ruta de TROOPER: la reconexión de las 08:30 salía en el puesto 14.
+ * La cuenta es simple a propósito: cada parada lleva unos 45 minutos con el
+ * viaje, contando desde ahora (o desde las 08:00, si todavía no empezó el
+ * día). Una cita a las 10:00 vista a las 08:00 tiene dos paradas delante; una
+ * a las 14:30 vista a las 11:00, cuatro.
  *
- * La cuenta es simple a propósito: el técnico sale a las 08:00 y cada parada le
- * lleva unos 45 minutos con el viaje. Antes de una cita a las 10:00 entran dos
- * paradas; antes de una a las 08:30, ninguna. Si tiene más, la cita sube hasta
- * donde llega a tiempo. Nunca se la baja: llegar antes no rompe nada.
+ * ── Por qué también se la BAJA ──
+ *
+ * La primera versión solo la subía, para no llegar tarde, y daba por bueno
+ * llegar antes. No lo es: el N° 48 (Edwin Cuchipe, 14:30) quedaba entre los
+ * trabajos de la mañana, y la cuadrilla habría tocado la puerta a las 11 y
+ * media sin nadie en casa. Ahora va al puesto donde, al ritmo de la ruta, se
+ * llega cerca de la hora acordada. Entre citas se respeta el orden de sus
+ * horas.
  *
  * @param ruta     el orden propuesto
  * @param fijas    cuántas del principio no se tocan (lo que ya está en curso)
+ * @param ahora    desde cuándo se cuenta (la hora local del que ordena)
  */
-export function respetarHoras(ruta, { fijas = 0, inicio = INICIO_JORNADA, porParada = MINUTOS_POR_PARADA } = {}) {
+export function respetarHoras(
+  ruta,
+  { fijas = 0, inicio = INICIO_JORNADA, porParada = MINUTOS_POR_PARADA, ahora = new Date() } = {},
+) {
   const lista = [...(ruta ?? [])]
-  const base = minutosDe(inicio)
+  const base = Math.max(minutosDe(inicio), ahora.getHours() * 60 + ahora.getMinutes())
   const citas = lista
     .filter((o, k) => k >= fijas && minutosDe(o.hora) != null)
     .sort((a, b) => minutosDe(a.hora) - minutosDe(b.hora))
@@ -170,12 +179,12 @@ export function respetarHoras(ruta, { fijas = 0, inicio = INICIO_JORNADA, porPar
   let piso = fijas
   for (const c of citas) {
     const actual = lista.indexOf(c)
-    const tope = Math.max(piso, fijas + Math.floor((minutosDe(c.hora) - base) / porParada))
-    if (actual > tope) {
-      lista.splice(actual, 1)
-      lista.splice(tope, 0, c)
-    }
-    piso = lista.indexOf(c) + 1
+    lista.splice(actual, 1)
+    // Ya pasada la hora: lo antes posible.
+    const delante = Math.max(0, Math.floor((minutosDe(c.hora) - base) / porParada))
+    const lugar = Math.min(lista.length, Math.max(piso, fijas + delante))
+    lista.splice(lugar, 0, c)
+    piso = lugar + 1
   }
   return lista
 }
@@ -226,9 +235,9 @@ const GRUPO_FRANJA = { manana: 0, exacta: 0, tarde: 2 }
  *      que tienen hora exacta conservan su hora (eso ya lo hace
  *      `ordenarPorCercania`). Una cita con hora va a la mitad del día de su
  *      hora, aunque diga "exacta".
- *   4. Al final, ninguna cita queda con más paradas delante de las que entran
- *      antes de su hora (`respetarHoras`): la de las 08:30 sale primera aunque
- *      haya urgentes.
+ *   4. Al final, cada cita va al puesto donde se llega cerca de su hora
+ *      (`respetarHoras`): la de las 08:30 sale primera aunque haya urgentes, y
+ *      la de las 14:30 no queda entre los trabajos de la mañana.
  *
  * Cada tramo arranca donde terminó el anterior: así los cuatro clientes de un
  * mismo sector quedan seguidos aunque estén en tramos distintos de la lista.
@@ -289,14 +298,14 @@ export function ordenarRutaAutomatica(items, { vence = () => null, desde = null,
 
   for (const grupo of [urgentes, ...tramosDeGrupo]) {
     if (!grupo.length) continue
-    const ordenado = ordenarPorCercania(grupo, { desde: salida })
+    const ordenado = ordenarPorCercania(grupo, { desde: salida, ahora })
     tramos.push(...ordenado)
     salida = ultimoPunto(ordenado, salida)
   }
 
   // Lo urgente y los tramos anteriores también ocupan tiempo: la cita de las
   // 08:30 tiene que ganarles a todos, no solo a los de su tramo.
-  return respetarHoras([...enCurso, ...tramos], { fijas: enCurso.length })
+  return respetarHoras([...enCurso, ...tramos], { fijas: enCurso.length, ahora })
 }
 
 /**
