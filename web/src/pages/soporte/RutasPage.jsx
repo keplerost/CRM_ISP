@@ -42,6 +42,7 @@ const MOTIVO = {
   direccion_erronea: 'Dirección errónea',
   falta_material: 'Faltó material',
   clima: 'Lluvia o peligro',
+  requiere_otro: 'Hace falta otro trabajo',
   otro: 'Otro',
 }
 
@@ -365,10 +366,12 @@ function RutaCard({ r, editable, vencimientos, confirmaciones, onVerFoto, onGuar
                     llegó {hora(f.llegada_at)} · marcó {hora(f.creado_at)}
                     {f.detalle && ` · ${f.detalle}`}
                   </span>
-                  <button type="button" onClick={() => onVerFoto(f.foto)} className="text-xs text-sky-400 hover:underline">
-                    <Camera size={12} className="mr-1 inline" />
-                    Ver foto
-                  </button>
+                  {f.foto && (
+                    <button type="button" onClick={() => onVerFoto(f.foto)} className="text-xs text-sky-400 hover:underline">
+                      <Camera size={12} className="mr-1 inline" />
+                      Ver foto
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

@@ -86,6 +86,23 @@ registrarTipo('ticket.actualizar', async ({ id, campos }) => {
   if (error) throw error
 })
 
+/* ── 5. La llamada al cliente ───────────────────────────────────────────────
+ * Sin datos el técnico igual llama (la voz no usa datos), pero la constancia
+ * no llegaba y después el "no contesta" se le rechazaba (migración 228). Viaja
+ * con la hora en que se llamó y con una clave: la base la guarda una vez sola
+ * aunque la subida se reintente.
+ */
+registrarTipo('llamada.registrar', async ({ tipo, id, canal, cuando, clave: propia }, clave) => {
+  const { error } = await supabase.rpc('registrar_llamada', {
+    p_tipo: tipo,
+    p_id: id,
+    p_canal: canal,
+    p_cuando: cuando,
+    p_clave: propia ?? clave,
+  })
+  if (error) throw error
+})
+
 /**
  * Una clave por línea, derivada de la de la operación.
  *

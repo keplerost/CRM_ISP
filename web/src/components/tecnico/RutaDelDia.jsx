@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
+import { encolar } from '../../lib/cola'
+import '../../lib/colaCampo'
 import { enlaceLlamada, enlaceWhatsApp, separarTelefonos } from '../../lib/telefono'
 import { etiquetaIncidencia } from '../../lib/soporte'
 
@@ -35,15 +37,35 @@ import { etiquetaIncidencia } from '../../lib/soporte'
 /**
  * Toca "Llamar" o "WhatsApp": queda constancia para el "no contesta".
  *
- * Avisa con el evento `llamada-registrada` cuando la base la guardó, para que
- * el "No se pudo atender" abierto vuelva a contar.
+ * Sin señal, o si el envío falla por la red, la llamada va a la cola con su
+ * hora y su clave y se sube sola cuando vuelve la señal (migración 228).
+ *
+ * Avisa con el evento `llamada-registrada` —`encolada: true` si quedó en el
+ * teléfono— para que el "No se pudo atender" abierto vuelva a contar.
  */
-export function registrarLlamada(tipo, id, canal = 'llamada') {
-  return supabase
-    .rpc('registrar_llamada', { p_tipo: tipo, p_id: id, p_canal: canal })
-    .then(({ error }) => {
-      if (!error) window.dispatchEvent(new CustomEvent('llamada-registrada', { detail: { tipo, id } }))
+export async function registrarLlamada(tipo, id, canal = 'llamada', { espera = 4000 } = {}) {
+  const datos = { tipo, id, canal, cuando: new Date().toISOString(), clave: crypto.randomUUID() }
+  const avisar = (encolada) =>
+    window.dispatchEvent(new CustomEvent('llamada-registrada', { detail: { tipo, id, encolada } }))
+
+  if (navigator.onLine) {
+    const enviar = supabase.rpc('registrar_llamada', {
+      p_tipo: tipo,
+      p_id: id,
+      p_canal: canal,
+      p_cuando: datos.cuando,
+      p_clave: datos.clave,
     })
+    // Con señal débil el pedido puede quedar colgado: pasado `espera` se
+    // encola. La clave hace que, si el primero termina llegando, no cuente
+    // doble.
+    const r = await Promise.race([enviar, new Promise((res) => setTimeout(() => res({ colgado: true }), espera))])
+    if (!r.colgado && !r.error) return avisar(false)
+    // Un rechazo de la base (no de la red) no se arregla reintentando.
+    if (r.error?.code) return undefined
+  }
+  await encolar('llamada.registrar', datos)
+  avisar(true)
 }
 
 /**
@@ -57,12 +79,20 @@ export function registrarLlamada(tipo, id, canal = 'llamada') {
  * En producción no había UNA sola llamada registrada —solo WhatsApp, que abre
  * en otra pestaña y deja viva la página—, y por eso el técnico que llamó de
  * verdad no podía marcar "No contesta". Se espera la respuesta un segundo y
- * medio como mucho: sin señal, la llamada no se demora por esto.
+ * medio como mucho: sin señal, la llamada no se demora por esto. Sin datos
+ * queda en la cola y se sube sola después (228).
  */
 export async function llamarRegistrando(e, tipo, id, href) {
   if (!href) return
   e?.preventDefault?.()
-  await Promise.race([registrarLlamada(tipo, id, 'llamada'), new Promise((r) => setTimeout(r, 1500))])
+  // Se espera hasta que quedó guardada —en la base o en la cola del
+  // teléfono—: con señal débil, a los 1,2 s pasa a la cola, que es local y
+  // tarda milisegundos. Si algo falla, el marcador se abre igual.
+  try {
+    await registrarLlamada(tipo, id, 'llamada', { espera: 1200 })
+  } catch {
+    /* la llamada importa más que su constancia */
+  }
   window.location.href = href
 }
 

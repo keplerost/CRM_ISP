@@ -5379,3 +5379,64 @@ test('la oficina confirma la visita o la posterga sin cerrar el ticket', async (
   const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-227-la-oficina-confirma-la-visita.sql'), 'utf8')
   await db.exec(sql)
 })
+
+/** Migración 228: la llamada que se sube después, y "hace falta otro trabajo". */
+test('la llamada sin señal se sube con su hora y una sola vez; "otro trabajo" vuelve sin foto', async () => {
+  await sesion(db, null)
+  const ADM_AUTH = 'a2280000-0000-0000-0000-000000000001'
+  const ADM = 'c2280000-0000-0000-0000-000000000001'
+  const TEC_AUTH = 'a2280000-0000-0000-0000-000000000002'
+  const TEC = 'b2280000-0000-0000-0000-000000000001'
+  const TK = '12280000-0000-0000-0000-000000000001'
+  const CLAVE = 'e2280000-0000-0000-0000-000000000001'
+
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${ADM_AUTH}', 'adm228@demo.ec'), ('${TEC_AUTH}', 'tec228@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${TEC}', 'Tito 228', true);
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('${ADM}', '${ADM_AUTH}', 'adm228', 'adm228@demo.ec', 'Ana', 'Admin', 'admin', '["*"]'::jsonb, true, NULL),
+        ('c2280000-0000-0000-0000-000000000002', '${TEC_AUTH}', 'tec228', 'tec228@demo.ec', 'Tito', 'Técnico', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${TEC}');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, tecnico_id, fecha_visita, llegada_at)
+      VALUES ('${TK}', 'Diana 228', 'otro', 'en_proceso', '${TEC}', hoy_isp(), NOW() - INTERVAL '3 minutes');
+  `)
+
+  await sesion(db, TEC_AUTH)
+  // La misma llamada subida dos veces por la cola cuenta una.
+  await db.query(`SELECT registrar_llamada('ticket', '${TK}', 'llamada', NOW() - INTERVAL '20 minutes', '${CLAVE}')`)
+  await db.query(`SELECT registrar_llamada('ticket', '${TK}', 'llamada', NOW() - INTERVAL '20 minutes', '${CLAVE}')`)
+  let n = await fila(db, `SELECT COUNT(*)::int AS n, MIN(creado_at) < NOW() - INTERVAL '19 minutes' AS con_su_hora
+                            FROM campo_llamadas WHERE item_id = '${TK}'`)
+  assert.equal(n.n, 1)
+  assert.equal(n.con_su_hora, true, 'queda la hora en que se llamó, no la de la subida')
+
+  // Un reloj adelantado no la pone en el futuro; uno muy atrasado, no más de 12 h atrás.
+  await db.query(`SELECT registrar_llamada('ticket', '${TK}', 'whatsapp', NOW() + INTERVAL '3 hours')`)
+  await db.query(`SELECT registrar_llamada('ticket', '${TK}', 'llamada', NOW() - INTERVAL '3 days')`)
+  n = await fila(db, `SELECT MAX(creado_at) <= NOW() AS sin_futuro, MIN(creado_at) >= NOW() - INTERVAL '12 hours 1 minute' AS tope
+                        FROM campo_llamadas WHERE item_id = '${TK}'`)
+  assert.equal(n.sin_futuro, true)
+  assert.equal(n.tope, true)
+  // La app vieja, con tres argumentos, sigue funcionando.
+  await db.query(`SELECT registrar_llamada('ticket', '${TK}', 'llamada')`)
+
+  // "Otro" sin foto no; "otro trabajo" sin explicar tampoco.
+  await assert.rejects(db.query(`SELECT no_se_pudo_atender('${TK}', 'otro', 'algo', NULL)`), /Falta la foto/)
+  await assert.rejects(db.query(`SELECT no_se_pudo_atender('${TK}', 'requiere_otro', 'sin señal', NULL)`), /Contá qué encontraste/)
+
+  // Explicado, sin foto y sin esperar: vuelve a la oficina para reprogramar.
+  await db.query(`SELECT no_se_pudo_atender('${TK}', 'requiere_otro',
+                   'No tiene potencia: hace años sin servicio, es instalación nueva', NULL)`)
+  const t = await fila(db, `SELECT estado, fecha_visita, llegada_at, reprogramar_desde FROM tickets WHERE id = '${TK}'`)
+  assert.equal(t.estado, 'asignado')
+  assert.equal(t.fecha_visita, null)
+  assert.equal(t.llegada_at, null)
+  assert.ok(t.reprogramar_desde)
+  const f = await fila(db, `SELECT motivo, foto FROM visitas_fallidas WHERE ticket_id = '${TK}'`)
+  assert.deepEqual([f.motivo, f.foto], ['requiere_otro', null])
+  const aviso = await fila(db, `SELECT detalle FROM notificaciones WHERE usuario_id = '${ADM}' AND tipo = 'visita_fallida' AND entidad_id = '${TK}'`)
+  assert.match(aviso.detalle, /Hace falta otro trabajo: No tiene potencia.*instalación nueva\. Hay que reprogramarlo\./)
+
+  await sesion(db, null)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-228-llamada-sin-senal-y-otro-trabajo.sql'), 'utf8')
+  await db.exec(sql)
+})

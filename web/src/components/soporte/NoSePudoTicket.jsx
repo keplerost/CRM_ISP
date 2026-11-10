@@ -6,6 +6,7 @@ import { comprimirImagen, ubicacionActual } from '../../lib/soporte'
 import { sacarFoto } from '../../lib/servicio'
 import { enlaceLlamada, enlaceWhatsApp } from '../../lib/telefono'
 import { llamarRegistrando, registrarLlamada } from '../tecnico/RutaDelDia'
+import { despachar } from '../../lib/cola'
 import { Button, Card } from '../ui'
 
 /**
@@ -25,6 +26,10 @@ const MOTIVOS = [
   { valor: 'direccion_erronea', label: 'Dirección errónea' },
   { valor: 'falta_material', label: 'Faltó material' },
   { valor: 'clima', label: 'Lluvia o peligro' },
+  // Lo que encontró no es lo que dice el ticket (228): "pidió reconexión pero
+  // no tiene potencia, es instalación nueva". Sin foto ni espera: lo que
+  // necesita la oficina es la explicación, para reagendar bien.
+  { valor: 'requiere_otro', label: 'Hace falta otro trabajo', sinFoto: true, explicar: true },
   { valor: 'otro', label: 'Otro' },
 ]
 
@@ -37,6 +42,8 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
   const [foto, setFoto] = useState(null)
   const [previa, setPrevia] = useState(null)
   const [llamadas, setLlamadas] = useState(0)
+  // Las que quedaron en el teléfono sin señal: se suben solas (228).
+  const [enCola, setEnCola] = useState(0)
   const [ahora, setAhora] = useState(() => Date.now())
   const [enviando, setEnviando] = useState(false)
 
@@ -58,7 +65,11 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
       setAhora(Date.now())
       contar()
     }, 15000)
-    const alRegistrar = (e) => e.detail?.id === t.id && contar()
+    const alRegistrar = (e) => {
+      if (e.detail?.id !== t.id) return
+      if (e.detail.encolada) setEnCola((n) => n + 1)
+      else contar()
+    }
     window.addEventListener('llamada-registrada', alRegistrar)
     return () => {
       clearInterval(reloj)
@@ -80,7 +91,13 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
   /* La llamada no traba el botón: la cuenta de acá solo ve las de este
      técnico, y si llamó un compañero de la cuadrilla la base la acepta igual.
      La base es la que decide, y si falta, lo dice. */
-  const listo = motivo && foto && !faltan && (motivo !== 'otro' || detalle.trim())
+  const explicado = detalle.trim().length >= 10
+  const listo =
+    motivo &&
+    (foto || m?.sinFoto) &&
+    !faltan &&
+    (motivo !== 'otro' || detalle.trim()) &&
+    (!m?.explicar || explicado)
   const tel = enlaceLlamada(t.telefono)
   const wa = enlaceWhatsApp(t.telefono)
 
@@ -88,21 +105,28 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
     setEnviando(true)
     onError?.(null)
     try {
+      // Las llamadas que quedaron en la cola sin señal, primero: si no, la base
+      // todavía no las ve y rechaza el "no contesta".
+      await despachar().catch(() => {})
+
       // La foto, a las del ticket: así queda junto al resto de su historia.
-      const blob = await comprimirImagen(foto)
-      const ruta = `${t.id}/no-se-pudo-${Date.now()}.jpg`
-      const { error: errSubida } = await supabase.storage
-        .from('tickets')
-        .upload(ruta, blob, { contentType: 'image/jpeg' })
-      if (errSubida) throw errSubida
-      const { data: sesion } = await supabase.auth.getUser()
-      await supabase.from('ticket_adjuntos').insert({
-        ticket_id: t.id,
-        tipo: 'antes',
-        ruta,
-        descripcion: `No se pudo atender: ${m.label}`,
-        created_by: sesion?.user?.id ?? null,
-      })
+      let ruta = null
+      if (foto) {
+        const blob = await comprimirImagen(foto)
+        ruta = `${t.id}/no-se-pudo-${Date.now()}.jpg`
+        const { error: errSubida } = await supabase.storage
+          .from('tickets')
+          .upload(ruta, blob, { contentType: 'image/jpeg' })
+        if (errSubida) throw errSubida
+        const { data: sesion } = await supabase.auth.getUser()
+        await supabase.from('ticket_adjuntos').insert({
+          ticket_id: t.id,
+          tipo: 'antes',
+          ruta,
+          descripcion: `No se pudo atender: ${m.label}`,
+          created_by: sesion?.user?.id ?? null,
+        })
+      }
 
       const pos = await ubicacionActual()
       const { error } = await supabase.rpc('no_se_pudo_atender', {
@@ -166,6 +190,12 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
                 ? 'Llamalo o escribile desde acá: así queda registrado.'
                 : `Lo llamaste ${llamadas} ${llamadas === 1 ? 'vez' : 'veces'} desde la app.`}
             </p>
+            {enCola > 0 && (
+              <p className="text-sky-400">
+                {enCola === 1 ? 'Una llamada quedó guardada' : `${enCola} llamadas quedaron guardadas`} sin señal: se
+                suben solas al confirmar.
+              </p>
+            )}
             {sinLlamada && (tel || wa) && (
               <div className="flex gap-2 pt-1">
                 {tel && (
@@ -200,10 +230,16 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
         )}
 
         <textarea
-          rows={2}
+          rows={m?.explicar ? 3 : 2}
           value={detalle}
           onChange={(e) => setDetalle(e.target.value)}
-          placeholder={motivo === 'otro' ? 'Contá qué pasó (obligatorio)' : 'Detalle (opcional)'}
+          placeholder={
+            m?.explicar
+              ? 'Qué encontraste y qué hace falta (obligatorio). Ej.: pidió reconexión pero no tiene potencia; hace años sin servicio, es instalación nueva'
+              : motivo === 'otro'
+                ? 'Contá qué pasó (obligatorio)'
+                : 'Detalle (opcional)'
+          }
           className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-[13px] text-slate-100"
         />
 
@@ -223,7 +259,11 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
             </span>
           )}
           <span className="text-[13px] text-slate-300">
-            {previa ? 'Tocá para sacarla de nuevo' : 'Foto de la fachada (obligatoria)'}
+            {previa
+              ? 'Tocá para sacarla de nuevo'
+              : m?.sinFoto
+                ? 'Foto de lo que encontraste (opcional)'
+                : 'Foto de la fachada (obligatoria)'}
           </span>
         </button>
 
