@@ -509,7 +509,9 @@ export default function Dashboard() {
         .from('v_instalaciones')
         .select('id, numero, cliente, nombre, tecnico_id, tecnico_nombre, estado, hora')
         .eq('fecha', hoy),
-      supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
+      // Con `*` y no con la lista: el horario llega con la 230, y sin ella la
+      // consulta no puede fallar y dejar el panel sin técnicos.
+      supabase.from('tecnicos').select('*').eq('activo', true).order('nombre'),
       supabase.from('v_expedientes').select('id').eq('completo', false),
       /* Los pausados cuya fecha ya pasó.
          Quedan sin servicio y sin factura, así que no generan ningún reclamo:
@@ -538,6 +540,10 @@ export default function Dashboard() {
         .or(`fecha_visita.eq.${hoy},estado.in.(en_ruta,en_proceso)`)
         .neq('estado', 'cancelado'),
       supabase.from('cuadrilla_miembros').select('cuadrilla_id, tecnico_id'),
+      // Quién no está hoy (230) y quién ingresó: sin esto, toda la cuadrilla
+      // salía trabajando aunque uno estuviera con reposo.
+      supabase.from('tecnico_ausencias').select('tecnico_id, tipo, hasta').lte('desde', hoy).gte('hasta', hoy),
+      supabase.from('jornadas').select('tecnico_id, inicio_at, fin_at').eq('fecha', hoy),
     ]
 
     Promise.allSettled(consultas).then((res) => {
@@ -575,6 +581,8 @@ export default function Dashboard() {
         facturacion: filas(12)[0] ?? null,
         ticketsHoy: filas(13),
         miembros: filas(14),
+        ausencias: filas(15),
+        jornadas: filas(16),
       })
     })
 
@@ -636,6 +644,8 @@ export default function Dashboard() {
         tickets: d.ticketsHoy,
         instalaciones: d.instalaciones,
         miembros: d.miembros,
+        ausencias: d.ausencias,
+        jornadas: d.jornadas,
       }),
       cobradoHoy: d.pagos
         .filter((p) => String(p.fecha_pago || '').slice(0, 10) === hoy)
@@ -1028,6 +1038,10 @@ export default function Dashboard() {
                     en_camino: ['En camino', 't-badge-marca'],
                     con_ruta: ['Con ruta', 't-badge-neutro'],
                     libre: ['Libre', 't-badge-ok'],
+                    sin_ingreso: ['Sin ingreso hoy', 't-badge-critico'],
+                    fuera_horario: ['Fuera de horario', 't-badge-neutro'],
+                    termino: ['Terminó', 't-badge-neutro'],
+                    ausente: ['No está', 't-badge-neutro'],
                   }
                   const [etiqueta, clase] = ESTADO[t.estado]
                   return (
@@ -1050,7 +1064,9 @@ export default function Dashboard() {
                           <p className="truncate text-[11px] text-slate-500">
                             {t.actual
                               ? `${etiqueta} · ${t.actual}`
-                              : t.total
+                              : t.detalle
+                                ? t.detalle
+                                : t.total
                                 ? `${t.hechas} de ${t.total} hecha${t.total > 1 ? 's' : ''} hoy`
                                 : 'Sin visitas hoy'}
                           </p>

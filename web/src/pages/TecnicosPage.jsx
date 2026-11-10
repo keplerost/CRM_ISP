@@ -4,6 +4,9 @@ import { HardHat, Pencil, Plus, Star, Trash2, Truck, UserCheck, Users } from 'lu
 import { supabase } from '../lib/supabaseClient'
 import { hoyISO } from '../lib/campo'
 import ConPermiso from '../components/layout/ConPermiso'
+import AusenciasTecnicos from '../components/soporte/AusenciasTecnicos'
+import { usePermisos } from '../lib/AuthContext'
+import { HORARIOS } from '../lib/soporte'
 import {
   Button,
   Card,
@@ -45,6 +48,7 @@ const TECNICO_VACIO = {
   telefono: '',
   email: '',
   especialidad: 'ambas',
+  horario: 'completo',
   activo: true,
 }
 
@@ -52,6 +56,7 @@ const CUADRILLA_VACIA = { nombre: '', zona: '', vehiculo: '', vehiculo_id: '', a
 
 export default function TecnicosPage() {
   const confirmar = useConfirmar()
+  const { puede } = usePermisos()
   const [tecnicos, setTecnicos] = useState([])
   const [cuadrillas, setCuadrillas] = useState([])
   const [miembros, setMiembros] = useState([])
@@ -106,6 +111,8 @@ export default function TecnicosPage() {
         email: datos.email?.trim() || null,
         especialidad: datos.especialidad,
         activo: Boolean(datos.activo),
+        // Sin la 230 la columna no existe: no se manda.
+        ...(datos.horario ? { horario: datos.horario } : {}),
       }
 
       const { error: err } = id
@@ -235,7 +242,7 @@ export default function TecnicosPage() {
         }
       >
         <Table
-          columnas={['Nombre', 'Cédula', 'Teléfono', 'Especialidad', 'Estado', '']}
+          columnas={['Nombre', 'Cédula', 'Teléfono', 'Especialidad', 'Horario', 'Estado', '']}
           filas={cargando ? [] : tecnicos}
           vacio="Todavía no hay técnicos cargados."
           renderFila={(t) => (
@@ -254,6 +261,13 @@ export default function TecnicosPage() {
               <td className="px-3 py-2 font-mono text-xs">{t.identificacion ?? '—'}</td>
               <td className="px-3 py-2 font-mono text-xs">{t.telefono ?? '—'}</td>
               <td className="px-3 py-2 text-xs">{ESPECIALIDADES[t.especialidad]}</td>
+              <td className="px-3 py-2 text-xs">
+                {t.horario && t.horario !== 'completo' ? (
+                  <span className="text-amber-300">{HORARIOS[t.horario]}</span>
+                ) : (
+                  HORARIOS.completo
+                )}
+              </td>
               <td className="px-3 py-2 text-xs">
                 {t.activo ? (
                   <span className="text-emerald-400">Activo</span>
@@ -285,6 +299,12 @@ export default function TecnicosPage() {
           )}
         />
       </Card>
+
+      <AusenciasTecnicos
+        tecnicos={tecnicos}
+        puedeCargar={puede('soporte.asignar') || puede('soporte.ruta') || puede('usuarios.editar')}
+        onError={setError}
+      />
 
       <Card
         title="Cuadrillas"
@@ -430,6 +450,22 @@ export default function TecnicosPage() {
                 }
               >
                 {Object.entries(ESPECIALIDADES).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field
+              label="Horario"
+              hint="Quien trabaja medio día sale «Fuera de horario» en el panel durante la otra mitad (desde las 13:00)"
+            >
+              <Select
+                value={editandoTecnico.horario ?? 'completo'}
+                onChange={(e) => setEditandoTecnico((t) => ({ ...t, horario: e.target.value }))}
+              >
+                {Object.entries(HORARIOS).map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
                   </option>

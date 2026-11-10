@@ -4,7 +4,7 @@ import { Camera, Check, MapPin, RefreshCw, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import { useConfirmar } from '../../lib/confirmar'
 import { prepararIngreso, sacarFoto } from '../../lib/servicio'
-import { comprimirImagen, distanciaEnMetros, ubicacionActual, RADIO_LLEGADA_M } from '../../lib/soporte'
+import { comprimirImagen, distanciaEnMetros, hoyLocal, ubicacionActual, RADIO_LLEGADA_M, TIPOS_AUSENCIA } from '../../lib/soporte'
 import { Button, Modal } from '../ui'
 
 /**
@@ -81,6 +81,26 @@ function FotoGrupal({ datos, onTerminar }) {
   const [previa, setPrevia] = useState(null)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
+  // Los que hoy tienen ausencia cargada (230): salen sin marcar, con el motivo.
+  const [ausentes, setAusentes] = useState(new Map())
+
+  useEffect(() => {
+    const ids = integrantes.filter((i) => !i.es_jefe).map((i) => i.id)
+    if (!ids.length) return
+    const hoy = hoyLocal()
+    supabase
+      .from('tecnico_ausencias')
+      .select('tecnico_id, tipo')
+      .in('tecnico_id', ids)
+      .lte('desde', hoy)
+      .gte('hasta', hoy)
+      .then(({ data }) => {
+        if (!data?.length) return
+        setAusentes(new Map(data.map((a) => [a.tecnico_id, a.tipo])))
+        setMarcados((m) => new Set([...m].filter((id) => !data.some((a) => a.tecnico_id === id))))
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const medir = useCallback(async () => {
     setMidiendo(true)
@@ -211,6 +231,9 @@ function FotoGrupal({ datos, onTerminar }) {
                   {i.es_jefe && <span className="text-[11px] text-amber-400">jefe de grupo</span>}
                   {!i.es_jefe && i.en_servicio && (
                     <span className="text-[11px] text-emerald-400">ya marcó ingreso</span>
+                  )}
+                  {!i.es_jefe && !i.en_servicio && ausentes.has(i.id) && (
+                    <span className="text-[11px] text-amber-400">{TIPOS_AUSENCIA[ausentes.get(i.id)]?.toLowerCase()}</span>
                   )}
                 </label>
               </li>

@@ -5476,3 +5476,70 @@ test('el "no se pudo atender" avisa a toda la oficina que maneja tickets, no al 
   assert.equal((await aviso(TEC_U)).n, 0, 'el que lo marcó no se avisa a sí mismo')
   await sesion(db, null)
 })
+
+/** Migración 230: ausencias y horario del técnico. */
+test('las ausencias: quién las carga, el día que cuentan y el "No vayas" que no le llega al ausente', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2300000-0000-0000-0000-000000000001'
+  const OFI = 'c2300000-0000-0000-0000-000000000001'
+  const T1_AUTH = 'a2300000-0000-0000-0000-000000000002'
+  const T2_AUTH = 'a2300000-0000-0000-0000-000000000003'
+  const T1U = 'c2300000-0000-0000-0000-000000000002'
+  const T2U = 'c2300000-0000-0000-0000-000000000003'
+  const T1 = 'b2300000-0000-0000-0000-000000000001'
+  const T2 = 'b2300000-0000-0000-0000-000000000002'
+  const CU = 'd2300000-0000-0000-0000-000000000001'
+  const TK = '12300000-0000-0000-0000-000000000001'
+
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'o230@demo.ec'), ('${T1_AUTH}', 't1230@demo.ec'), ('${T2_AUTH}', 't2230@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${T1}', 'Presente 230', true), ('${T2}', 'Enfermo 230', true);
+      INSERT INTO cuadrillas (id, nombre) VALUES ('${CU}', 'C230');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id) VALUES ('${CU}', '${T1}'), ('${CU}', '${T2}');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('${OFI}', '${OFI_AUTH}', 'o230', 'o230@demo.ec', 'Olga', 'Oficina', 'finanzas', '["soporte.crear","soporte.asignar"]'::jsonb, true, NULL),
+        ('${T1U}', '${T1_AUTH}', 't1230', 't1230@demo.ec', 'Pedro', 'Presente', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${T1}'),
+        ('${T2U}', '${T2_AUTH}', 't2230', 't2230@demo.ec', 'Ema', 'Enferma', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${T2}');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, cuadrilla_id, fecha_visita)
+      VALUES ('${TK}', 'Abonado 230', 'sin_internet', 'asignado', '${CU}', hoy_isp());
+  `)
+  // La prueba de la 227 vuelve a correr su archivo y deja su versión de la
+  // función: se aplica la 230 antes de probar.
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-230-ausencias-y-horario-del-tecnico.sql'), 'utf8')
+  await db.exec(sql)
+
+  // El horario: completo por omisión, y solo los tres valores.
+  assert.equal((await fila(db, `SELECT horario FROM tecnicos WHERE id = '${T1}'`)).horario, 'completo')
+  await db.query(`UPDATE tecnicos SET horario = 'manana' WHERE id = '${T1}'`)
+  await assert.rejects(db.query(`UPDATE tecnicos SET horario = 'noche' WHERE id = '${T1}'`), /horario_check/)
+
+  // El técnico no carga ausencias; la oficina que asigna, sí.
+  // (PGlite corre como dueño y no aplica RLS: se prueba la función de la política.)
+  await sesion(db, T2_AUTH)
+  assert.equal((await fila(db, `SELECT gestiona_ausencias() AS ok`)).ok, false)
+  await sesion(db, OFI_AUTH)
+  assert.equal((await fila(db, `SELECT gestiona_ausencias() AS ok`)).ok, true)
+  const a = await fila(db, `INSERT INTO tecnico_ausencias (tecnico_id, tipo, desde, hasta, nota)
+                            VALUES ('${T2}', 'descanso_medico', hoy_isp() - 1, hoy_isp() + 5, 'reposo')
+                            RETURNING creado_por`)
+  assert.equal(a.creado_por, OFI)
+  await assert.rejects(
+    db.query(`INSERT INTO tecnico_ausencias (tecnico_id, desde, hasta) VALUES ('${T2}', hoy_isp(), hoy_isp() - 1)`),
+    /tecnico_ausencias_fechas/,
+  )
+
+  // Las dos puntas cuentan; el día siguiente al fin, no.
+  const aus = await fila(db, `SELECT tecnico_ausente('${T2}') AS hoy, tecnico_ausente('${T2}', hoy_isp() + 5) AS ultimo,
+                                     tecnico_ausente('${T2}', hoy_isp() + 6) AS despues, tecnico_ausente('${T1}') AS otro`)
+  assert.deepEqual([aus.hoy, aus.ultimo, aus.despues, aus.otro], [true, true, false, false])
+
+  // Se posterga: el "No vayas" le llega al que trabaja, no al que está con reposo.
+  await db.query(`SELECT oficina_confirma_visita('${TK}', 'no_esta', NULL, hoy_isp() + 1, 'tarde')`)
+  const n = async (u) => (await fila(db, `SELECT COUNT(*)::int AS n FROM notificaciones WHERE usuario_id = '${u}' AND tipo = 'visita_postergada'`)).n
+  assert.equal(await n(T1U), 1)
+  assert.equal(await n(T2U), 0)
+
+  // Se puede volver a correr.
+  await sesion(db, null)
+  await db.exec(sql)
+})

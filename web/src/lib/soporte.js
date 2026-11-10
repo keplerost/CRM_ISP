@@ -333,27 +333,68 @@ export function coincideTicket(t, texto) {
 export const deQuien = (t, miTecnicoId) =>
   miTecnicoId && t.tecnico_id === miTecnicoId ? 'mio' : 'cuadrilla'
 
+/** Las ausencias, como se nombran en pantalla. */
+export const TIPOS_AUSENCIA = {
+  descanso_medico: 'Descanso médico',
+  vacaciones: 'Vacaciones',
+  permiso: 'Permiso',
+  otro: 'Ausente',
+}
+
+/** El horario de cada técnico (migración 230). */
+export const HORARIOS = {
+  completo: 'Jornada completa',
+  manana: 'Solo mañana',
+  tarde: 'Solo tarde',
+}
+
+/** Dónde se parte el día para los de medio día: 13:00. */
+export const MEDIODIA_MIN = 13 * 60
+
+const fechaCorta = (f) =>
+  new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString('es-EC', { day: 'numeric', month: 'numeric' })
+const horaCorta = (f) => new Date(f).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+
 /**
  * Qué está haciendo cada técnico hoy, para el panel.
  *
- * Antes el panel miraba solo las instalaciones: con un día lleno de tickets
- * todos salían "Libre". Ahora cuenta las dos cosas, y los tickets de una
- * cuadrilla son de cada uno de sus integrantes.
+ * Cuenta sus tickets, los de su cuadrilla y sus instalaciones. Pero antes de
+ * darle los de la cuadrilla mira si HOY está (migración 230):
  *
- * @param tecnicos       [{ id, nombre }]
+ *   ausente        descanso médico, vacaciones o permiso cargado por la oficina
+ *   termino        cerró su jornada
+ *   fuera_horario  trabaja medio día y es la otra mitad
+ *   sin_ingreso    su cuadrilla registró el ingreso del día y él no
+ *
+ * Sin esto, con uno en reposo y otro de medio día, los tres de TROOPER salían
+ * "En camino". Lo que tenga a SU nombre y esté en curso se muestra igual: si
+ * está trabajando, está trabajando.
+ *
+ * @param tecnicos       [{ id, nombre, horario }]
  * @param tickets        los de hoy (y los que están en camino o en sitio)
  * @param instalaciones  las de hoy, con tecnico_id
  * @param miembros       [{ cuadrilla_id, tecnico_id }]
- * @returns por técnico { id, nombre, estado, actual, total, hechas, pendientes },
- *          con estado 'en_sitio' | 'en_camino' | 'con_ruta' | 'libre';
+ * @param ausencias      las que incluyen hoy: [{ tecnico_id, tipo, hasta }]
+ * @param jornadas       las de hoy: [{ tecnico_id, inicio_at, fin_at }]
+ * @param ahora          para el horario
+ * @returns por técnico { id, nombre, estado, actual, detalle, total, hechas, pendientes },
  *          primero los que están trabajando
  */
-export function personalEnCampo(tecnicos = [], { tickets = [], instalaciones = [], miembros = [] } = {}) {
+export function personalEnCampo(
+  tecnicos = [],
+  { tickets = [], instalaciones = [], miembros = [], ausencias = [], jornadas = [], ahora = new Date() } = {},
+) {
   const cuadrillasDe = new Map()
+  const integrantesDe = new Map()
   for (const m of miembros) {
     if (!cuadrillasDe.has(m.tecnico_id)) cuadrillasDe.set(m.tecnico_id, new Set())
     cuadrillasDe.get(m.tecnico_id).add(m.cuadrilla_id)
+    if (!integrantesDe.has(m.cuadrilla_id)) integrantesDe.set(m.cuadrilla_id, new Set())
+    integrantesDe.get(m.cuadrilla_id).add(m.tecnico_id)
   }
+  const ausenciaDe = new Map(ausencias.map((a) => [a.tecnico_id, a]))
+  const jornadaDe = new Map(jornadas.filter((j) => j.inicio_at).map((j) => [j.tecnico_id, j]))
+  const minuto = ahora.getHours() * 60 + ahora.getMinutes()
 
   const trabajos = [
     ...tickets
@@ -378,19 +419,54 @@ export function personalEnCampo(tecnicos = [], { tickets = [], instalaciones = [
       })),
   ]
 
-  const ORDEN = { en_sitio: 0, en_camino: 1, con_ruta: 2, libre: 3 }
+  const ORDEN = { en_sitio: 0, en_camino: 1, con_ruta: 2, libre: 3, sin_ingreso: 4, fuera_horario: 5, termino: 6, ausente: 7 }
   return tecnicos
     .map((tec) => {
       const suyas = cuadrillasDe.get(tec.id) ?? new Set()
-      const mios = trabajos.filter(
-        (w) => w.tecnico_id === tec.id || (!w.tecnico_id && w.cuadrilla_id && suyas.has(w.cuadrilla_id)),
-      )
-      const sitio = mios.find((w) => w.en_sitio)
-      const camino = mios.find((w) => w.en_camino)
+      const propios = trabajos.filter((w) => w.tecnico_id === tec.id)
+      const deCuadrilla = trabajos.filter((w) => !w.tecnico_id && w.cuadrilla_id && suyas.has(w.cuadrilla_id))
+      const mios = [...propios, ...deCuadrilla]
       const hechas = mios.filter((w) => w.hecha).length
-      const pendientes = mios.length - hechas
-      const estado = sitio ? 'en_sitio' : camino ? 'en_camino' : pendientes ? 'con_ruta' : 'libre'
-      return { id: tec.id, nombre: tec.nombre, estado, actual: (sitio ?? camino)?.nombre ?? null, total: mios.length, hechas, pendientes }
+      const base = { id: tec.id, nombre: tec.nombre, total: mios.length, hechas, pendientes: mios.length - hechas }
+
+      // 1. No vino: lo cargó la oficina.
+      const aus = ausenciaDe.get(tec.id)
+      if (aus) {
+        return {
+          ...base,
+          estado: 'ausente',
+          actual: null,
+          detalle: `${TIPOS_AUSENCIA[aus.tipo] ?? 'Ausente'} hasta el ${fechaCorta(aus.hasta)}`,
+        }
+      }
+
+      // 2. Lo suyo en curso se muestra siempre.
+      const propioSitio = propios.find((w) => w.en_sitio)
+      const propioCamino = propios.find((w) => w.en_camino)
+      if (propioSitio || propioCamino) {
+        return { ...base, estado: propioSitio ? 'en_sitio' : 'en_camino', actual: (propioSitio ?? propioCamino).nombre, detalle: null }
+      }
+
+      // 3. Ya se fue, o no es su mitad del día.
+      const jornada = jornadaDe.get(tec.id)
+      if (jornada?.fin_at) {
+        return { ...base, estado: 'termino', actual: null, detalle: `Terminó su jornada a las ${horaCorta(jornada.fin_at)}` }
+      }
+      const horario = tec.horario ?? 'completo'
+      if ((horario === 'manana' && minuto >= MEDIODIA_MIN) || (horario === 'tarde' && minuto < MEDIODIA_MIN)) {
+        return { ...base, estado: 'fuera_horario', actual: null, detalle: HORARIOS[horario] }
+      }
+
+      // 4. Su cuadrilla registró el ingreso y él no: no está con ellos.
+      const companeros = [...suyas].flatMap((c) => [...(integrantesDe.get(c) ?? [])]).filter((id) => id !== tec.id)
+      if (!jornada && companeros.some((id) => jornadaDe.has(id))) {
+        return { ...base, estado: 'sin_ingreso', actual: null, detalle: 'Su cuadrilla ingresó y él no' }
+      }
+
+      const sitio = deCuadrilla.find((w) => w.en_sitio)
+      const camino = deCuadrilla.find((w) => w.en_camino)
+      const estado = sitio ? 'en_sitio' : camino ? 'en_camino' : base.pendientes ? 'con_ruta' : 'libre'
+      return { ...base, estado, actual: (sitio ?? camino)?.nombre ?? null, detalle: null }
     })
     .sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || b.pendientes - a.pendientes)
 }
