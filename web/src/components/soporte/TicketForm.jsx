@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { coordenadasDeTexto } from '../../lib/ruta'
 import TrabajosCercanos from './TrabajosCercanos'
+import TicketsAbiertosDelCliente from './TicketsAbiertosDelCliente'
 import { supabase } from '../../lib/supabaseClient'
 import { Aviso, Button, Field, Input, Select, Textarea } from '../ui'
 import { FRANJAS, INCIDENCIAS } from '../../lib/soporte'
@@ -363,6 +364,15 @@ export default function TicketForm({
           )
         })}
       </ol>
+
+      {/* Antes de cargar el mismo reclamo dos veces. Se ve en todos los pasos:
+          el cliente se elige en el primero, pero el que carga puede seguir de
+          largo sin leerlo. */}
+      <TicketsAbiertosDelCliente
+        clientId={form.client_id}
+        identificacion={form.identificacion}
+        excluir={ticketInicial?.id ?? null}
+      />
 
       {/* ---------------------------------------------------- Paso 1 */}
       {paso === 0 && (

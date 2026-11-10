@@ -303,3 +303,30 @@ export function trabajosCercanos(punto, trabajos = [], { radio = RADIO_ZONA_M, e
     .filter((t) => t.metros != null && t.metros <= radio)
     .sort((a, b) => a.metros - b.metros)
 }
+
+/**
+ * Las paradas que caen en el mismo lugar, juntas.
+ *
+ * Dos tickets del mismo abonado tienen las mismas coordenadas, y el mapa
+ * dibujaba un número encima del otro: se veía el 6 y el 4 desaparecía. Juntas,
+ * la marca dice "4·6" y no se pierde ninguna.
+ *
+ * Se compara con seis decimales (unos 10 cm): más fino que eso es el mismo
+ * punto cargado dos veces.
+ *
+ * @param puntos  [{ lat, lng, n, ... }] en el orden de la ruta
+ * @returns [{ lat, lng, numeros: [n…], puntos: [...] }] en el orden de la
+ *          primera parada de cada lugar
+ */
+export function agruparPorLugar(puntos = []) {
+  const lugares = new Map()
+  puntos.forEach((p, i) => {
+    if (!esCoordenada(p?.lat) || !esCoordenada(p?.lng)) return
+    const clave = `${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`
+    if (!lugares.has(clave)) lugares.set(clave, { lat: Number(p.lat), lng: Number(p.lng), numeros: [], puntos: [] })
+    const l = lugares.get(clave)
+    l.numeros.push(p.n ?? i + 1)
+    l.puntos.push(p)
+  })
+  return [...lugares.values()]
+}

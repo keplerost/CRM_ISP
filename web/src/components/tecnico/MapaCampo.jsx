@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPinOff, WifiOff } from 'lucide-react'
-import { esCoordenada } from '../../lib/ruta'
+import { agruparPorLugar, esCoordenada } from '../../lib/ruta'
 
 /**
  * El mapita de las tarjetas del técnico.
@@ -30,13 +30,16 @@ import { esCoordenada } from '../../lib/ruta'
 const TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 
 /** Un marcador redondo con número adentro, del color del estado. */
-const marcador = (texto, clase) =>
-  L.divIcon({
+const marcador = (texto, clase) => {
+  // "4·6" no entra en un círculo de 28 px: se estira en píldora.
+  const ancho = Math.max(28, 12 + String(texto).length * 7)
+  return L.divIcon({
     className: '',
-    html: `<span class="grid h-7 w-7 place-items-center rounded-full border-2 border-white text-[11px] font-bold text-white shadow ${clase}">${texto}</span>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<span class="grid h-7 place-items-center rounded-full border-2 border-white px-1 text-[11px] font-bold text-white shadow ${clase}" style="width:${ancho}px">${texto}</span>`,
+    iconSize: [ancho, 28],
+    iconAnchor: [ancho / 2, 14],
   })
+}
 
 const COLOR = {
   hecha: 'bg-emerald-500',
@@ -83,13 +86,15 @@ export default function MapaCampo({ puntos = [], alto = 'h-44', conRuta = false 
 
     const capa = L.layerGroup().addTo(mapa.current)
 
-    conCoordenadas.forEach((p, i) => {
-      L.marker([Number(p.lat), Number(p.lng)], {
-        // El número de la parada en la lista (`n`), no su lugar entre las que
-        // tienen ubicación: si la 3 no tiene, el mapa salta del 2 al 4 en vez de
-        // renumerar y no coincidir con la lista.
-        icon: marcador(conRuta ? String(p.n ?? i + 1) : '', COLOR[p.estado] ?? 'bg-sky-600'),
-        title: p.titulo ?? '',
+    // Una marca por LUGAR: las paradas en el mismo punto (dos tickets del
+    // mismo abonado) van juntas, "4·6", en vez de taparse una a la otra.
+    agruparPorLugar(conCoordenadas.map((p, i) => ({ ...p, n: p.n ?? i + 1 }))).forEach((l) => {
+      // El número de la parada en la lista (`n`), no su lugar entre las que
+      // tienen ubicación: si la 3 no tiene, el mapa salta del 2 al 4 en vez de
+      // renumerar y no coincidir con la lista.
+      L.marker([l.lat, l.lng], {
+        icon: marcador(conRuta ? l.numeros.join('·') : '', COLOR[l.puntos[0].estado] ?? 'bg-sky-600'),
+        title: l.puntos.map((p) => p.titulo).filter(Boolean).join(' / '),
       }).addTo(capa)
     })
 

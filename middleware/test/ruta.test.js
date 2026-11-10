@@ -272,3 +272,17 @@ test('trabajosCercanos: los de la zona, del más cercano al más lejano, sin el 
   assert.ok(r[0].metros < 300)
   assert.deepEqual(trabajosCercanos({ latitud: '', longitud: '' }, lista), [], 'sin ubicación no busca')
 })
+
+import { agruparPorLugar } from '../../web/src/lib/ruta.js'
+
+test('agruparPorLugar: dos tickets del mismo abonado son una sola marca "4·6"', () => {
+  const l = agruparPorLugar([
+    { n: 3, lat: -0.95, lng: -79.25 },
+    { n: 4, lat: -0.966208, lng: -79.258549 },
+    { n: 5, lat: null, lng: null },
+    { n: 6, lat: '-0.966208', lng: '-79.258549' },
+  ])
+  assert.equal(l.length, 2)
+  assert.deepEqual(l.map((x) => x.numeros), [[3], [4, 6]])
+  assert.equal(l[1].puntos.length, 2)
+})
