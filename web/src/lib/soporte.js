@@ -258,3 +258,31 @@ export function haceCuanto(horas) {
   const d = Math.floor(h / 24)
   return `hace ${d} ${d === 1 ? 'día' : 'días'}`
 }
+
+/**
+ * En qué pestaña de la app del técnico va un ticket.
+ *
+ *   'hoy'       asignado y le toca hoy: con visita hoy o antes, o sin fecha
+ *   'proximos'  asignado para un día que todavía no llega, o esperando que la
+ *               oficina le ponga fecha nueva
+ *   'curso'     en camino o en el sitio
+ *   'cerrados'  resuelto o cancelado
+ *
+ * "Hoy" es la misma regla que arma la ruta del día (`items_de_ruta`, 216): así
+ * el número de la pestaña coincide con el de la tarjeta de la ruta. Antes
+ * "Asignados" mezclaba lo de hoy con lo de la semana y el técnico creía que
+ * tenía todo eso para el día.
+ *
+ * @param hoy  'AAAA-MM-DD' en la hora local
+ */
+export function grupoDeCampo(t, hoy) {
+  if (t.estado === 'en_ruta' || t.estado === 'en_proceso') return 'curso'
+  if (t.estado === 'resuelto' || t.estado === 'cancelado') return 'cerrados'
+  if (t.estado !== 'asignado') return null
+  if (t.fecha_visita) return String(t.fecha_visita).slice(0, 10) <= hoy ? 'hoy' : 'proximos'
+  return t.reprogramar_desde ? 'proximos' : 'hoy'
+}
+
+/** La fecha de hoy en la hora del teléfono, como la guarda la base. */
+export const hoyLocal = (ahora = new Date()) =>
+  `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`

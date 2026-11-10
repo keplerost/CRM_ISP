@@ -33,7 +33,7 @@ import { PlazoTrabajo } from '../../components/soporte/PlazoTrabajo'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
 import { supabase } from '../../lib/supabaseClient'
-import { largoDeRuta } from '../../lib/ruta.js'
+import { MAX_PARADAS_GOOGLE, enlaceRutaGoogle, largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
 import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
@@ -226,7 +226,12 @@ export default function InicioPage() {
 
       {/* ── Fila 3 · Ruta y trabajos recientes ── */}
       <section className="grid gap-3 lg:grid-cols-2">
-        <Ruta ruta={d?.ruta ?? []} atrasadas={d?.atrasadas ?? []} cargando={cargando} />
+        <Ruta
+          ruta={d?.ruta ?? []}
+          atrasadas={d?.atrasadas ?? []}
+          rutaDia={ruta}
+          cargando={cargando}
+        />
         <Recientes filas={d?.recientes ?? []} cargando={cargando} />
       </section>
 
@@ -635,15 +640,39 @@ const PASO_RUTA = {
   cancelada: { label: 'Cancelada', chip: 'campo-tenue campo-borde border' },
 }
 
-function Ruta({ ruta, atrasadas, cargando }) {
-  if (cargando && !ruta.length) return <Hueco alto="h-48" />
-  const lista = [...ruta, ...atrasadas]
+/**
+ * Un trabajo de la ruta del día (216) en la forma de esta tarjeta.
+ *
+ * La ruta trae tickets e instalaciones mezclados, con estados distintos; acá se
+ * traducen a los pasos de la tarjeta.
+ */
+const PASO_DE_RUTA = { asignado: 'agendada', en_ruta: 'en_ruta', en_proceso: 'en_curso', en_curso: 'en_curso' }
+const deRutaDia = (i) => ({
+  ...i,
+  estado: PASO_DE_RUTA[i.estado] ?? 'agendada',
+  enlace: i.tipo === 'ticket' ? `/campo/soporte/${i.id}` : `/instalaciones/${i.id}/alta`,
+  sub:
+    i.tipo === 'ticket'
+      ? `Ticket #${i.numero} · ${etiquetaIncidencia(i.detalle)}`
+      : `Instalación${i.numero ? ` #${i.numero}` : ''}`,
+})
+
+function Ruta({ ruta, atrasadas, rutaDia, cargando }) {
+  /*
+   * Con la ruta del día (216), la tarjeta usa ESA: tickets e instalaciones, en
+   * el orden en que se van a hacer. Antes miraba solo instalaciones, y un
+   * técnico con dieciséis tickets veía "Sin paradas para hoy" y ningún mapa.
+   */
+  const deLaRuta = Boolean(rutaDia)
+  const lista = deLaRuta ? (rutaDia.items ?? []).map(deRutaDia) : [...ruta, ...atrasadas]
+  if (cargando && !lista.length) return <Hueco alto="h-48" />
+  const google = enlaceRutaGoogle(lista)
 
   return (
     <Panel>
       <div className="mb-2 flex items-baseline justify-between">
         <Titulo>Mi ruta de hoy</Titulo>
-        <Link to="/campo/ordenes" className="text-[12px] text-sky-500">
+        <Link to={deLaRuta ? '/campo/soporte' : '/campo/ordenes'} className="text-[12px] text-sky-500">
           Ver todas
         </Link>
       </div>
@@ -653,6 +682,25 @@ function Ruta({ ruta, atrasadas, cargando }) {
       ) : (
         <div className="space-y-2">
           <LargoDeRuta lista={lista} />
+
+          {/* La ruta por calles la traza Google: sabe del tráfico y de las
+              calles cerradas, y el técnico ya lo usa para manejar. */}
+          {google && (
+            <a
+              href={google.url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 py-2.5 text-[13px] font-semibold text-white active:bg-sky-700"
+            >
+              <Navigation size={15} /> Ver la ruta en Google Maps
+            </a>
+          )}
+          {google && google.total > google.incluidas && (
+            <p className="campo-tenue text-[11px] leading-snug">
+              Google traza hasta {MAX_PARADAS_GOOGLE} paradas por vez: el enlace lleva las primeras{' '}
+              {google.incluidas} de {google.total}. Al terminarlas, volvé a tocarlo.
+            </p>
+          )}
 
           {/* Las paradas numeradas y unidas en el orden en que se recorren. No
               es la ruta por calles —para eso está el botón que abre el
@@ -673,7 +721,7 @@ function Ruta({ ruta, atrasadas, cargando }) {
             return (
               <Link
                 key={o.id}
-                to={`/instalaciones/${o.id}/alta`}
+                to={o.enlace ?? `/instalaciones/${o.id}/alta`}
                 className="campo-borde flex items-center gap-3 rounded-xl border p-2.5"
               >
                 <span
@@ -695,6 +743,7 @@ function Ruta({ ruta, atrasadas, cargando }) {
                     {o.cliente ?? o.nombre}
                   </span>
                   <span className="campo-tenue block truncate text-[11px]">
+                    {o.sub ? `${o.sub} · ` : ''}
                     {o.sector ?? o.direccion ?? ''}
                   </span>
                 </span>

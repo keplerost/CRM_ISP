@@ -212,3 +212,28 @@ test('coordenadas pegadas: como MikroWISP, con espacio o desde Google Maps', asy
   assert.equal(coordenadasDeTexto('-0.815962'), null)
   assert.equal(coordenadasDeTexto('Av. Principal 123'), null)
 })
+
+import { MAX_PARADAS_GOOGLE, enlaceRutaGoogle } from '../../web/src/lib/ruta.js'
+
+test('enlaceRutaGoogle: las paradas en orden, la última como destino', () => {
+  const r = enlaceRutaGoogle([
+    { latitud: -0.94, longitud: -79.23 },
+    { latitud: null, longitud: null }, // sin ubicación: se salta
+    { latitud: -0.95, longitud: -79.24 },
+    { latitud: -0.96, longitud: -79.25 },
+  ])
+  assert.equal(r.incluidas, 3)
+  assert.equal(r.total, 3)
+  assert.match(r.url, /destination=-0\.96,-79\.25/)
+  assert.match(r.url, new RegExp(`waypoints=${encodeURIComponent('-0.94,-79.23|-0.95,-79.24')}`))
+  assert.doesNotMatch(r.url, /origin=/, 'arranca desde donde está el teléfono')
+})
+
+test('enlaceRutaGoogle: con más de las que acepta Google, el primer tramo', () => {
+  const muchas = Array.from({ length: 16 }, (_, i) => ({ latitud: -0.9 - i / 100, longitud: -79.2 }))
+  const r = enlaceRutaGoogle(muchas)
+  assert.equal(r.incluidas, MAX_PARADAS_GOOGLE)
+  assert.equal(r.total, 16)
+  assert.equal(enlaceRutaGoogle([{ latitud: null, longitud: null }]), null)
+  assert.equal(enlaceRutaGoogle([{ latitud: '', longitud: '' }]), null)
+})

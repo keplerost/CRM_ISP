@@ -240,3 +240,31 @@ export function coordenadasDeTexto(texto) {
   if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return null
   return { lat: m[1], lng: m[2] }
 }
+
+/** Cuántas paradas acepta un enlace de Google Maps: destino + 9 intermedias. */
+export const MAX_PARADAS_GOOGLE = 10
+
+/**
+ * La ruta del día trazada por calles, en Google Maps.
+ *
+ * Sin origen: Google arranca desde donde está el teléfono, que es lo que el
+ * técnico quiere. Las paradas van en el orden de la ruta, y solo las que tienen
+ * coordenadas. Google no acepta más de nueve intermedias en un enlace, así que
+ * con más se traza el primer tramo y la pantalla lo dice.
+ *
+ * @param paradas  [{ latitud, longitud }] en el orden de visita
+ * @returns { url, incluidas, total } o null si ninguna tiene ubicación
+ */
+export function enlaceRutaGoogle(paradas = []) {
+  // Un campo vacío no es el punto 0,0 en el medio del océano.
+  const valido = (v) => v != null && v !== '' && Number.isFinite(Number(v))
+  const ubicadas = paradas.filter((p) => valido(p?.latitud) && valido(p?.longitud))
+  if (!ubicadas.length) return null
+  const tramo = ubicadas.slice(0, MAX_PARADAS_GOOGLE)
+  const punto = (p) => `${Number(p.latitud)},${Number(p.longitud)}`
+  const destino = tramo[tramo.length - 1]
+  const intermedias = tramo.slice(0, -1)
+  let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${punto(destino)}`
+  if (intermedias.length) url += `&waypoints=${encodeURIComponent(intermedias.map(punto).join('|'))}`
+  return { url, incluidas: tramo.length, total: ubicadas.length }
+}

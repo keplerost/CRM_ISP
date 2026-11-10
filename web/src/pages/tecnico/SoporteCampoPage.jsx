@@ -2,7 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, MapPin, Navigation, Ticket } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
-import { ESTADOS, PRIORIDADES, enlaceMapa, etiquetaIncidencia } from '../../lib/soporte'
+import {
+  ESTADOS,
+  PRIORIDADES,
+  enlaceMapa,
+  etiquetaIncidencia,
+  grupoDeCampo,
+  hoyLocal,
+} from '../../lib/soporte'
 import { PlazoTrabajo } from '../../components/soporte/PlazoTrabajo'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { conCache } from '../../lib/cacheLocal'
@@ -40,24 +47,27 @@ import { usePermisos } from '../../lib/AuthContext'
  */
 const GRUPOS = [
   {
-    clave: 'asignados',
-    label: 'Asignados',
-    ayuda: 'Te los asignaron y todavía no saliste.',
-    estados: ['asignado'],
-    tono: 'text-sky-300',
-  },
-  {
     clave: 'curso',
     label: 'En curso',
     ayuda: 'Ya saliste o estás trabajando en el lugar.',
-    estados: ['en_ruta', 'en_proceso'],
     tono: 'text-amber-300',
+  },
+  {
+    clave: 'hoy',
+    label: 'Para hoy',
+    ayuda: 'Te tocan hoy: con visita para hoy, atrasados o sin fecha. Son los mismos de la ruta de hoy.',
+    tono: 'text-sky-300',
+  },
+  {
+    clave: 'proximos',
+    label: 'Próximos días',
+    ayuda: 'Ya asignados, con visita para otro día. No son para hoy: van a aparecer en la ruta el día que toquen.',
+    tono: 'text-violet-300',
   },
   {
     clave: 'cerrados',
     label: 'Cerrados',
     ayuda: 'Resueltos y cancelados.',
-    estados: ['resuelto', 'cancelado'],
     tono: 'text-emerald-300',
   },
 ]
@@ -101,8 +111,13 @@ export default function SoporteCampoPage() {
     recargar()
   }, [recargar])
 
+  const hoy = hoyLocal()
   const porGrupo = Object.fromEntries(
-    GRUPOS.map((g) => [g.clave, tickets.filter((t) => g.estados.includes(t.estado))]),
+    GRUPOS.map((g) => [g.clave, tickets.filter((t) => grupoDeCampo(t, hoy) === g.clave)]),
+  )
+  // Los próximos, por fecha: lo de mañana arriba.
+  porGrupo.proximos?.sort((a, b) =>
+    String(a.fecha_visita ?? '9999').localeCompare(String(b.fecha_visita ?? '9999')),
   )
 
   /**
@@ -120,7 +135,7 @@ export default function SoporteCampoPage() {
    * opina.
    */
   const activa =
-    tab ?? GRUPOS.find((g) => porGrupo[g.clave]?.length)?.clave ?? 'asignados'
+    tab ?? GRUPOS.find((g) => porGrupo[g.clave]?.length)?.clave ?? 'hoy'
   const grupo = GRUPOS.find((g) => g.clave === activa)
   const lista = porGrupo[activa] ?? []
 
@@ -160,7 +175,7 @@ export default function SoporteCampoPage() {
           {deCache < 60 ? `${deCache} min` : `${Math.floor(deCache / 60)} h`}.
         </div>
       )}
-      {/* Las tres pestañas. Con el número al lado: sin él hay que entrar a cada
+      {/* Las pestañas, con el número al lado: sin él hay que entrar a cada
           una para saber si tiene algo, que en un celular son tres toques para
           responder una pregunta que se contesta mirando. */}
       <div className="flex gap-1.5">
@@ -204,9 +219,11 @@ export default function SoporteCampoPage() {
         <div className="py-12 text-center">
           <Ticket size={24} className="mx-auto mb-2 text-slate-700" />
           <p className="text-[13px] text-slate-500">
-            {activa === 'asignados'
-              ? 'No tenés trabajos esperando.'
-              : activa === 'curso'
+            {activa === 'hoy'
+              ? 'No tenés trabajos para hoy.'
+              : activa === 'proximos'
+                ? 'No tenés trabajos programados para otros días.'
+                : activa === 'curso'
                 ? 'No tenés nada empezado.'
                 : 'Todavía no cerraste ninguno.'}
           </p>
@@ -221,6 +238,14 @@ export default function SoporteCampoPage() {
     </div>
   )
 }
+
+/** "mié 12 nov": el día de la semana es lo que el técnico mira para planear. */
+const fechaCorta = (f) =>
+  new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString('es-EC', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
 
 function Tarjeta({ t }) {
   const cerrado = ['resuelto', 'cancelado'].includes(t.estado)
@@ -241,7 +266,15 @@ function Tarjeta({ t }) {
           <p className="text-[11px] text-slate-600">
             #{t.numero}
             {est ? ` · ${est.label}` : ''}
+            {/* De quién es: el técnico creía que todo lo de la lista era
+                solo para él, y la mitad era de la cuadrilla. */}
+            {!t.tecnico_id && t.cuadrilla_id ? ' · de tu cuadrilla' : ''}
           </p>
+          {!cerrado && t.fecha_visita && String(t.fecha_visita).slice(0, 10) > hoyLocal() && (
+            <p className="text-[11px] font-medium text-violet-400">
+              Visita el {fechaCorta(t.fecha_visita)}
+            </p>
+          )}
           <PlazoTrabajo trabajo={t} clase="ticket" className="mt-1.5" />
         </div>
         {!cerrado && t.prioridad && (
