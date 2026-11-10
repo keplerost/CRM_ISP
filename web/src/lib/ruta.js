@@ -244,9 +244,18 @@ export function ordenarRutaAutomatica(items, { vence = () => null, desde = null,
   const enCurso = lista.filter((i) => i.en_curso)
   const resto = lista.filter((i) => !i.en_curso)
 
+  /*
+   * Urgente es lo que vence, o lo de prioridad alta que se puede hacer YA.
+   *
+   * Una prioridad alta "para la tarde" no pasa adelante de la mañana: el
+   * abonado dijo que recién a la tarde está en casa, y mandar a la cuadrilla a
+   * las nueve es un viaje perdido. Pasó con el N° 47 (Diana Vallejo, "visitar
+   * después del medio día"): salía en el puesto 1 a las 9 y media. Va primera
+   * DENTRO de la tarde (`altaPrimero`).
+   */
   const urgente = (i) => {
     if (i.hora) return false // la hora acordada manda; se queda en su franja
-    if (i.prioridad === 'alta') return true
+    if (i.prioridad === 'alta' && i.franja !== 'tarde') return true
     const v = vence(i)
     return Boolean(v) && new Date(v) - ahora <= URGENCIA_MIN * 60000
   }
@@ -273,8 +282,12 @@ export function ordenarRutaAutomatica(items, { vence = () => null, desde = null,
     return GRUPO_FRANJA[i.franja] ?? 1
   }
   const grupos = [0, 1, 2].map((g) => normales.filter((i) => grupoDe(i) === g))
+  // En la tarde, lo de prioridad alta va primero: es lo primero que se hace
+  // apenas el abonado está.
+  const altaPrimero = (g) => [g.filter((i) => i.prioridad === 'alta'), g.filter((i) => i.prioridad !== 'alta')]
+  const tramosDeGrupo = [grupos[0], grupos[1], ...altaPrimero(grupos[2])]
 
-  for (const grupo of [urgentes, ...grupos]) {
+  for (const grupo of [urgentes, ...tramosDeGrupo]) {
     if (!grupo.length) continue
     const ordenado = ordenarPorCercania(grupo, { desde: salida })
     tramos.push(...ordenado)

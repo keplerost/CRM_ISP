@@ -220,6 +220,21 @@ test('lo que está en curso sigue primero, aun con una cita temprana', () => {
   assert.deepEqual(r.map((i) => i.id), ['curso', 'cita', 'libre'])
 })
 
+test('prioridad alta para la tarde no pasa adelante de la mañana: va primera en la tarde', () => {
+  // El caso del N° 47: alta, "visitar después del medio día", salía primera a las 9.
+  const r = ordenarRutaAutomatica(
+    [
+      Q('m1', 0.01, { franja: 'manana' }),
+      Q('t1', 0.002, { franja: 'tarde' }),
+      Q('alta_tarde', 0.05, { franja: 'tarde', prioridad: 'alta' }),
+      Q('m2', 0.02, { franja: 'manana' }),
+    ],
+    { desde: { lat: 0, lng: -79.3 }, ahora: AHORA_R },
+  )
+  assert.deepEqual(r.map((i) => i.id).slice(2), ['alta_tarde', 't1'])
+  assert.deepEqual(new Set(r.slice(0, 2).map((i) => i.id)), new Set(['m1', 'm2']))
+})
+
 test('una cita "exacta" de la tarde va con la tarde, no con la mañana', () => {
   const r = ordenarRutaAutomatica(
     [Q('cita', 0.001, { franja: 'exacta', hora: '16:00' }), Q('m1', 0.01, { franja: 'manana' }), Q('m2', 0.02, { franja: 'manana' })],
