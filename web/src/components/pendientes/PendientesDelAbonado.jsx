@@ -53,7 +53,7 @@ export default function PendientesDelAbonado({ abonado, cliente = null, conAgreg
       {suyos.length > 0 ? (
         <>
           <p className="mt-0.5 text-[11px] text-slate-500">
-            Si podés resolverlo en esta visita, tildalo: queda registrado quién y cuándo.
+            Si podés resolverlo en esta visita, abrilo y marcalo como realizado: queda registrado quién y cuándo.
           </p>
           <ListaPendientes pendientes={suyos} usuarios={usuarios} onCambio={recargar} onError={onError} compacto />
         </>
