@@ -35,7 +35,7 @@ import {
  * sabe dónde empezó.
  */
 
-const VACIO = { nombre: '', placa: '', tecnico_id: '', notas: '', activo: true }
+const VACIO = { nombre: '', placa: '', tecnico_id: '', notas: '', activo: true, sin_odometro: false }
 
 export default function VehiculosPage() {
   const [vehiculos, setVehiculos] = useState([])
@@ -45,14 +45,18 @@ export default function VehiculosPage() {
   const [error, setError] = useState(null)
   const [editando, setEditando] = useState(null)
   const [guardando, setGuardando] = useState(false)
+  // Los que no marcan km (la moto): migración 231. Sin ella, `null`.
+  const [sinOdometro, setSinOdometro] = useState(null)
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const [v, t, c] = await Promise.all([
+    const [v, t, c, s] = await Promise.all([
       supabase.from('v_vehiculos').select('*').order('nombre'),
       supabase.from('tecnicos').select('id,nombre').eq('activo', true).order('nombre'),
       supabase.from('v_combustible').select('*').order('fecha', { ascending: false }).limit(20),
+      supabase.from('vehiculos_sin_odometro').select('vehiculo_id'),
     ])
+    setSinOdometro(s.error ? null : new Set((s.data ?? []).map((x) => x.vehiculo_id)))
     setError(v.error ?? null)
     setVehiculos(v.data ?? [])
     setTecnicos(t.data ?? [])
@@ -70,15 +74,26 @@ export default function VehiculosPage() {
     try {
       const fila = {
         nombre: editando.nombre.trim(),
-        placa: editando.placa.trim() || null,
+        placa: (editando.placa ?? '').trim() || null,
         tecnico_id: editando.tecnico_id || null,
         notas: editando.notas?.trim() || null,
         activo: editando.activo,
       }
-      const { error: err } = editando.id
-        ? await supabase.from('vehiculos').update(fila).eq('id', editando.id)
-        : await supabase.from('vehiculos').insert(fila)
+      const { data: guardado, error: err } = editando.id
+        ? await supabase.from('vehiculos').update(fila).eq('id', editando.id).select('id').single()
+        : await supabase.from('vehiculos').insert(fila).select('id').single()
       if (err) throw err
+      // Si marca km o no (231).
+      if (sinOdometro && guardado?.id) {
+        const tenia = sinOdometro.has(guardado.id)
+        if (editando.sin_odometro && !tenia) {
+          const { error: e2 } = await supabase.from('vehiculos_sin_odometro').insert({ vehiculo_id: guardado.id })
+          if (e2) throw e2
+        } else if (!editando.sin_odometro && tenia) {
+          const { error: e2 } = await supabase.from('vehiculos_sin_odometro').delete().eq('vehiculo_id', guardado.id)
+          if (e2) throw e2
+        }
+      }
       setEditando(null)
       await recargar()
     } catch (err) {
@@ -127,6 +142,7 @@ export default function VehiculosPage() {
                     <div>
                       <p className="font-medium text-slate-100">{v.nombre}</p>
                       {v.placa && <p className="text-[11px] text-slate-500">{v.placa}</p>}
+                      {sinOdometro?.has(v.id) && <p className="text-[11px] text-amber-400">no marca km</p>}
                     </div>
                   </div>
                 </td>
@@ -168,7 +184,7 @@ export default function VehiculosPage() {
                 </td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex justify-end gap-1">
-                    <Button variante="fantasma" onClick={() => setEditando({ ...v })} title="Editar">
+                    <Button variante="fantasma" onClick={() => setEditando({ ...v, sin_odometro: Boolean(sinOdometro?.has(v.id)) })} title="Editar">
                       <Pencil size={15} />
                     </Button>
                     <Button
@@ -273,6 +289,22 @@ export default function VehiculosPage() {
                 ))}
               </Select>
             </Field>
+            {sinOdometro && (
+              <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editando.sin_odometro)}
+                  onChange={(e) => setEditando({ ...editando, sin_odometro: e.target.checked })}
+                  className="mt-1 accent-sky-500"
+                />
+                <span>
+                  El tablero no marca los kilómetros
+                  <span className="block text-[11px] text-slate-500">
+                    Como la moto: al salir se registra con qué vehículo, sin pedir km.
+                  </span>
+                </span>
+              </label>
+            )}
             <Field label="Notas">
               <Input
                 value={editando.notas ?? ''}

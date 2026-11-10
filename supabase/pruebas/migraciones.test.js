@@ -5543,3 +5543,39 @@ test('las ausencias: quién las carga, el día que cuentan y el "No vayas" que n
   await sesion(db, null)
   await db.exec(sql)
 })
+
+/** Migración 231: el integrante que sale por su cuenta, y la moto sin odómetro. */
+test('el que sale por su cuenta registra su vehículo; el que va en la camioneta, no', async () => {
+  await sesion(db, null)
+  const LIDER = 'b2310000-0000-0000-0000-000000000001'
+  const BYRON = 'b2310000-0000-0000-0000-000000000002'
+  const DAVID = 'b2310000-0000-0000-0000-000000000003'
+  const CU = 'd2310000-0000-0000-0000-000000000001'
+  const MOTO = 'f2310000-0000-0000-0000-000000000001'
+
+  await db.exec(`
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${LIDER}', 'Lider 231', true), ('${BYRON}', 'Byron 231', true), ('${DAVID}', 'David 231', true);
+      INSERT INTO cuadrillas (id, nombre) VALUES ('${CU}', 'C231');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES
+        ('${CU}', '${LIDER}', 'lider'), ('${CU}', '${BYRON}', 'tecnico'), ('${CU}', '${DAVID}', 'tecnico');
+  `)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-231-el-que-sale-por-su-cuenta.sql'), 'utf8')
+  await db.exec(sql)
+  await db.exec(`INSERT INTO vehiculos (id, nombre) VALUES ('${MOTO}', 'Moto');
+                 INSERT INTO vehiculos_sin_odometro (vehiculo_id) VALUES ('${MOTO}')`)
+
+  // El que va en la camioneta no carga vehículo: lo hace el jefe.
+  await assert.rejects(
+    db.query(`INSERT INTO jornadas (tecnico_id, fecha, vehiculo_id) VALUES ('${DAVID}', CURRENT_DATE, '${MOTO}')`),
+    /los registra el jefe de grupo.*salís por tu cuenta/,
+  )
+
+  // El que sale por su cuenta, sí, y sin km si la moto no los marca.
+  const j = await fila(db, `INSERT INTO jornadas (tecnico_id, fecha, vehiculo_id, separado, inicio_at)
+                            VALUES ('${BYRON}', CURRENT_DATE, '${MOTO}', true, NOW())
+                            RETURNING vehiculo_id, km_inicio, separado`)
+  assert.deepEqual([j.vehiculo_id, j.km_inicio, j.separado], [MOTO, null, true])
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM vehiculos_sin_odometro`)).n, 1)
+
+  await db.exec(sql)
+})

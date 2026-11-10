@@ -63,17 +63,30 @@ export default function JornadaPage() {
    * definido, todo sigue como antes. `null` también si la 208 no corrió.
    */
   const [cuadrilla, setCuadrilla] = useState(null)
-  const cargaKm = !cuadrilla || cuadrilla.sin_jefe || cuadrilla.soy_jefe
+  /*
+   * "Hoy salgo por mi cuenta" (migración 231): el integrante que sale aparte
+   * —Byron en la moto— registra SU vehículo, aunque la cuadrilla tenga jefe.
+   */
+  const [salgoSolo, setSalgoSolo] = useState(false)
+  const separado = Boolean(jornada?.separado) || salgoSolo
+  const cargaKm = !cuadrilla || cuadrilla.sin_jefe || cuadrilla.soy_jefe || separado
+  /** Los vehículos cuyo tablero no marca km, como la moto (231). */
+  const [sinOdometro, setSinOdometro] = useState(new Set())
+  // Con el vehículo elegido sin odómetro, no se piden km: no hay número que leer.
+  const marcaKm = !form.vehiculo_id || !sinOdometro.has(form.vehiculo_id)
+  const faltaSalida = !form.vehiculo_id || (marcaKm && form.km_inicio === '')
 
   /**
    * El vehículo con el que sale (migración 211): el de su cuadrilla, y si
    * trabaja suelto, el que tiene asignado en Vehículos. Viene puesto; elegir
    * otro queda para el día que se presta o está en el taller.
    */
-  const vehiculoFijo =
-    vehiculos.find((v) => v.id === cuadrilla?.vehiculo_id) ??
-    vehiculos.find((v) => v.tecnico_id && v.tecnico_id === perfil?.tecnico_id) ??
-    null
+  // El que sale por su cuenta elige: la camioneta de la cuadrilla no es la suya hoy.
+  const vehiculoFijo = separado
+    ? null
+    : (vehiculos.find((v) => v.id === cuadrilla?.vehiculo_id) ??
+      vehiculos.find((v) => v.tecnico_id && v.tecnico_id === perfil?.tecnico_id) ??
+      null)
   const [otroVehiculo, setOtroVehiculo] = useState(false)
   // "Marcar ingreso ahora", para el día sin clientes (bodega, capacitación).
   const [ingresoAhora, setIngresoAhora] = useState(false)
@@ -104,6 +117,10 @@ export default function JornadaPage() {
       setCargando(false)
       return
     }
+    supabase
+      .from('vehiculos_sin_odometro')
+      .select('vehiculo_id')
+      .then(({ data, error: e }) => setSinOdometro(new Set(e ? [] : (data ?? []).map((x) => x.vehiculo_id))))
     const [v, j, c] = await Promise.all([
       supabase.from('vehiculos').select('*').eq('activo', true).order('nombre'),
       supabase
@@ -115,7 +132,13 @@ export default function JornadaPage() {
       supabase.rpc('mi_cuadrilla_hoy', { p_fecha: hoyISO() }),
     ])
     setVehiculos(v.data ?? [])
-    setJornada(j.data ?? null)
+    // `separado` (231) no está en la vista: se lee de la tabla.
+    let sep = false
+    if (j.data?.id) {
+      const { data: x } = await supabase.from('jornadas').select('separado').eq('id', j.data.id).maybeSingle()
+      sep = Boolean(x?.separado)
+    }
+    setJornada(j.data ? { ...j.data, separado: sep } : null)
     setCuadrilla(c.error ? null : (c.data ?? null))
     if (j.data) {
       setForm({
@@ -159,7 +182,7 @@ export default function JornadaPage() {
   }, [recargar])
 
   async function abrir() {
-    if (cargaKm && (!form.vehiculo_id || form.km_inicio === '')) return
+    if (cargaKm && faltaSalida) return
     setGuardando(true)
     setError(null)
     try {
@@ -184,7 +207,8 @@ export default function JornadaPage() {
           // Quien no es jefe de grupo marca solo su ingreso: la base rechaza
           // vehículo y km que no le corresponden.
           vehiculo_id: cargaKm ? form.vehiculo_id : null,
-          km_inicio: cargaKm ? Number(form.km_inicio) : null,
+          km_inicio: cargaKm && marcaKm ? Number(form.km_inicio) : null,
+          ...(separado ? { separado: true } : {}),
           inicio_at: new Date().toISOString(),
           lat_ingreso: donde.lat,
           lng_ingreso: donde.lng,
@@ -234,7 +258,7 @@ export default function JornadaPage() {
    * `inicio_at` vacío hasta entonces.
    */
   async function registrarSalida() {
-    if (!form.vehiculo_id || form.km_inicio === '') return
+    if (faltaSalida) return
     setGuardando(true)
     setError(null)
     const { error: err } = await supabase.from('jornadas').upsert(
@@ -242,7 +266,8 @@ export default function JornadaPage() {
         tecnico_id: perfil.tecnico_id,
         fecha: hoyISO(),
         vehiculo_id: form.vehiculo_id,
-        km_inicio: Number(form.km_inicio),
+        km_inicio: marcaKm ? Number(form.km_inicio) : null,
+        ...(separado ? { separado: true } : {}),
       },
       { onConflict: 'tecnico_id,fecha' },
     )
@@ -352,7 +377,7 @@ export default function JornadaPage() {
             className="w-full py-3"
             onClick={abrir}
             cargando={guardando}
-            disabled={guardando || (cargaKm && (!form.vehiculo_id || form.km_inicio === ''))}
+            disabled={guardando || (cargaKm && faltaSalida)}
           >
             Marcar ingreso ahora
           </Button>
@@ -416,10 +441,28 @@ export default function JornadaPage() {
               El vehículo y los km los registra el jefe de grupo
               {cuadrilla?.jefe ? ` (${cuadrilla.jefe})` : ''} al salir de la base.
             </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSalgoSolo(true)
+                setForm((f) => ({ ...f, vehiculo_id: '', km_inicio: '' }))
+              }}
+              className="w-full rounded-xl border border-slate-700 py-2.5 text-[13px] text-slate-300 active:bg-slate-800"
+            >
+              Hoy salgo por mi cuenta (moto u otro vehículo)
+            </button>
             {marcarIngresoAhora}
           </div>
-        ) : !jornada?.inicio_at && jornada?.km_inicio == null ? (
+        ) : !jornada?.inicio_at && !jornada?.vehiculo_id ? (
           <div className="space-y-3">
+            {salgoSolo && (
+              <p className="flex items-center justify-between gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 p-3 text-[12px] text-violet-200">
+                Hoy salís por tu cuenta: registrá con qué vehículo.
+                <button type="button" onClick={() => setSalgoSolo(false)} className="shrink-0 text-[11px] text-sky-400">
+                  Voy con la cuadrilla
+                </button>
+              </p>
+            )}
             {vehiculoFijo && !otroVehiculo && form.vehiculo_id === vehiculoFijo.id ? (
               <div className="flex items-center justify-between gap-2 t-panel px-3 py-2.5">
                 <span className="text-[13px] text-slate-200">
@@ -453,22 +496,28 @@ export default function JornadaPage() {
               </Select>
             </Field>
             )}
-            <Field label="Kilometraje al salir" hint="El número del tablero, tal cual.">
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={form.km_inicio}
-                onChange={(e) => setForm({ ...form, km_inicio: e.target.value })}
-                placeholder="Ej: 84520"
-              />
-            </Field>
+            {marcaKm ? (
+              <Field label="Kilometraje al salir" hint="El número del tablero, tal cual.">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={form.km_inicio}
+                  onChange={(e) => setForm({ ...form, km_inicio: e.target.value })}
+                  placeholder="Ej: 84520"
+                />
+              </Field>
+            ) : (
+              <p className="text-[12px] text-slate-500">
+                Este vehículo no marca kilómetros: se registra solo con qué saliste.
+              </p>
+            )}
             <Button
               variante="primario"
               icon={Route}
               className="w-full py-3"
               onClick={registrarSalida}
               cargando={guardando}
-              disabled={!form.vehiculo_id || form.km_inicio === '' || guardando}
+              disabled={faltaSalida || guardando}
             >
               Registrar salida del vehículo
             </Button>
@@ -477,9 +526,17 @@ export default function JornadaPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {jornada.km_inicio == null ? (
+            {jornada.km_inicio == null && !jornada.inicio_at ? (
+              <div className="space-y-2">
+                <p className="text-center text-[13px] text-slate-300">
+                  Saliste en {jornada.vehiculo ?? 'tu vehículo'}
+                  {jornada.placa ? ` · ${jornada.placa}` : ''}
+                </p>
+                {avisoPrimerCliente}
+              </div>
+            ) : jornada.km_inicio == null ? (
               <p className="text-center text-[13px] text-slate-300">
-                Ingreso marcado a las{' '}
+                {jornada.vehiculo ? `${jornada.vehiculo} · ` : ''}Ingreso marcado a las{' '}
                 {new Date(jornada.inicio_at).toLocaleTimeString('es-EC', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -545,7 +602,7 @@ export default function JornadaPage() {
             )}
 
             {jornada.km_inicio == null ? (
-              !jornada.fin_at && (
+              !jornada.fin_at && jornada.inicio_at && (
                 <Button
                   icon={StopCircle}
                   className="w-full py-3"
