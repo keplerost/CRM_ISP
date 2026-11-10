@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, ListOrdered, PhoneCall, PhoneOff, Route, Wand2 } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, ListOrdered, PhoneOff, Route, Wand2 } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { etiquetaIncidencia } from '../../lib/soporte'
@@ -10,7 +10,7 @@ import { duracion } from '../../lib/alertas'
 import { Badge, Button, Card, ErrorBanner, Input, Modal, SkeletonTabla } from '../../components/ui'
 import ConfirmarVisita from '../../components/soporte/ConfirmarVisita'
 import { useConfirmaciones } from '../../components/soporte/useConfirmaciones'
-import { diaAnterior, etiquetaLlamada, horaCorta, ordenParaLlamar } from '../../lib/confirmaciones'
+import { diaAnterior, etiquetaLlamada, horaCorta } from '../../lib/confirmaciones'
 
 /**
  * Las rutas del día, para la oficina (migración 216).
@@ -53,12 +53,35 @@ const VIAJE_MAX = 90
 const queEs = (i) =>
   i.tipo === 'ticket' ? `#${i.numero} · ${etiquetaIncidencia(i.detalle)}` : `Instalación${i.numero ? ` #${i.numero}` : ''}`
 
+const manana = () => {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toLocaleDateString('en-CA')
+}
+
+/**
+ * La página: Por reprogramar, y una tarjeta por cuadrilla.
+ *
+ * ── Por qué cada cuadrilla elige su día ──
+ *
+ * La primera versión tenía un solo día para toda la página y, arriba, una
+ * lista "Para confirmar" con todo junto. Con dos cuadrillas y veinte trabajos
+ * cada una era demasiado: la oficina quería mirar TROOPER hoy, MAZDA mañana,
+ * y lo de Byron, sin que lo demás estorbe. Ahora cada tarjeta tiene sus
+ * botones Hoy · Mañana · fecha y su filtro por integrante, y lo que hay que
+ * llamar se ve adentro, con "Sin confirmar".
+ *
+ * Los técnicos que no integran ninguna cuadrilla van al final, plegados.
+ */
 export default function RutasPage() {
-  const [fecha, setFecha] = useState(hoyLocal)
-  const [rutas, setRutas] = useState(null)
+  // Las rutas de cada fecha que alguna tarjeta está mirando: fecha → [rutas].
+  const [porFecha, setPorFecha] = useState(new Map())
+  const [cuadrillas, setCuadrillas] = useState(null)
+  const [miembros, setMiembros] = useState([])
   const [porReprogramar, setPorReprogramar] = useState([])
   const [error, setError] = useState(null)
   const [foto, setFoto] = useState(null)
+  const [verSueltos, setVerSueltos] = useState(false)
   /**
    * El vencimiento del plazo de cada pendiente (migración 219), por
    * "tipo:id". Lo usa el orden automático para pasar adelante lo urgente. Si la
@@ -67,31 +90,53 @@ export default function RutasPage() {
   const [vencimientos, setVencimientos] = useState(new Map())
   /** Los nombres de los técnicos, para decir de quién es cada trabajo. */
   const [nombres, setNombres] = useState(new Map())
-  useEffect(() => {
-    supabase
-      .from('tecnicos')
-      .select('id, nombre')
-      .then(({ data }) => setNombres(new Map((data ?? []).map((t) => [t.id, t.nombre]))))
-  }, [])
   /** La última llamada de la oficina a cada ticket postergado (227). */
   const [llamadasReprog, setLlamadasReprog] = useState(new Map())
 
-  // Las llamadas de hoy a los tickets de las rutas: "confirmado 09:15".
-  const idsTickets = (rutas ?? []).flatMap((ru) => (ru.pendientes ?? []).filter((i) => i.tipo === 'ticket').map((i) => i.id))
-  // Para la ruta de un día sirve la llamada de ese día o del anterior: la de
-  // mañana se confirma llamando hoy.
-  const { confirmaciones, recargar: recargarLlamadas } = useConfirmaciones(idsTickets, { desdeDia: diaAnterior(fecha) })
+  useEffect(() => {
+    Promise.all([
+      supabase.from('tecnicos').select('id, nombre'),
+      supabase.from('cuadrillas').select('id, nombre, activo').order('nombre'),
+      supabase.from('cuadrilla_miembros').select('cuadrilla_id, tecnico_id, rol'),
+    ]).then(([t, c, m]) => {
+      setNombres(new Map((t.data ?? []).map((x) => [x.id, x.nombre])))
+      setCuadrillas((c.data ?? []).filter((x) => x.activo !== false))
+      setMiembros(m.data ?? [])
+    })
+  }, [])
 
-  const recargar = useCallback(async () => {
-    setRutas(null)
-    const [r, p] = await Promise.all([
-      supabase.rpc('rutas_del_dia', { p_fecha: fecha }),
-      supabase.from('v_tickets_por_reprogramar').select('*').order('reprogramar_desde'),
-    ])
+  // Las llamadas a los tickets de todo lo cargado: "confirmado 09:15". Desde
+  // ayer: para la ruta de hoy vale la llamada de ayer a la tarde, y para la de
+  // mañana, la de hoy.
+  const todas = [...porFecha.values()].flat()
+  const idsTickets = todas.flatMap((ru) => (ru.pendientes ?? []).filter((i) => i.tipo === 'ticket').map((i) => i.id))
+  const { confirmaciones, recargar: recargarLlamadas } = useConfirmaciones(idsTickets, {
+    desdeDia: diaAnterior(hoyLocal()),
+  })
+
+  /** Trae las rutas de una fecha. Sin `forzar`, no repite una que ya se pidió. */
+  const pedidas = useRef(new Set())
+  const cargarFecha = useCallback(async (f, { forzar = false } = {}) => {
+    if (pedidas.current.has(f) && !forzar) return
+    pedidas.current.add(f)
+    const r = await supabase.rpc('rutas_del_dia', { p_fecha: f })
     if (r.error) setError(r.error)
-    setRutas(r.data ?? [])
-    setPorReprogramar(p.data ?? [])
-    const idsReprog = (p.data ?? []).map((t) => t.id)
+    setPorFecha((m) => new Map(m).set(f, r.data ?? []))
+    const ids = (r.data ?? []).flatMap((ru) => (ru.pendientes ?? []).map((i) => i.id))
+    if (ids.length) {
+      const { data: pl } = await supabase.from('v_plazos_trabajo').select('clase, id, vence_at').in('id', ids)
+      setVencimientos((m) => {
+        const n = new Map(m)
+        for (const x of pl ?? []) n.set(`${x.clase}:${x.id}`, x.vence_at)
+        return n
+      })
+    }
+  }, [])
+
+  const cargarReprogramar = useCallback(async () => {
+    const { data: p } = await supabase.from('v_tickets_por_reprogramar').select('*').order('reprogramar_desde')
+    setPorReprogramar(p ?? [])
+    const idsReprog = (p ?? []).map((t) => t.id)
     if (idsReprog.length) {
       const { data: ll } = await supabase
         .from('confirmaciones_visita')
@@ -103,22 +148,19 @@ export default function RutasPage() {
     } else {
       setLlamadasReprog(new Map())
     }
+  }, [])
 
-    const ids = (r.data ?? []).flatMap((ru) => (ru.pendientes ?? []).map((i) => i.id))
-    if (ids.length) {
-      const { data: pl } = await supabase
-        .from('v_plazos_trabajo')
-        .select('clase, id, vence_at')
-        .in('id', ids)
-      setVencimientos(new Map((pl ?? []).map((x) => [`${x.clase}:${x.id}`, x.vence_at])))
-    } else {
-      setVencimientos(new Map())
-    }
-  }, [fecha])
+  // Lo que se cargó, otra vez: después de guardar un orden, llamar o reprogramar.
+  const recargar = useCallback(async () => {
+    const fechas = [...new Set([hoyLocal(), ...porFecha.keys()])]
+    await Promise.all([...fechas.map((f) => cargarFecha(f, { forzar: true })), cargarReprogramar()])
+  }, [porFecha, cargarFecha, cargarReprogramar])
 
   useEffect(() => {
-    recargar()
-  }, [recargar])
+    cargarFecha(hoyLocal())
+    cargarFecha(manana())
+    cargarReprogramar()
+  }, [cargarFecha, cargarReprogramar])
 
   async function verFoto(ruta) {
     setFoto({ url: null })
@@ -126,50 +168,40 @@ export default function RutasPage() {
     setFoto({ url: data?.signedUrl ?? null })
   }
 
-  const esHoy = fecha === hoyLocal()
-  const manana = (() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    return d.toLocaleDateString('en-CA')
-  })()
-  // Se llama para hoy y para lo que viene; el pasado ya pasó.
-  const llamable = fecha >= hoyLocal()
   const alLlamar = () => {
     recargar()
     recargarLlamadas()
   }
 
+  // Los técnicos sin cuadrilla, solo si hoy tienen algo: Jefferson es de la
+  // oficina y sale a campo a veces; sin trabajos no tiene por qué aparecer.
+  const enCuadrilla = new Set(miembros.map((m) => m.tecnico_id))
+  const sueltos = (porFecha.get(hoyLocal()) ?? []).filter(
+    (r) =>
+      r.clase !== 'cuadrilla' &&
+      !enCuadrilla.has(r.id) &&
+      (r.pendientes?.length || r.hechos?.length || r.no_se_pudo?.length),
+  )
+
+  const comun = {
+    porFecha,
+    cargarFecha,
+    vencimientos,
+    confirmaciones,
+    nombres,
+    onVerFoto: verFoto,
+    onGuardado: recargar,
+    onLlamada: alLlamar,
+    onError: setError,
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="t-titulo text-lg font-bold text-slate-100">Rutas del día</h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Qué hace cada cuadrilla, en qué orden, y qué no se pudo atender
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {[
-            [hoyLocal(), 'Hoy'],
-            [manana, 'Mañana'],
-          ].map(([f, label]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setFecha(f)}
-              className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                fecha === f
-                  ? 'border-sky-500/60 bg-sky-500/15 text-sky-200'
-                  : 'border-slate-700 text-slate-400 hover:border-slate-600'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          <div className="w-44">
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          </div>
-        </div>
+      <div>
+        <h1 className="t-titulo text-lg font-bold text-slate-100">Rutas</h1>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Qué tiene cada cuadrilla, en qué orden, a quién falta confirmar y qué hay que reprogramar
+        </p>
       </div>
 
       <ErrorBanner error={error} onCerrar={() => setError(null)} />
@@ -191,41 +223,37 @@ export default function RutasPage() {
         </Card>
       )}
 
-      {/* La lista de Jessica: a quién hay que llamar, de todas las cuadrillas
-          juntas, en el orden en que se los visita en el día. */}
-      {llamable && rutas?.length > 0 && (
-        <ParaConfirmar
-          rutas={rutas}
-          nombres={nombres}
-          confirmaciones={confirmaciones}
-          esHoy={esHoy}
-          onLlamada={alLlamar}
-          onError={setError}
-        />
-      )}
-
-      {rutas === null ? (
+      {cuadrillas === null ? (
         <SkeletonTabla filas={5} columnas={4} />
-      ) : !rutas.length ? (
-        <Card>
-          <p className="p-6 text-sm text-slate-500">No hay trabajos asignados para esta fecha.</p>
-        </Card>
       ) : (
-        rutas.map((r) => (
-          <RutaCard
-            key={`${r.clase}-${r.id}`}
-            r={r}
-            editable={esHoy}
-            vencimientos={vencimientos}
-            confirmaciones={confirmaciones}
-            nombres={nombres}
-            llamable={llamable}
-            onVerFoto={verFoto}
-            onGuardado={recargar}
-            onLlamada={alLlamar}
-            onError={setError}
+        cuadrillas.map((c) => (
+          <RutaDelGrupo
+            key={c.id}
+            clase="cuadrilla"
+            grupo={c}
+            integrantes={miembros.filter((m) => m.cuadrilla_id === c.id)}
+            {...comun}
           />
         ))
+      )}
+
+      {sueltos.length > 0 && (
+        <section>
+          <button
+            type="button"
+            onClick={() => setVerSueltos((v) => !v)}
+            className="text-xs text-slate-400 hover:text-slate-200"
+          >
+            {verSueltos ? '▾' : '▸'} Técnicos sin cuadrilla con trabajos hoy ({sueltos.length})
+          </button>
+          {verSueltos && (
+            <div className="mt-3 space-y-6">
+              {sueltos.map((r) => (
+                <RutaDelGrupo key={r.id} clase={r.clase} grupo={{ id: r.id, nombre: r.nombre }} integrantes={[]} {...comun} />
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       <Modal abierto={Boolean(foto)} titulo="Foto de la fachada" onCerrar={() => setFoto(null)}>
@@ -239,7 +267,86 @@ export default function RutasPage() {
   )
 }
 
-function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, nombres, onVerFoto, onGuardado, onLlamada, onError }) {
+/**
+ * Una cuadrilla (o un técnico suelto) con SU día: Hoy · Mañana · fecha.
+ * Busca su ruta entre las de esa fecha; si no tiene nada, la tarjeta lo dice.
+ */
+function RutaDelGrupo({ clase, grupo, integrantes, porFecha, cargarFecha, ...resto }) {
+  const [fecha, setFecha] = useState(hoyLocal)
+  const rutas = porFecha.get(fecha)
+
+  useEffect(() => {
+    if (!porFecha.has(fecha)) cargarFecha(fecha)
+  }, [fecha, porFecha, cargarFecha])
+
+  const vacia = useMemo(
+    () => ({ clase, id: grupo.id, nombre: grupo.nombre, jefe: null, pendientes: [], hechos: [], no_se_pudo: [] }),
+    [clase, grupo.id, grupo.nombre],
+  )
+  // Para un día que viene, solo lo agendado ESE día: la base suma lo atrasado
+  // y lo sin fecha, que es de hoy, y en "Mañana" confundía.
+  const r = useMemo(() => {
+    const ru = (rutas ?? []).find((x) => x.clase === clase && x.id === grupo.id)
+    if (!ru) return vacia
+    if (fecha <= hoyLocal()) return ru
+    return { ...ru, pendientes: (ru.pendientes ?? []).filter((i) => String(i.fecha ?? '').slice(0, 10) === fecha) }
+  }, [rutas, clase, grupo.id, fecha, vacia])
+
+  const dias = (
+    <div className="flex flex-wrap items-center gap-2">
+      {[
+        [hoyLocal(), 'Hoy'],
+        [manana(), 'Mañana'],
+      ].map(([f, label]) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => setFecha(f)}
+          className={`rounded-full border px-3 py-1 text-xs transition ${
+            fecha === f
+              ? 'border-sky-500/60 bg-sky-500/15 text-sky-200'
+              : 'border-slate-700 text-slate-400 hover:border-slate-600'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+      <div className="w-40">
+        <Input type="date" value={fecha} onChange={(e) => e.target.value && setFecha(e.target.value)} />
+      </div>
+    </div>
+  )
+
+  return (
+    <RutaCard
+      r={r}
+      fecha={fecha}
+      cargando={rutas === undefined}
+      dias={dias}
+      integrantes={integrantes}
+      editable={fecha === hoyLocal()}
+      llamable={fecha >= hoyLocal()}
+      {...resto}
+    />
+  )
+}
+
+function RutaCard({
+  r,
+  fecha,
+  cargando = false,
+  dias = null,
+  integrantes = [],
+  editable,
+  llamable,
+  vencimientos,
+  confirmaciones,
+  nombres,
+  onVerFoto,
+  onGuardado,
+  onLlamada,
+  onError,
+}) {
   const [orden, setOrden] = useState(r.pendientes)
   const [guardando, setGuardando] = useState(false)
   // Lo que cambió el orden automático, para decirlo al lado del botón.
@@ -258,12 +365,22 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, nombres
    */
   const esCuadrilla = r.clase === 'cuadrilla'
   const [verDe, setVerDe] = useState('todos')
+  const [soloSinConfirmar, setSoloSinConfirmar] = useState(false)
+  // Todos los integrantes, el jefe primero, tengan o no algo a su nombre.
   const personas = esCuadrilla
-    ? [...new Set(orden.map((i) => i.tecnico_id).filter(Boolean))].map((id) => [id, nombres?.get(id) ?? 'Técnico'])
+    ? [
+        ...new Set([
+          ...[...integrantes].sort((a, b) => Number(b.rol === 'lider') - Number(a.rol === 'lider')).map((m) => m.tecnico_id),
+          ...orden.map((i) => i.tecnico_id).filter(Boolean),
+        ]),
+      ].map((id) => [id, nombres?.get(id) ?? 'Técnico'])
     : []
+  const sinConfirmar = (i) => llamable && i.tipo === 'ticket' && !i.llegada_at && !confirmaciones?.get(i.id)
   const pasa = (i) =>
-    verDe === 'todos' || (verDe === 'cuadrilla' ? !i.tecnico_id : i.tecnico_id === verDe || !i.tecnico_id)
-  const filtrando = verDe !== 'todos'
+    (!soloSinConfirmar || sinConfirmar(i)) &&
+    (verDe === 'todos' || (verDe === 'cuadrilla' ? !i.tecnico_id : i.tecnico_id === verDe || !i.tecnico_id))
+  const filtrando = verDe !== 'todos' || soloSinConfirmar
+  const faltanConfirmar = orden.filter(sinConfirmar).length
   const primerNombre = (n) => String(n ?? '').split(' ')[0]
 
   /**
@@ -311,6 +428,8 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, nombres
   return (
     <Card title={titulo} subtitle={`${r.jefe ? `Jefe de grupo: ${r.jefe} · ` : ''}${resumen}`} icon={Route}>
       <div className="space-y-4 p-4 sm:p-6">
+        {dias}
+        {cargando && <p className="text-sm text-slate-500">Cargando…</p>}
         {/* Pendientes, en orden */}
         <section>
           <div className="mb-2 flex items-center justify-between">
@@ -340,16 +459,32 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, nombres
               {cambio ? ' Revisalo y guardalo.' : ' Ya estaba en el mejor orden.'}
             </p>
           )}
-          {personas.length > 0 && (
+          {(personas.length > 0 || faltanConfirmar > 0) && (
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {[
-                ['todos', `Todos (${orden.length})`],
-                ['cuadrilla', `De la cuadrilla (${orden.filter((i) => !i.tecnico_id).length})`],
-                ...personas.map(([id, n]) => [
-                  id,
-                  `${primerNombre(n)} (${orden.filter((i) => i.tecnico_id === id).length} suyos)`,
-                ]),
-              ].map(([v, label]) => (
+              {faltanConfirmar > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSoloSinConfirmar((v) => !v)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                    soloSinConfirmar
+                      ? 'border-amber-500/60 bg-amber-500/15 text-amber-200'
+                      : 'border-amber-500/30 text-amber-300 hover:border-amber-500/60'
+                  }`}
+                >
+                  📞 Sin confirmar ({faltanConfirmar})
+                </button>
+              )}
+              {(personas.length
+                ? [
+                    ['todos', `Todos (${orden.length})`],
+                    ['cuadrilla', `De la cuadrilla (${orden.filter((i) => !i.tecnico_id).length})`],
+                    ...personas.map(([id, n]) => [
+                      id,
+                      `${primerNombre(n)} (${orden.filter((i) => i.tecnico_id === id).length} suyos)`,
+                    ]),
+                  ]
+                : []
+              ).map(([v, label]) => (
                 <button
                   key={v}
                   type="button"
@@ -365,13 +500,13 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, nombres
               ))}
             </div>
           )}
-          {filtrando && verDe !== 'cuadrilla' && (
+          {verDe !== 'todos' && verDe !== 'cuadrilla' && (
             <p className="mb-1 text-[11px] text-slate-500">
               Lo suyo y lo de la cuadrilla, en el orden de la ruta. Para cambiar el orden, volvé a «Todos».
             </p>
           )}
           {!orden.length ? (
-            <p className="text-sm text-slate-500">Nada pendiente.</p>
+            <p className="text-sm text-slate-500">{fecha === hoyLocal() ? 'Nada pendiente.' : 'Nada agendado para ese día.'}</p>
           ) : (
             <ul className="space-y-1">
               {orden.map((i, idx) => !pasa(i) ? null : (
@@ -528,71 +663,6 @@ function Reprogramar({ t, llamada, onVerFoto, onHecho, onError }) {
         Reprogramar
       </Button>
     </li>
-  )
-}
-
-/**
- * A quién hay que llamar: los tickets del día de TODAS las rutas, en el orden
- * del día (citas por hora, mañana, sin franja, tarde), con lo que ya se sabe
- * de cada uno. Por omisión muestra solo los que faltan confirmar.
- */
-function ParaConfirmar({ rutas, nombres, confirmaciones, esHoy, onLlamada, onError }) {
-  const [todos, setTodos] = useState(false)
-  const lista = rutas
-    .flatMap((r) =>
-      (r.pendientes ?? [])
-        .filter((i) => i.tipo === 'ticket' && !i.llegada_at)
-        // A quién avisar: la persona, si es suyo; si no, la cuadrilla.
-        .map((i) => ({
-          ...i,
-          de: i.tecnico_id && nombres?.get(i.tecnico_id)
-            ? nombres.get(i.tecnico_id)
-            : r.clase === 'cuadrilla'
-              ? `Cuadrilla ${r.nombre}`
-              : r.nombre,
-        })),
-    )
-    .sort(ordenParaLlamar)
-  const falta = lista.filter((i) => !confirmaciones?.get(i.id))
-  const visibles = todos ? lista : falta
-  if (!lista.length) return null
-
-  const FRANJA = { manana: 'Mañana', tarde: 'Tarde', exacta: 'Hora fija' }
-  return (
-    <Card
-      title={`Para confirmar ${esHoy ? 'hoy' : 'ese día'} (${falta.length} de ${lista.length})`}
-      icon={PhoneCall}
-      subtitle="Llamá o escribí antes de que vaya la cuadrilla: si no está, se posterga sin que nadie haga el viaje"
-      actions={
-        <button
-          type="button"
-          onClick={() => setTodos((v) => !v)}
-          className="text-xs text-sky-400 hover:text-sky-300"
-        >
-          {todos ? 'Solo los que faltan' : 'Ver todos'}
-        </button>
-      }
-    >
-      {!visibles.length ? (
-        <p className="p-4 text-sm text-emerald-400">Ya están todos confirmados. 🎉</p>
-      ) : (
-        <ul className="divide-y divide-slate-800/60 px-4 sm:px-6">
-          {visibles.map((i) => (
-            <li key={i.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-              <span className="w-16 shrink-0 text-xs tabular-nums text-slate-400">
-                {i.hora ? String(i.hora).slice(0, 5) : FRANJA[i.franja] ?? '—'}
-              </span>
-              <Link to={`/soporte/${i.id}`} className="min-w-0 flex-1 truncate text-slate-200 hover:underline">
-                {i.nombre} <span className="text-xs text-slate-500">#{i.numero} · {i.de}</span>
-              </Link>
-              {i.telefono && <span className="text-xs tabular-nums text-slate-500">{i.telefono}</span>}
-              <Llamada c={confirmaciones?.get(i.id)} />
-              <ConfirmarVisita compacto ticket={i} onHecho={onLlamada} onError={onError} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
   )
 }
 
