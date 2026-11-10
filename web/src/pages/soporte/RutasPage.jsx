@@ -65,6 +65,14 @@ export default function RutasPage() {
    * vista no está, queda vacío y el orden se arma solo por cercanía y franja.
    */
   const [vencimientos, setVencimientos] = useState(new Map())
+  /** Los nombres de los técnicos, para decir de quién es cada trabajo. */
+  const [nombres, setNombres] = useState(new Map())
+  useEffect(() => {
+    supabase
+      .from('tecnicos')
+      .select('id, nombre')
+      .then(({ data }) => setNombres(new Map((data ?? []).map((t) => [t.id, t.nombre]))))
+  }, [])
   /** La última llamada de la oficina a cada ticket postergado (227). */
   const [llamadasReprog, setLlamadasReprog] = useState(new Map())
 
@@ -188,6 +196,7 @@ export default function RutasPage() {
       {llamable && rutas?.length > 0 && (
         <ParaConfirmar
           rutas={rutas}
+          nombres={nombres}
           confirmaciones={confirmaciones}
           esHoy={esHoy}
           onLlamada={alLlamar}
@@ -209,6 +218,7 @@ export default function RutasPage() {
             editable={esHoy}
             vencimientos={vencimientos}
             confirmaciones={confirmaciones}
+            nombres={nombres}
             llamable={llamable}
             onVerFoto={verFoto}
             onGuardado={recargar}
@@ -229,7 +239,7 @@ export default function RutasPage() {
   )
 }
 
-function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, onVerFoto, onGuardado, onLlamada, onError }) {
+function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, nombres, onVerFoto, onGuardado, onLlamada, onError }) {
   const [orden, setOrden] = useState(r.pendientes)
   const [guardando, setGuardando] = useState(false)
   // Lo que cambió el orden automático, para decirlo al lado del botón.
@@ -240,6 +250,21 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, onVerFo
   }, [r.pendientes])
 
   const venceDe = (i) => vencimientos?.get(`${i.tipo}:${i.id}`) ?? null
+
+  /*
+   * De quién es cada trabajo, en una cuadrilla. Lo asignado a una persona lleva
+   * su nombre; lo de la cuadrilla, no. Y se puede mirar solo lo de uno:
+   * "¿qué tiene Byron?".
+   */
+  const esCuadrilla = r.clase === 'cuadrilla'
+  const [verDe, setVerDe] = useState('todos')
+  const personas = esCuadrilla
+    ? [...new Set(orden.map((i) => i.tecnico_id).filter(Boolean))].map((id) => [id, nombres?.get(id) ?? 'Técnico'])
+    : []
+  const pasa = (i) =>
+    verDe === 'todos' || (verDe === 'cuadrilla' ? !i.tecnico_id : i.tecnico_id === verDe || !i.tecnico_id)
+  const filtrando = verDe !== 'todos'
+  const primerNombre = (n) => String(n ?? '').split(' ')[0]
 
   /**
    * Propone el orden: lo urgente primero, después por franja y por cercanía.
@@ -315,11 +340,41 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, onVerFo
               {cambio ? ' Revisalo y guardalo.' : ' Ya estaba en el mejor orden.'}
             </p>
           )}
+          {personas.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {[
+                ['todos', `Todos (${orden.length})`],
+                ['cuadrilla', `De la cuadrilla (${orden.filter((i) => !i.tecnico_id).length})`],
+                ...personas.map(([id, n]) => [
+                  id,
+                  `${primerNombre(n)} (${orden.filter((i) => i.tecnico_id === id).length} suyos)`,
+                ]),
+              ].map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVerDe(v)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                    verDe === v
+                      ? 'border-violet-500/60 bg-violet-500/15 text-violet-200'
+                      : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {filtrando && verDe !== 'cuadrilla' && (
+            <p className="mb-1 text-[11px] text-slate-500">
+              Lo suyo y lo de la cuadrilla, en el orden de la ruta. Para cambiar el orden, volvé a «Todos».
+            </p>
+          )}
           {!orden.length ? (
             <p className="text-sm text-slate-500">Nada pendiente.</p>
           ) : (
             <ul className="space-y-1">
-              {orden.map((i, idx) => (
+              {orden.map((i, idx) => !pasa(i) ? null : (
                 <li key={i.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-800/40">
                   <span className="w-5 text-center text-slate-500">{idx + 1}</span>
                   <Link
@@ -328,6 +383,9 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, onVerFo
                   >
                     {i.nombre} <span className="text-xs text-slate-500">{queEs(i)}</span>
                   </Link>
+                  {esCuadrilla && i.tecnico_id && (
+                    <Badge color="azul">{primerNombre(nombres?.get(i.tecnico_id))}</Badge>
+                  )}
                   {i.en_curso && <Badge color="ambar">{i.llegada_at ? 'en el sitio' : 'en camino'}</Badge>}
                   <Llamada c={confirmaciones?.get(i.id)} />
                   {i.prioridad === 'alta' && <Badge color="rojo">alta</Badge>}
@@ -342,7 +400,7 @@ function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, onVerFo
                   {llamable && i.tipo === 'ticket' && !i.llegada_at && (
                     <ConfirmarVisita compacto ticket={i} onHecho={onLlamada} onError={onError} />
                   )}
-                  {editable && (
+                  {editable && !filtrando && (
                     <>
                       <button type="button" onClick={() => mover(idx, -1)} className="p-1 text-slate-500 hover:text-slate-200" aria-label="Subir">
                         <ArrowUp size={15} />
@@ -478,13 +536,21 @@ function Reprogramar({ t, llamada, onVerFoto, onHecho, onError }) {
  * del día (citas por hora, mañana, sin franja, tarde), con lo que ya se sabe
  * de cada uno. Por omisión muestra solo los que faltan confirmar.
  */
-function ParaConfirmar({ rutas, confirmaciones, esHoy, onLlamada, onError }) {
+function ParaConfirmar({ rutas, nombres, confirmaciones, esHoy, onLlamada, onError }) {
   const [todos, setTodos] = useState(false)
   const lista = rutas
     .flatMap((r) =>
       (r.pendientes ?? [])
         .filter((i) => i.tipo === 'ticket' && !i.llegada_at)
-        .map((i) => ({ ...i, de: r.clase === 'cuadrilla' ? `Cuadrilla ${r.nombre}` : r.nombre })),
+        // A quién avisar: la persona, si es suyo; si no, la cuadrilla.
+        .map((i) => ({
+          ...i,
+          de: i.tecnico_id && nombres?.get(i.tecnico_id)
+            ? nombres.get(i.tecnico_id)
+            : r.clase === 'cuadrilla'
+              ? `Cuadrilla ${r.nombre}`
+              : r.nombre,
+        })),
     )
     .sort(ordenParaLlamar)
   const falta = lista.filter((i) => !confirmaciones?.get(i.id))

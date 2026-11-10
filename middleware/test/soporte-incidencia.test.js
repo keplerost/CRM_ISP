@@ -146,3 +146,23 @@ test('personal en campo: la ausencia, el medio día, la jornada cerrada y el que
   assert.equal(de.edu.estado, 'en_camino')
   assert.equal(r.at(-1).id, 'david', 'el ausente va al final')
 })
+
+test('"Asignado a": la cuadrilla, el técnico (lo suyo y lo de su cuadrilla) y los sin asignar', async () => {
+  const { esDeAsignado } = await import('../../web/src/lib/soporte.js')
+  const miembros = [
+    { cuadrilla_id: 'trooper', tecnico_id: 'byron' },
+    { cuadrilla_id: 'trooper', tecnico_id: 'david' },
+  ]
+  const deByron = { tecnico_id: 'byron', cuadrilla_id: null }
+  const deDavid = { tecnico_id: 'david', cuadrilla_id: 'trooper' }
+  const deTrooper = { tecnico_id: null, cuadrilla_id: 'trooper' }
+  const deMazda = { tecnico_id: null, cuadrilla_id: 'mazda' }
+  const suelto = { tecnico_id: null, cuadrilla_id: null }
+  const todos = [deByron, deDavid, deTrooper, deMazda, suelto]
+  const filtrar = (f) => todos.filter((t) => esDeAsignado(t, f, miembros))
+
+  assert.equal(filtrar('todos').length, 5)
+  assert.deepEqual(filtrar('t:byron'), [deByron, deTrooper], 'lo suyo y lo de TROOPER sin técnico, no lo de David')
+  assert.deepEqual(filtrar('c:trooper'), [deDavid, deTrooper])
+  assert.deepEqual(filtrar('sin_asignar'), [suelto])
+})

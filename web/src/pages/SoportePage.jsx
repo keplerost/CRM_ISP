@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, LifeBuoy, Plus, Radio, Search, Waves, X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
-import { Button, Card, ErrorBanner, Input, Modal, Stat } from '../components/ui'
+import { Button, Card, ErrorBanner, Input, Modal, Select, Stat } from '../components/ui'
 import TicketForm from '../components/soporte/TicketForm'
 import ConPermiso from '../components/layout/ConPermiso'
 import { usePermisos } from '../lib/AuthContext'
@@ -17,6 +17,7 @@ import {
   ESTADOS,
   PRIORIDADES,
   coincideTicket,
+  esDeAsignado,
   deQuien,
   etiquetaIncidencia,
   haceCuanto,
@@ -54,6 +55,10 @@ export default function SoportePage() {
   const [busqueda, setBusqueda] = useState('')
   // Para el técnico: los suyos, los de su cuadrilla, o todos.
   const [deQuienVer, setDeQuienVer] = useState('todos')
+  // Para la oficina: los de un técnico, una cuadrilla, o los sin asignar.
+  const [asignadoA, setAsignadoA] = useState('todos')
+  const [miembros, setMiembros] = useState([])
+  const [listaTecnicos, setListaTecnicos] = useState([])
   const { puede, perfil } = usePermisos()
   // Un técnico ve los suyos y los de su cuadrilla: puede separarlos.
   const esTecnico = !puede('soporte.ver') && Boolean(perfil?.tecnico_id)
@@ -101,11 +106,40 @@ export default function SoportePage() {
     recargar()
   }, [recargar])
 
+  useEffect(() => {
+    if (!puede('soporte.ver')) return
+    supabase
+      .from('cuadrilla_miembros')
+      .select('cuadrilla_id, tecnico_id')
+      .then(({ data }) => setMiembros(data ?? []))
+    supabase
+      .from('tecnicos')
+      .select('id, nombre')
+      .eq('activo', true)
+      .order('nombre')
+      .then(({ data }) => setListaTecnicos(data ?? []))
+  }, [puede])
+
+  /* Las opciones de "Asignado a": todos los técnicos activos —aunque no
+     tengan nada a su nombre, como el que solo tiene lo de su cuadrilla— y las
+     cuadrillas que aparecen en los tickets. */
+  const opcionesAsignado = useMemo(() => {
+    const cuadrillas = new Map()
+    for (const t of tickets) {
+      if (t.cuadrilla_id && t.cuadrilla) cuadrillas.set(t.cuadrilla_id, t.cuadrilla)
+    }
+    return {
+      tecnicos: listaTecnicos.map((t) => [t.id, t.nombre]),
+      cuadrillas: [...cuadrillas.entries()].sort((a, b) => a[1].localeCompare(b[1])),
+    }
+  }, [tickets, listaTecnicos])
+
   const visibles = useMemo(() => {
     const abiertos = (t) => !['resuelto', 'cancelado'].includes(t.estado)
 
     const buscando = busqueda.trim() !== ''
     const filtrados = tickets.filter((t) => {
+      if (!esDeAsignado(t, asignadoA, miembros)) return false
       if (!conFicha || deQuienVer === 'todos' || deQuien(t, perfil?.tecnico_id) === deQuienVer) {
         // Buscando, se busca en TODOS los estados: el que busca "¿le creé el
         // ticket a esta persona?" no sabe si ya se cerró.
@@ -123,7 +157,7 @@ export default function SoportePage() {
         (PESO_PRIORIDAD[a.prioridad] ?? 9) - (PESO_PRIORIDAD[b.prioridad] ?? 9) ||
         Number(b.horas_abierto) - Number(a.horas_abierto),
     )
-  }, [tickets, filtro, busqueda, deQuienVer, conFicha, perfil?.tecnico_id])
+  }, [tickets, filtro, busqueda, deQuienVer, conFicha, perfil?.tecnico_id, asignadoA, miembros])
 
   const abiertos = tickets.filter((t) => !['resuelto', 'cancelado'].includes(t.estado))
   const atrasados = abiertos.filter((t) => t.visita_atrasada)
@@ -211,6 +245,37 @@ export default function SoportePage() {
               {label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* "Asignado a": lo de una persona o una cuadrilla, para la oficina. */}
+      {puede('soporte.ver') && (opcionesAsignado.tecnicos.length > 0 || opcionesAsignado.cuadrillas.length > 0) && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500">Asignado a</span>
+          <div className="w-64">
+            <Select value={asignadoA} onChange={(e) => setAsignadoA(e.target.value)}>
+              <option value="todos">Todos</option>
+              <option value="sin_asignar">Sin asignar</option>
+              {opcionesAsignado.cuadrillas.length > 0 && (
+                <optgroup label="Cuadrillas">
+                  {opcionesAsignado.cuadrillas.map(([id, nombre]) => (
+                    <option key={id} value={`c:${id}`}>
+                      {nombre}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {opcionesAsignado.tecnicos.length > 0 && (
+                <optgroup label="Técnicos (a su nombre y de su cuadrilla)">
+                  {opcionesAsignado.tecnicos.map(([id, nombre]) => (
+                    <option key={id} value={`t:${id}`}>
+                      {nombre}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </Select>
+          </div>
         </div>
       )}
 

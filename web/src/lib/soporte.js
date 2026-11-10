@@ -470,3 +470,25 @@ export function personalEnCampo(
     })
     .sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || b.pendientes - a.pendientes)
 }
+
+/**
+ * ¿El ticket es de quien se eligió en "Asignado a"?
+ *
+ *   'todos'        todos
+ *   'sin_asignar'  sin técnico ni cuadrilla
+ *   'c:<id>'       los asignados a esa cuadrilla
+ *   't:<id>'       los de ese técnico: a su nombre, y los de su cuadrilla sin
+ *                  técnico (son trabajo de todos sus integrantes). Es lo mismo
+ *                  que ve él en su app con "Todos".
+ */
+export function esDeAsignado(t, filtro, miembros = []) {
+  if (!filtro || filtro === 'todos') return true
+  if (filtro === 'sin_asignar') return !t.tecnico_id && !t.cuadrilla_id
+  const [clase, id] = filtro.split(':')
+  if (clase === 'c') return t.cuadrilla_id === id
+  if (clase === 't') {
+    if (t.tecnico_id) return t.tecnico_id === id
+    return Boolean(t.cuadrilla_id) && miembros.some((m) => m.tecnico_id === id && m.cuadrilla_id === t.cuadrilla_id)
+  }
+  return true
+}
