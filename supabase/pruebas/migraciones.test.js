@@ -5096,3 +5096,46 @@ test('el otro tipo de incidencia llega a v_tickets', async () => {
   await db.exec(sql)
   assert.equal((await fila(db, `SELECT incidencia_otro FROM v_tickets WHERE id = '${TK}'`)).incidencia_otro, 'cambio de router')
 })
+
+/**
+ * Migración 222: el trabajo de una cuadrilla sin técnico se mide en la
+ * cuadrilla; el que tiene técnico, en el técnico. Nada dos veces.
+ */
+test('el plazo por cuadrilla: fila propia y sin contar dos veces', async () => {
+  await sesion(db, null)
+  const CU = '22200000-0000-0000-0000-0000000000c1'
+  const LIDER = '22200000-0000-0000-0000-0000000000a1'
+  const MIEMBRO = '22200000-0000-0000-0000-0000000000a2'
+  const A_TIEMPO = '22200000-0000-0000-0000-000000000001'
+  const TARDE = '22200000-0000-0000-0000-000000000002'
+  const CON_TECNICO = '22200000-0000-0000-0000-000000000003'
+
+  await db.exec(`
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${LIDER}', 'Líder 222', true), ('${MIEMBRO}', 'Miembro 222', true);
+      INSERT INTO cuadrillas (id, nombre, activo) VALUES ('${CU}', 'CARRO 222', true);
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES ('${CU}', '${LIDER}', 'lider'), ('${CU}', '${MIEMBRO}', 'tecnico');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, cuadrilla_id, tecnico_id, created_at, llegada_at, demora_motivo) VALUES
+        ('${A_TIEMPO}',    'A tiempo',    'sin_internet', 'en_proceso', '${CU}', NULL,         NOW() - INTERVAL '3 hours', NOW() - INTERVAL '1 hour', NULL),
+        ('${TARDE}',       'Tarde',       'sin_internet', 'en_proceso', '${CU}', NULL,         NOW() - INTERVAL '9 hours', NOW() - INTERVAL '1 hour', 'clima'),
+        ('${CON_TECNICO}', 'Con técnico', 'sin_internet', 'en_proceso', '${CU}', '${MIEMBRO}', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '1 hour', NULL);
+  `)
+
+  const c = await fila(db, `SELECT * FROM v_plazos_cuadrilla WHERE cuadrilla_id = '${CU}'`)
+  assert.equal(c.cuadrilla, 'CARRO 222')
+  assert.equal(c.lider, 'Líder 222')
+  assert.equal(c.integrantes, 'Líder 222, Miembro 222')
+  assert.equal(Number(c.atendidos), 2, 'el que tiene técnico no cuenta en la cuadrilla')
+  assert.equal(Number(c.con_plazo), 2)
+  assert.equal(Number(c.pct_en_plazo), 50)
+  // Esperas de 2 h y 8 h (el plazo de "sin internet" lo dejó en 6 h la prueba de la 219).
+  assert.equal(c.espera_mediana_min, 300)
+  assert.deepEqual(c.motivos, { clima: 1 })
+
+  // El que tiene técnico cuenta en el técnico, y los de la cuadrilla no.
+  const t = await fila(db, `SELECT * FROM v_plazos_tecnico WHERE tecnico_id = '${MIEMBRO}'`)
+  assert.equal(Number(t.con_plazo), 1)
+  assert.equal((await db.query(`SELECT 1 FROM v_plazos_tecnico WHERE tecnico_id = '${LIDER}'`)).rows.length, 0)
+
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-222-el-plazo-por-cuadrilla.sql'), 'utf8')
+  await db.exec(sql)
+})

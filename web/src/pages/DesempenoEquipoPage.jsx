@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Info, TriangleAlert } from 'lucide-react'
+import { Info, Truck, TriangleAlert } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { Card, ErrorBanner, Select, SkeletonTabla } from '../components/ui'
 import { PendientesConPlazo, PlazosPorTipo } from '../components/soporte/PlazosAtencion'
@@ -46,16 +46,25 @@ export default function DesempenoEquipoPage() {
    * migración la consulta falla y el tablero sigue mostrando lo de siempre.
    */
   const [plazos, setPlazos] = useState(new Map())
+  /**
+   * Los trabajos asignados a una cuadrilla entera (migración 222). Se miden en
+   * la cuadrilla, con su propia fila, y no se reparten entre los integrantes:
+   * llegan juntos, y repartirlo contaría tres veces el mismo atraso.
+   */
+  const [cuadrillas, setCuadrillas] = useState([])
 
   const recargar = useCallback(async () => {
     setCargando(true)
-    const [d, p] = await Promise.all([
+    const [d, p, c] = await Promise.all([
       supabase.from('v_desempeno_tecnico').select('*').order('mes', { ascending: false }),
       supabase.from('v_plazos_tecnico').select('*'),
+      // Sin la 222 la consulta falla y el tablero sigue como antes.
+      supabase.from('v_plazos_cuadrilla').select('*'),
     ])
     setError(d.error ?? null)
     setFilas(d.data ?? [])
     setPlazos(new Map((p.data ?? []).map((x) => [`${x.tecnico_id}|${x.mes}`, x])))
+    setCuadrillas(c.data ?? [])
     setCargando(false)
   }, [])
 
@@ -64,13 +73,21 @@ export default function DesempenoEquipoPage() {
   }, [recargar])
 
   const meses = useMemo(
-    () => [...new Set(filas.map((f) => f.mes))].sort().reverse(),
-    [filas],
+    () => [...new Set([...filas, ...cuadrillas].map((f) => f.mes))].sort().reverse(),
+    [filas, cuadrillas],
   )
   const activo = mes ?? meses[0] ?? null
   const delMes = useMemo(
     () => filas.filter((f) => f.mes === activo).sort((a, b) => b.trabajos - a.trabajos),
     [filas, activo],
+  )
+
+  const cuadrillasDelMes = useMemo(
+    () =>
+      cuadrillas
+        .filter((c) => c.mes === activo)
+        .sort((a, b) => Number(b.con_plazo) - Number(a.con_plazo)),
+    [cuadrillas, activo],
   )
 
   /**
@@ -127,7 +144,7 @@ export default function DesempenoEquipoPage() {
       <Card>
         {cargando ? (
           <SkeletonTabla filas={4} columnas={8} />
-        ) : delMes.length === 0 ? (
+        ) : delMes.length === 0 && cuadrillasDelMes.length === 0 ? (
           <p className="py-10 text-center text-sm text-slate-500">
             Todavía no hay trabajos cerrados con técnico asignado.
           </p>
@@ -136,7 +153,7 @@ export default function DesempenoEquipoPage() {
             <table className="w-full text-left text-sm">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="pb-2 pr-4 font-medium">Técnico</th>
+                  <th className="pb-2 pr-4 font-medium">Técnico / cuadrilla</th>
                   <th className="pb-2 pr-4 font-medium">Trabajos</th>
                   <th className="pb-2 pr-4 font-medium" title="Desde que se registró el trabajo hasta que llegó el técnico (mediana)">
                     Espera del cliente
@@ -199,6 +216,42 @@ export default function DesempenoEquipoPage() {
                     </tr>
                   )
                 })}
+
+                {/* Las cuadrillas, debajo de las personas. Solo tienen las
+                    columnas del plazo: lo demás (puntualidad, señal, km) se
+                    mide por técnico. */}
+                {cuadrillasDelMes.map((c) => (
+                  <tr key={`cu-${c.cuadrilla_id}`} className="border-t border-slate-800 bg-slate-800/20">
+                    <td className="py-3 pr-4">
+                      <p className="flex items-center gap-1.5 font-medium text-slate-100">
+                        <Truck size={14} className="text-sky-400" />
+                        Cuadrilla {c.cuadrilla ?? '—'}
+                      </p>
+                      {c.integrantes && (
+                        <p className="max-w-[260px] text-[11px] text-slate-500">{c.integrantes}</p>
+                      )}
+                      {c.lider && (
+                        <p className="text-[11px] text-slate-500">Jefe de grupo: {c.lider}</p>
+                      )}
+                    </td>
+                    <td className="py-3 pr-4 text-lg font-semibold tabular-nums text-slate-100">
+                      {c.atendidos}
+                    </td>
+                    <Celda
+                      valor={c.espera_mediana_min != null ? duracion(c.espera_mediana_min) : null}
+                      base={c.con_espera}
+                    />
+                    <Celda
+                      valor={c.pct_en_plazo}
+                      sufijo="%"
+                      base={c.con_plazo}
+                      detalle={desgloseFuera(c)}
+                    />
+                    <td colSpan={6} className="py-3 pr-4 text-[11px] text-slate-600">
+                      el resto se mide por técnico
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -218,6 +271,14 @@ export default function DesempenoEquipoPage() {
             <b>Espera del cliente</b> y <b>En plazo</b> cuentan desde que se registró el trabajo,
             así que incluyen lo que tardó la oficina en asignarlo. <b>Puntualidad</b> es solo del
             técnico: si llegó a la hora agendada. Mirá las dos juntas antes de evaluar a alguien.
+          </p>
+        </div>
+        <div className="mt-2 flex items-start gap-2 text-[11px] text-slate-500">
+          <Truck size={13} className="mt-0.5 shrink-0" />
+          <p>
+            Un trabajo asignado a <b>una cuadrilla entera</b>, sin técnico, se mide en la fila de la
+            cuadrilla y no en la de cada integrante: van y llegan juntos, y responde el jefe de
+            grupo. Si tiene técnico asignado, cuenta en ese técnico. Nada se cuenta dos veces.
           </p>
         </div>
       </Card>
