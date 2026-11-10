@@ -4708,7 +4708,37 @@ test('sin ingreso el técnico no inicia trabajos, y la emergencia lo habilita', 
  * ingreso; el ingreso se marca solo al llegar al primer cliente, con esa hora
  * y esa ubicación. Una llegada que sincroniza tarde lo adelanta.
  */
-test('el ingreso se marca solo al llegar al primer cliente', async () => {
+/**
+ * Corre la prueba con la base en una zona donde AHORA es mediodía.
+ *
+ * Las pruebas que dicen "llegó hace una hora" y esperan que cuente para la
+ * jornada de HOY fallaban si se corrían cerca de la medianoche de Ecuador: una
+ * hora antes ya era ayer. No era un error del sistema —a las 00:30 una llegada
+ * de las 23:30 es de ayer— sino de la prueba, que dependía de la hora a la que
+ * se la corriera.
+ */
+async function aMediodia(fn) {
+  const horaUtc = new Date().getUTCHours()
+  let desfase = 12 - horaUtc
+  if (desfase > 14) desfase -= 24
+  if (desfase < -12) desfase += 24
+  // Las zonas Etc/GMT llevan el signo al revés: Etc/GMT+5 es UTC-5.
+  const zona = desfase === 0 ? 'UTC' : `Etc/GMT${desfase > 0 ? '-' : '+'}${Math.abs(desfase)}`
+
+  await sesion(db, null)
+  const antes = await fila(db, 'SELECT zona_horaria FROM config_general WHERE id = 1')
+  if (antes) await db.query('UPDATE config_general SET zona_horaria = $1 WHERE id = 1', [zona])
+  else await db.query('INSERT INTO config_general (id, zona_horaria) VALUES (1, $1)', [zona])
+  try {
+    await fn()
+  } finally {
+    await sesion(db, null)
+    if (antes) await db.query('UPDATE config_general SET zona_horaria = $1 WHERE id = 1', [antes.zona_horaria])
+    else await db.query('DELETE FROM config_general WHERE id = 1')
+  }
+}
+
+test('el ingreso se marca solo al llegar al primer cliente', () => aMediodia(async () => {
   await sesion(db, null)
   await db.exec(`
       INSERT INTO auth.users (id, email) VALUES ('a2120000-0000-0000-0000-000000000001', 'tec212@demo.ec');
@@ -4749,7 +4779,7 @@ test('el ingreso se marca solo al llegar al primer cliente', async () => {
   const adelantado = await fila(db, `SELECT inicio_at < NOW() - INTERVAL '59 minutes' AS v FROM jornadas
                                       WHERE tecnico_id = 'b2120000-0000-0000-0000-000000000001'`)
   assert.equal(adelantado.v, true)
-})
+}))
 
 /**
  * Migración 213: el jefe de grupo toma la foto grupal en el sitio. Lejos del

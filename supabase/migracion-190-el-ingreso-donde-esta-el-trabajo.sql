@@ -80,6 +80,19 @@ COMMENT ON COLUMN jornadas.distancia_ingreso_m IS
  * que la foto no apareciera, porque Postgres expande el comodín una sola vez,
  * al crear la vista.
  */
+-- Volver a correr esta migración con una versión más nueva ya instalada (la
+-- vista tiene más de 22 columnas) fallaría con "cannot drop columns from
+-- view": CREATE OR REPLACE no puede sacar columnas. Solo en ese caso se suelta
+-- la vista; la primera vez sigue sin DROP, por lo que se explica arriba. La
+-- cadena vuelve a pasar después por las que la reemplacen, que la deja como debe.
+DO $$
+BEGIN
+    IF (SELECT COUNT(*) FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'v_jornadas') > 22 THEN
+        DROP VIEW v_jornadas;
+    END IF;
+END $$;
+
 CREATE OR REPLACE VIEW v_jornadas WITH (security_invoker = true) AS
 SELECT
     j.id,
