@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Camera, Clock, PhoneOff } from 'lucide-react'
+import { Camera, Clock, MessageCircle, Phone, PhoneOff } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { comprimirImagen, ubicacionActual } from '../../lib/soporte'
 import { sacarFoto } from '../../lib/servicio'
+import { enlaceLlamada, enlaceWhatsApp } from '../../lib/telefono'
+import { llamarRegistrando, registrarLlamada } from '../tecnico/RutaDelDia'
 import { Button, Card } from '../ui'
 
 /**
@@ -38,17 +40,30 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
   const [ahora, setAhora] = useState(() => Date.now())
   const [enviando, setEnviando] = useState(false)
 
-  // El reloj de la espera, y cuántas veces se lo llamó desde la app.
+  // El reloj de la espera, y cuántas veces se lo llamó desde la app. Se
+  // vuelve a contar con el reloj y apenas se registra una llamada: antes se
+  // contaba solo al abrir, y quien llamaba con el formulario abierto seguía
+  // viendo "Primero llamalo".
   useEffect(() => {
     if (!abierto) return undefined
-    const reloj = setInterval(() => setAhora(Date.now()), 15000)
-    supabase
-      .from('campo_llamadas')
-      .select('id', { count: 'exact', head: true })
-      .eq('item_tipo', 'ticket')
-      .eq('item_id', t.id)
-      .then(({ count }) => setLlamadas(count ?? 0))
-    return () => clearInterval(reloj)
+    const contar = () =>
+      supabase
+        .from('campo_llamadas')
+        .select('id', { count: 'exact', head: true })
+        .eq('item_tipo', 'ticket')
+        .eq('item_id', t.id)
+        .then(({ count }) => setLlamadas(count ?? 0))
+    contar()
+    const reloj = setInterval(() => {
+      setAhora(Date.now())
+      contar()
+    }, 15000)
+    const alRegistrar = (e) => e.detail?.id === t.id && contar()
+    window.addEventListener('llamada-registrada', alRegistrar)
+    return () => {
+      clearInterval(reloj)
+      window.removeEventListener('llamada-registrada', alRegistrar)
+    }
   }, [abierto, t.id])
 
   useEffect(() => {
@@ -62,7 +77,12 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
   const minutos = t.llegada_at ? (ahora - new Date(t.llegada_at).getTime()) / 60000 : 0
   const faltan = m?.espera ? Math.max(0, Math.ceil(ESPERA_MIN - minutos)) : 0
   const sinLlamada = m?.espera && llamadas === 0
-  const listo = motivo && foto && !faltan && !sinLlamada && (motivo !== 'otro' || detalle.trim())
+  /* La llamada no traba el botón: la cuenta de acá solo ve las de este
+     técnico, y si llamó un compañero de la cuadrilla la base la acepta igual.
+     La base es la que decide, y si falta, lo dice. */
+  const listo = motivo && foto && !faltan && (motivo !== 'otro' || detalle.trim())
+  const tel = enlaceLlamada(t.telefono)
+  const wa = enlaceWhatsApp(t.telefono)
 
   async function enviar() {
     setEnviando(true)
@@ -143,9 +163,33 @@ export default function NoSePudoTicket({ t, onHecho, onError }) {
           <div className="space-y-1 rounded-lg border border-slate-700 p-3 text-[12px]">
             <p className={sinLlamada ? 'text-amber-400' : 'text-emerald-400'}>
               {sinLlamada
-                ? 'Primero llamalo o escribile desde el botón Llamar o WhatsApp del ticket.'
+                ? 'Llamalo o escribile desde acá: así queda registrado.'
                 : `Lo llamaste ${llamadas} ${llamadas === 1 ? 'vez' : 'veces'} desde la app.`}
             </p>
+            {sinLlamada && (tel || wa) && (
+              <div className="flex gap-2 pt-1">
+                {tel && (
+                  <a
+                    href={tel}
+                    onClick={(e) => llamarRegistrando(e, 'ticket', t.id, tel)}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-sky-500/40 py-2 text-sky-300"
+                  >
+                    <Phone size={14} /> Llamar
+                  </a>
+                )}
+                {wa && (
+                  <a
+                    href={wa}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => registrarLlamada('ticket', t.id, 'whatsapp')}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-emerald-500/40 py-2 text-emerald-300"
+                  >
+                    <MessageCircle size={14} /> WhatsApp
+                  </a>
+                )}
+              </div>
+            )}
             <p className={faltan ? 'text-amber-400' : 'text-emerald-400'}>
               <Clock size={12} className="mr-1 inline" />
               {faltan

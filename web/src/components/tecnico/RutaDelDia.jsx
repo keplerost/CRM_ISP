@@ -32,9 +32,38 @@ import { etiquetaIncidencia } from '../../lib/soporte'
  * la oficina se entera). Se ofrece solo a quien la base se lo va a aceptar.
  */
 
-/** Toca "Llamar" o "WhatsApp": queda constancia para el "no contesta". */
+/**
+ * Toca "Llamar" o "WhatsApp": queda constancia para el "no contesta".
+ *
+ * Avisa con el evento `llamada-registrada` cuando la base la guardó, para que
+ * el "No se pudo atender" abierto vuelva a contar.
+ */
 export function registrarLlamada(tipo, id, canal = 'llamada') {
-  supabase.rpc('registrar_llamada', { p_tipo: tipo, p_id: id, p_canal: canal }).then(() => {})
+  return supabase
+    .rpc('registrar_llamada', { p_tipo: tipo, p_id: id, p_canal: canal })
+    .then(({ error }) => {
+      if (!error) window.dispatchEvent(new CustomEvent('llamada-registrada', { detail: { tipo, id } }))
+    })
+}
+
+/**
+ * El "Llamar" de un enlace `tel:`. Primero guarda la llamada y DESPUÉS abre el
+ * marcador.
+ *
+ * ── Por qué no alcanzaba con el onClick ──
+ *
+ * Al tocar un `tel:` el teléfono pasa al marcador y deja la página en segundo
+ * plano en el mismo instante: el pedido a la base se cortaba antes de salir.
+ * En producción no había UNA sola llamada registrada —solo WhatsApp, que abre
+ * en otra pestaña y deja viva la página—, y por eso el técnico que llamó de
+ * verdad no podía marcar "No contesta". Se espera la respuesta un segundo y
+ * medio como mucho: sin señal, la llamada no se demora por esto.
+ */
+export async function llamarRegistrando(e, tipo, id, href) {
+  if (!href) return
+  e?.preventDefault?.()
+  await Promise.race([registrarLlamada(tipo, id, 'llamada'), new Promise((r) => setTimeout(r, 1500))])
+  window.location.href = href
 }
 
 export function useMiRuta() {
@@ -205,7 +234,7 @@ export default function RutaDelDia({ ruta, onCambio }) {
           </Link>
           <a
             href={tel ? enlaceLlamada(actual.telefono) : undefined}
-            onClick={() => tel && registrarLlamada(actual.tipo, actual.id, 'llamada')}
+            onClick={(e) => tel && llamarRegistrando(e, actual.tipo, actual.id, enlaceLlamada(actual.telefono))}
             className={`flex flex-col items-center gap-1 rounded-lg border py-2 ${
               tel ? 'border-sky-500/40 text-sky-300' : 'pointer-events-none border-slate-800 text-slate-600'
             }`}
