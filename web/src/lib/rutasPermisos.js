@@ -60,6 +60,9 @@ const RUTAS = [
   // ConPermiso. El menú y el guardián tienen que leer la misma tabla; en cuanto
   // uno mira otra cosa, aparecen destinos que nadie puede abrir.
   ['/campo', ['instalaciones.asignadas', 'soporte.asignados']],
+  // Los pendientes administrativos (225): cualquiera del equipo. Quién ve cuál
+  // lo decide RLS (los privados, solo su dueño y a quien se lo asignaron).
+  ['/pendientes', null],
 
   // Ventas
   ['/ventas/tablero', 'ventas.dashboard'],

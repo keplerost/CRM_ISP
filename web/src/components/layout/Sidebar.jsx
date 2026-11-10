@@ -140,6 +140,9 @@ const SECCIONES = [
        * vista sin desplegar nada. Y para quien no cobra, no aparece.
        */
       { to: '/recaudacion', label: 'Mi recaudación', icon: Wallet },
+      // Lo administrativo con cada abonado, separado de Soporte (225): antes se
+      // cargaba como ticket y le llenaba la ruta a la cuadrilla.
+      { to: '/pendientes', label: 'Pendientes', icon: ClipboardList },
       {
         to: '/finanzas',
         label: 'Finanzas',

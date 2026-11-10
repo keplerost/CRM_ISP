@@ -6,6 +6,7 @@ import { Button, Card, ErrorBanner, Input, Modal, Stat } from '../components/ui'
 import TicketForm from '../components/soporte/TicketForm'
 import ConPermiso from '../components/layout/ConPermiso'
 import { usePermisos } from '../lib/AuthContext'
+import { pareceAdministrativo } from '../lib/pendientes'
 
 // Un id que no existe. Sirve para que el filtro por técnico no traiga nada
 // cuando el usuario no tiene técnico vinculado: sin esto, `.eq('tecnico_id',
@@ -261,6 +262,13 @@ export default function SoportePage() {
                       <p className="truncate text-sm text-slate-400">
                         {etiquetaIncidencia(t.tipo_incidencia, t.incidencia_otro)}
                       </p>
+                      {/* Sugerencia, no decisión: lo que suena a trámite
+                          ("cambiar a $23.10") probablemente es un pendiente. */}
+                      {!['resuelto', 'cancelado'].includes(t.estado) && pareceAdministrativo(t) && (
+                        <p className="mt-0.5 text-[11px] text-violet-400">
+                          ¿No es soporte? Abrilo y pasalo a Pendientes.
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end gap-1">

@@ -21,6 +21,7 @@ import { Badge, Button, Cargando, ErrorBanner } from '../components/ui'
 import ConPermiso from '../components/layout/ConPermiso'
 import { useConfirmar } from '../lib/confirmar'
 import FichaResumen from '../components/clientes/FichaResumen'
+import PendientesDelAbonado from '../components/pendientes/PendientesDelAbonado'
 import FichaServicio from '../components/clientes/FichaServicio'
 import FichaFacturacion from '../components/clientes/FichaFacturacion'
 import FichaCobros from '../components/clientes/FichaCobros'
@@ -235,7 +236,16 @@ export default function ClienteDetallePage() {
       </div>
 
       {pestana === 'resumen' && (
-        <FichaResumen cliente={cliente} onGuardado={recargar} onError={setError} />
+        <>
+          {/* Lo administrativo pendiente con este abonado, arriba de todo. */}
+          <PendientesDelAbonado
+            abonado={{ client_id: cliente.id, identificacion: cliente.identificacion, nombre: cliente.nombre }}
+            cliente={cliente}
+            conAgregar
+            onError={setError}
+          />
+          <FichaResumen cliente={cliente} onGuardado={recargar} onError={setError} />
+        </>
       )}
       {pestana === 'servicio' && (
         <FichaServicio cliente={cliente} onError={setError} onGuardado={recargar} />

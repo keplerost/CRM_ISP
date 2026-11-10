@@ -5223,3 +5223,73 @@ test('la ruta automática: ordena, marca que es automática y respeta lo manual'
   const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-223-la-ruta-se-ordena-sola.sql'), 'utf8')
   await db.exec(sql)
 })
+
+/**
+ * Migración 225: los pendientes administrativos, y el ticket que no era
+ * soporte pasado a pendiente.
+ */
+test('los pendientes: quién lo cerró, el aviso al asignado y el ticket que pasa a pendiente', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2250000-0000-0000-0000-000000000001'
+  const OFI = 'c2250000-0000-0000-0000-000000000001'
+  const TEC_AUTH = 'a2250000-0000-0000-0000-000000000002'
+  const TEC = 'c2250000-0000-0000-0000-000000000002'
+  const TK = '12250000-0000-0000-0000-000000000001'
+
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'ofi225@demo.ec'), ('${TEC_AUTH}', 'tec225@demo.ec');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo) VALUES
+        ('${OFI}', '${OFI_AUTH}', 'ofi225', 'ofi225@demo.ec', 'Olga', 'Oficina', 'admin', '["soporte.crear"]'::jsonb, true),
+        ('${TEC}', '${TEC_AUTH}', 'tec225', 'tec225@demo.ec', 'Tito', 'Técnico', 'tecnico', '["soporte.asignados"]'::jsonb, true);
+      INSERT INTO tickets (id, nombre, tipo_incidencia, descripcion, estado, telefono, fecha_visita)
+      VALUES ('${TK}', 'Abonado 225', 'otro', 'cambiar a $23.10', 'asignado', '0991234567', CURRENT_DATE + 1);
+  `)
+
+  // La oficina crea uno para el técnico: queda a su nombre y le llega el aviso.
+  await sesion(db, OFI_AUTH)
+  const p = await fila(db, `INSERT INTO pendientes (nombre, tipo, detalle, asignado_a)
+                            VALUES ('Joel Delgado', 'firma_contrato', 'llevar contrato', '${TEC}')
+                            RETURNING id, creado_por, numero`)
+  assert.equal(p.creado_por, OFI)
+  assert.ok(p.numero)
+  const aviso = await fila(db, `SELECT titulo FROM notificaciones WHERE usuario_id = '${TEC}' AND tipo = 'pendiente_asignado'`)
+  assert.match(aviso.titulo, /Olga Oficina te dejó un pendiente: Joel Delgado/)
+
+  // Uno para uno mismo no avisa.
+  await db.query(`INSERT INTO pendientes (nombre, asignado_a) VALUES ('Para mí', '${OFI}')`)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM notificaciones WHERE usuario_id = '${OFI}' AND tipo = 'pendiente_asignado'`)).n, 0)
+
+  // El técnico lo tilda en la casa: la base anota quién.
+  await sesion(db, TEC_AUTH)
+  await db.query(`UPDATE pendientes SET hecho_at = NOW() WHERE id = '${p.id}'`)
+  assert.equal((await fila(db, `SELECT hecho_por FROM pendientes WHERE id = '${p.id}'`)).hecho_por, TEC)
+  // Destildarlo borra quién.
+  await db.query(`UPDATE pendientes SET hecho_at = NULL WHERE id = '${p.id}'`)
+  assert.equal((await fila(db, `SELECT hecho_por FROM pendientes WHERE id = '${p.id}'`)).hecho_por, null)
+
+  // El técnico no puede pasar un ticket a pendiente: no crea ni asigna tickets.
+  await assert.rejects(db.query(`SELECT pasar_ticket_a_pendiente('${TK}', 'cambio_plan')`), /quien crea o asigna tickets/)
+
+  // La oficina sí: el ticket se cancela con el motivo y nace el pendiente.
+  await sesion(db, OFI_AUTH)
+  const nuevo = (await fila(db, `SELECT pasar_ticket_a_pendiente('${TK}', 'cambio_plan') AS id`)).id
+  const pend = await fila(db, `SELECT * FROM pendientes WHERE id = '${nuevo}'`)
+  assert.equal(pend.nombre, 'Abonado 225')
+  assert.equal(pend.tipo, 'cambio_plan')
+  assert.equal(pend.detalle, 'cambiar a $23.10')
+  assert.equal(pend.telefono, '0991234567')
+  assert.equal(pend.ticket_origen, TK)
+  assert.equal(pend.asignado_a, OFI, 'sin decir a quién, queda para quien lo pasó')
+  assert.ok(pend.vence_el, 'hereda la fecha de visita')
+
+  assert.equal((await fila(db, `SELECT estado FROM tickets WHERE id = '${TK}'`)).estado, 'cancelado')
+  const ev = await fila(db, `SELECT nota FROM ticket_eventos WHERE ticket_id = '${TK}' ORDER BY created_at DESC LIMIT 1`)
+  assert.match(ev.nota, /No era soporte: pasado a Pendientes \(N° \d+\)/)
+
+  // Ya cancelado no se puede pasar otra vez.
+  await assert.rejects(db.query(`SELECT pasar_ticket_a_pendiente('${TK}')`), /ya está cerrado/)
+
+  await sesion(db, null)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-225-los-pendientes-administrativos.sql'), 'utf8')
+  await db.exec(sql)
+})

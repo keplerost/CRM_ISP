@@ -10,6 +10,8 @@ import TicketForm from '../components/soporte/TicketForm'
 import CambioDeEquipo from '../components/soporte/CambioDeEquipo'
 import MaterialUsado from '../components/inventario/MaterialUsado'
 import ConPermiso from '../components/layout/ConPermiso'
+import PasarAPendiente from '../components/pendientes/PasarAPendiente'
+import PendientesDelAbonado from '../components/pendientes/PendientesDelAbonado'
 
 /**
  * Un ticket, a pantalla completa.
@@ -104,6 +106,15 @@ export default function TicketPage() {
             </ConPermiso>
           )}
 
+          {/* Lo administrativo cargado como ticket ("cambiar a $23.10"): sale
+              de la ruta y del plazo y queda como pendiente. Solo mientras nadie
+              salió hacia allá. */}
+          {ticket && !enCampo && ['abierto', 'asignado'].includes(ticket.estado) && (
+            <ConPermiso permiso="soporte.crear" envezDe={null}>
+              <PasarAPendiente ticket={ticket} onError={setError} />
+            </ConPermiso>
+          )}
+
           {ticket?.client_id && !enCampo && (
             <Link
               to={`/clientes/${ticket.client_id}`}
@@ -123,6 +134,10 @@ export default function TicketPage() {
         <p className="p-4 text-sm text-slate-500">No existe ese ticket.</p>
       ) : (
         <>
+          {/* Lo que falta hacer con este abonado y no es el reclamo: si el
+              técnico ya está ahí, lo resuelve en la misma visita. */}
+          <PendientesDelAbonado abonado={ticket} onError={setError} />
+
           <TicketFicha ticket={ticket} onCambio={cargar} onError={setError} />
 
           {/* Cambiar la ONT.

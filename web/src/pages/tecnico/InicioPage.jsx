@@ -38,6 +38,7 @@ import MapaCampo from '../../components/tecnico/MapaCampo'
 import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
 import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
 import RutaDelDia, { useMiRuta } from '../../components/tecnico/RutaDelDia'
+import MisPendientesCampo from '../../components/pendientes/MisPendientesCampo'
 import { enlaceLlamada } from '../../lib/telefono'
 
 /**
@@ -211,6 +212,8 @@ export default function InicioPage() {
       />
 
       <RutaDelDia ruta={ruta} onCambio={recargarRuta} />
+
+      <MisPendientesCampo />
 
       <ReparacionesCampo filas={reparaciones} onCambio={recargarReparaciones} />
 

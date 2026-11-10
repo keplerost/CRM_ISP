@@ -63,6 +63,7 @@ const EstadisticasPage = lazy(() => import('./pages/EstadisticasPage'))
 const CrecimientoRoutersPage = lazy(() => import('./pages/CrecimientoRoutersPage'))
 const SoportePage = lazy(() => import('./pages/SoportePage'))
 const TicketPage = lazy(() => import('./pages/TicketPage'))
+const PendientesPage = lazy(() => import('./pages/PendientesPage'))
 const TecnicosPage = lazy(() => import('./pages/TecnicosPage'))
 const DesempenoEquipoPage = lazy(() => import('./pages/DesempenoEquipoPage'))
 const JornadasPage = lazy(() => import('./pages/soporte/JornadasPage'))
@@ -205,6 +206,8 @@ export default function App() {
             componente que usa el escritorio —no una copia—; solo cambia dónde
             se dibuja y a dónde vuelve el botón de atrás. */}
         <Route path="soporte/:id" element={<TicketPage />} />
+        {/* Los pendientes administrativos asignados al técnico (225). */}
+        <Route path="pendientes" element={<PendientesPage />} />
         {/* La misma pantalla de inventario que usa el escritorio, adentro del
             marco correcto. No se duplicó: es el mismo componente. */}
         <Route path="inventario" element={<MiAlmacenPage />} />
@@ -362,6 +365,7 @@ export default function App() {
         <Route path="estadisticas" element={<EstadisticasPage />} />
         <Route path="reportes/crecimiento-routers" element={<CrecimientoRoutersPage />} />
 
+        <Route path="pendientes" element={<PendientesPage />} />
         <Route path="soporte" element={<SoportePage />} />
         <Route path="soporte/tecnicos" element={<TecnicosPage />} />
         <Route path="soporte/desempeno" element={<DesempenoEquipoPage />} />
