@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapPinOff, WifiOff } from 'lucide-react'
+import { esCoordenada } from '../../lib/ruta'
 
 /**
  * El mapita de las tarjetas del técnico.
@@ -60,9 +61,8 @@ export default function MapaCampo({ puntos = [], alto = 'h-44', conRuta = false 
     }
   }, [])
 
-  const conCoordenadas = puntos.filter(
-    (p) => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng)),
-  )
+  // Sin ubicación no se dibuja: con `Number(null)` caía en el 0,0, en el mar.
+  const conCoordenadas = puntos.filter((p) => esCoordenada(p.lat) && esCoordenada(p.lng))
 
   useEffect(() => {
     if (!enLinea || !conCoordenadas.length || !contenedor.current) return
@@ -85,7 +85,10 @@ export default function MapaCampo({ puntos = [], alto = 'h-44', conRuta = false 
 
     conCoordenadas.forEach((p, i) => {
       L.marker([Number(p.lat), Number(p.lng)], {
-        icon: marcador(conRuta ? String(i + 1) : '', COLOR[p.estado] ?? 'bg-sky-600'),
+        // El número de la parada en la lista (`n`), no su lugar entre las que
+        // tienen ubicación: si la 3 no tiene, el mapa salta del 2 al 4 en vez de
+        // renumerar y no coincidir con la lista.
+        icon: marcador(conRuta ? String(p.n ?? i + 1) : '', COLOR[p.estado] ?? 'bg-sky-600'),
         title: p.titulo ?? '',
       }).addTo(capa)
     })

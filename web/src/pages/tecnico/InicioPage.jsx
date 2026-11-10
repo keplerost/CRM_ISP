@@ -33,7 +33,7 @@ import { PlazoTrabajo } from '../../components/soporte/PlazoTrabajo'
 import { mapaPreferido } from '../../lib/mapaPreferido'
 import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
 import { supabase } from '../../lib/supabaseClient'
-import { MAX_PARADAS_GOOGLE, enlaceRutaGoogle, largoDeRuta } from '../../lib/ruta.js'
+import { MAX_PARADAS_GOOGLE, enlaceRutaGoogle, esCoordenada, largoDeRuta } from '../../lib/ruta.js'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
 import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
@@ -708,7 +708,8 @@ function Ruta({ ruta, atrasadas, rutaDia, cargando }) {
           <MapaCampo
             alto="h-40"
             conRuta
-            puntos={lista.map((o) => ({
+            puntos={lista.map((o, i) => ({
+              n: i + 1,
               lat: o.latitud,
               lng: o.longitud,
               titulo: o.cliente ?? o.nombre,
@@ -746,6 +747,13 @@ function Ruta({ ruta, atrasadas, rutaDia, cargando }) {
                     {o.sub ? `${o.sub} · ` : ''}
                     {o.sector ?? o.direccion ?? ''}
                   </span>
+                  {/* Dice cuál falta en el mapa: si no, el técnico busca la
+                      parada en el mapa y no la encuentra. */}
+                  {!(esCoordenada(o.latitud) && esCoordenada(o.longitud)) && (
+                    <span className="block text-[10px] font-medium text-amber-600">
+                      Sin ubicación: no está en el mapa
+                    </span>
+                  )}
                 </span>
                 {/* Palabra y color, no solo color: al sol, y para quien no
                     distingue bien el verde del ámbar, dos puntitos son el mismo

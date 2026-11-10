@@ -237,3 +237,21 @@ test('enlaceRutaGoogle: con más de las que acepta Google, el primer tramo', () 
   assert.equal(enlaceRutaGoogle([{ latitud: null, longitud: null }]), null)
   assert.equal(enlaceRutaGoogle([{ latitud: '', longitud: '' }]), null)
 })
+
+import { esCoordenada } from '../../web/src/lib/ruta.js'
+
+test('esCoordenada: null y vacío no son el punto 0,0', () => {
+  assert.equal(esCoordenada(null), false)
+  assert.equal(esCoordenada(undefined), false)
+  assert.equal(esCoordenada(''), false)
+  assert.equal(esCoordenada('abc'), false)
+  assert.equal(esCoordenada(-0.94), true)
+  assert.equal(esCoordenada('-79.24'), true)
+  // Un tramo con una parada sin ubicación no suma kilómetros hasta el 0,0.
+  const { metros } = largoDeRuta([
+    { latitud: -0.94, longitud: -79.23 },
+    { latitud: '', longitud: '' },
+    { latitud: -0.95, longitud: -79.24 },
+  ])
+  assert.ok(metros < 5000, `${metros} m`)
+})

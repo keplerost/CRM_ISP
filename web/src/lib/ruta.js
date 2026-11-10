@@ -34,8 +34,17 @@
 import { distanciaEnMetros } from './soporte.js'
 
 /** La coordenada de una orden, o null si no tiene. */
+/**
+ * ¿Es una coordenada de verdad?
+ *
+ * `Number(null)` y `Number('')` dan 0, que es un número válido: sin esta
+ * revisión, un trabajo sin ubicación se dibujaba en el punto 0,0 —en el medio
+ * del océano, frente a África— y la ruta cruzaba el mar para llegar.
+ */
+export const esCoordenada = (v) => v != null && v !== '' && Number.isFinite(Number(v))
+
 const punto = (o) =>
-  o?.latitud != null && o?.longitud != null
+  esCoordenada(o?.latitud) && esCoordenada(o?.longitud)
     ? { lat: Number(o.latitud), lng: Number(o.longitud) }
     : null
 
@@ -256,9 +265,7 @@ export const MAX_PARADAS_GOOGLE = 10
  * @returns { url, incluidas, total } o null si ninguna tiene ubicación
  */
 export function enlaceRutaGoogle(paradas = []) {
-  // Un campo vacío no es el punto 0,0 en el medio del océano.
-  const valido = (v) => v != null && v !== '' && Number.isFinite(Number(v))
-  const ubicadas = paradas.filter((p) => valido(p?.latitud) && valido(p?.longitud))
+  const ubicadas = paradas.filter((p) => esCoordenada(p?.latitud) && esCoordenada(p?.longitud))
   if (!ubicadas.length) return null
   const tramo = ubicadas.slice(0, MAX_PARADAS_GOOGLE)
   const punto = (p) => `${Number(p.latitud)},${Number(p.longitud)}`
