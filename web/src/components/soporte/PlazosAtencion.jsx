@@ -45,7 +45,9 @@ export function PendientesConPlazo() {
   const recargar = useCallback(async () => {
     const { data, error: err } = await supabase
       .from('v_plazos_trabajo')
-      .select('clase, id, numero, cliente, tipo_nombre, tecnico, estado, vence_at, zona')
+      // Todo: la cuadrilla llega con la 220 y así la lista no se cae si todavía
+      // no se corrió.
+      .select('*')
       .eq('pendiente', true)
       .order('vence_at', { ascending: true })
       .limit(50)
@@ -113,8 +115,15 @@ export function PendientesConPlazo() {
                     {f.zona && <p className="text-[11px] text-slate-500">{f.zona}</p>}
                   </td>
                   <td className="whitespace-nowrap py-2 pr-4">
-                    {f.tecnico ? (
-                      <span className="text-slate-300">{f.tecnico}</span>
+                    {f.tecnico || f.cuadrilla ? (
+                      <span className="text-slate-300">
+                        {f.tecnico ?? `Cuadrilla ${f.cuadrilla}`}
+                        {f.cuadrilla_integrantes && !f.tecnico && (
+                          <span className="block text-[11px] text-slate-500">
+                            {f.cuadrilla_integrantes}
+                          </span>
+                        )}
+                      </span>
                     ) : (
                       <span className="font-medium text-rose-300">Sin asignar</span>
                     )}

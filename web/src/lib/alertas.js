@@ -200,7 +200,13 @@ function textoPlazo(e, ahora) {
         ? `Venció a las ${hora(vence)} (hace ${duracion(-falta)}) y el técnico no llegó.`
         : `Vence a las ${hora(vence)} (en ${duracion(falta)}).`
       : null,
-    d.tecnico ? `Técnico: ${d.tecnico}` : 'SIN TÉCNICO ASIGNADO',
+    // Una cuadrilla entera también es "alguien va" (220): sin esto, el ticket
+    // asignado a la cuadrilla salía como si nadie lo tuviera.
+    d.tecnico ? `Técnico: ${d.tecnico}` : null,
+    d.cuadrilla
+      ? `Cuadrilla: ${d.cuadrilla}${d.integrantes ? ` (${d.integrantes})` : ''}`
+      : null,
+    !d.tecnico && !d.cuadrilla ? 'SIN TÉCNICO ASIGNADO' : null,
     d.direccion ? `📍 ${d.direccion}` : null,
     e.zona ? `Zona: ${e.zona}` : null,
     d.telefono ? `Tel: ${d.telefono}` : null,

@@ -148,6 +148,12 @@ COMMENT ON COLUMN instalaciones.demora_motivo IS
 --   minutos_espera  registrado → llegada. Nulo si no marcó llegada.
 --   en_plazo      TRUE/FALSE si ya se puede juzgar; NULL si todavía no o si se
 --                 cerró sin marcar llegada (no se inventa ni a favor ni en contra)
+-- Se borra antes de crearla: la 220 le agrega columnas, y un CREATE OR
+-- REPLACE con menos columnas falla. Así esta migración se puede volver a
+-- correr; la cadena vuelve a pasar por la 220 después. CASCADE se lleva
+-- v_plazos_tecnico (se recrea abajo) y detalle_plazo() de la 220.
+DROP VIEW IF EXISTS v_plazos_trabajo CASCADE;
+
 CREATE OR REPLACE VIEW v_plazos_trabajo WITH (security_invoker = true) AS
 WITH trabajos AS (
     SELECT

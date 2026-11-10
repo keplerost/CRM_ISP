@@ -204,6 +204,27 @@ test('plazo vencido y sin técnico: lo dice en mayúsculas', () => {
   assert.match(t, /SIN TÉCNICO ASIGNADO/)
 })
 
+test('plazo asignado a una cuadrilla: la nombra con sus integrantes, no "sin técnico"', () => {
+  const vence = new Date(AHORA.getTime() + 30 * 60000)
+  const t = textoAlerta(
+    {
+      ...PLAZO,
+      detalle: {
+        ...PLAZO.detalle,
+        tecnico: undefined,
+        cuadrilla: 'TROOPER',
+        integrantes: 'Byron, David',
+        vence_at: vence.toISOString(),
+      },
+    },
+    AHORA,
+  )
+
+  assert.match(t, /Cuadrilla: TROOPER \(Byron, David\)/)
+  assert.doesNotMatch(t, /SIN TÉCNICO/)
+  assert.doesNotMatch(t, /Técnico:/)
+})
+
 test('el cierre de un plazo no dice "se restableció"', () => {
   const t = textoAlerta({ ...PLAZO, resuelto: true }, AHORA)
   assert.match(t, /ya llegó el técnico o se cerró/)

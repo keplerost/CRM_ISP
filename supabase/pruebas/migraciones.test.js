@@ -5027,11 +5027,51 @@ test('el plazo de cada trabajo: espera, en plazo y el aviso antes de vencer', as
   // El técnico no puede cambiarse el plazo; quien asigna, sí.
   assert.equal((await fila(db, 'SELECT puede_editar_plazos() AS v')).v, false)
 
-  // Volver a correr la migración no pisa un plazo ya ajustado ni duplica nada.
+  // Volver a correr la última versión de la vista (220) no pisa un plazo ya
+  // ajustado ni duplica nada. La 219 ya no se puede re-correr sola: su vista
+  // tiene menos columnas que la de la 220.
   await db.query(`UPDATE plazos_atencion SET horas = 6 WHERE clave = 'sin_internet'`)
-  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-219-el-plazo-de-cada-trabajo.sql'), 'utf8')
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-220-el-plazo-ve-la-cuadrilla.sql'), 'utf8')
   await db.exec(sql)
   await db.exec(sql)
   assert.equal(Number((await fila(db, `SELECT horas FROM plazos_atencion WHERE clave = 'sin_internet'`)).horas), 6)
   assert.equal(Number((await fila(db, `SELECT count(*) AS n FROM alerta_reglas WHERE clave = 'plazo_atencion'`)).n), 1)
+})
+
+/**
+ * Migración 220: un trabajo asignado a una cuadrilla entera no es "sin técnico".
+ */
+test('el aviso de plazo nombra la cuadrilla y sus integrantes', async () => {
+  await sesion(db, null)
+  const CU = '22000000-0000-0000-0000-0000000000c1'
+  const LIDER = '22000000-0000-0000-0000-0000000000a1'
+  const OTRO = '22000000-0000-0000-0000-0000000000a2'
+  const TK = '22000000-0000-0000-0000-000000000001'
+
+  await db.exec(`
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${LIDER}', 'Zoila Líder', true), ('${OTRO}', 'Ana Ayuda', true);
+      INSERT INTO cuadrillas (id, nombre, activo) VALUES ('${CU}', 'TROOPER 220', true);
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES ('${CU}', '${LIDER}', 'lider'), ('${CU}', '${OTRO}', 'tecnico');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, cuadrilla_id, created_at) VALUES
+        ('${TK}', 'Abonado de cuadrilla', 'sin_internet', 'asignado', '${CU}', NOW() - INTERVAL '5 hours');
+  `)
+
+  const v = await fila(db, `SELECT * FROM v_plazos_trabajo WHERE id = '${TK}'`)
+  assert.equal(v.cuadrilla, 'TROOPER 220')
+  assert.equal(v.cuadrilla_integrantes, 'Zoila Líder, Ana Ayuda', 'el líder primero')
+  assert.equal(v.tecnico, null)
+
+  await fila(db, 'SELECT * FROM detectar_plazos()')
+  const ev = await fila(db, `SELECT detalle FROM alerta_eventos WHERE regla = 'plazo_atencion' AND entidad_id = '${TK}' AND resuelto_en IS NULL`)
+  assert.equal(ev.detalle.cuadrilla, 'TROOPER 220')
+  assert.equal(ev.detalle.integrantes, 'Zoila Líder, Ana Ayuda')
+
+  // Un aviso ya abierto se pone al día si después se asigna un técnico.
+  await db.query(`UPDATE tickets SET tecnico_id = '${OTRO}' WHERE id = '${TK}'`)
+  await fila(db, 'SELECT * FROM detectar_plazos()')
+  const ev2 = await fila(db, `SELECT detalle FROM alerta_eventos WHERE regla = 'plazo_atencion' AND entidad_id = '${TK}' AND resuelto_en IS NULL`)
+  assert.equal(ev2.detalle.tecnico, 'Ana Ayuda')
+
+  // v_plazos_tecnico sigue funcionando sobre la vista nueva.
+  await db.query('SELECT * FROM v_plazos_tecnico')
 })
