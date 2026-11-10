@@ -5304,3 +5304,78 @@ test('el otro tipo de pendiente se guarda aparte', async () => {
   const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-226-cual-es-el-otro-pendiente.sql'), 'utf8')
   await db.exec(sql)
 })
+
+/** Migración 227: la oficina llama antes y confirma o posterga la visita. */
+test('la oficina confirma la visita o la posterga sin cerrar el ticket', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2270000-0000-0000-0000-000000000001'
+  const OFI = 'c2270000-0000-0000-0000-000000000001'
+  const TEC_AUTH = 'a2270000-0000-0000-0000-000000000002'
+  const TEC_U = 'c2270000-0000-0000-0000-000000000002'
+  const TEC = 'b2270000-0000-0000-0000-000000000001'
+  const CU = 'd2270000-0000-0000-0000-000000000001'
+  const TK = '12270000-0000-0000-0000-000000000001'
+  const TK2 = '12270000-0000-0000-0000-000000000002'
+
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'ofi227@demo.ec'), ('${TEC_AUTH}', 'tec227@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${TEC}', 'Tito 227', true);
+      INSERT INTO cuadrillas (id, nombre) VALUES ('${CU}', 'C227');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id) VALUES ('${CU}', '${TEC}');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('${OFI}', '${OFI_AUTH}', 'ofi227', 'ofi227@demo.ec', 'Olga', 'Oficina', 'admin', '["soporte.crear"]'::jsonb, true, NULL),
+        ('${TEC_U}', '${TEC_AUTH}', 'tec227', 'tec227@demo.ec', 'Tito', 'Técnico', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${TEC}');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, cuadrilla_id, fecha_visita, franja, ruta_fecha, ruta_orden)
+      VALUES ('${TK}', 'Abonado 227', 'sin_internet', 'asignado', '${CU}', hoy_isp(), 'manana', hoy_isp(), 3),
+             ('${TK2}', 'Otro 227', 'sin_internet', 'asignado', '${CU}', hoy_isp(), 'manana', hoy_isp(), 4);
+  `)
+
+  // El técnico no confirma desde acá: lo suyo es el "no se pudo" en el sitio.
+  await sesion(db, TEC_AUTH)
+  await assert.rejects(db.query(`SELECT oficina_confirma_visita('${TK}', 'no_esta')`), /lo hace la oficina/)
+
+  await sesion(db, OFI_AUTH)
+  // Está en casa: queda la confirmación y el ticket no se toca.
+  await db.query(`SELECT oficina_confirma_visita('${TK2}', 'esta')`)
+  const c = await fila(db, `SELECT resultado, usuario_id FROM confirmaciones_visita WHERE ticket_id = '${TK2}'`)
+  assert.deepEqual([c.resultado, c.usuario_id], ['esta', OFI])
+  assert.equal((await fila(db, `SELECT ruta_orden FROM tickets WHERE id = '${TK2}'`)).ruta_orden, 4)
+
+  // No está, vuelve mañana a la tarde: sale de la ruta de hoy, sigue abierto.
+  await db.query(`SELECT oficina_confirma_visita('${TK}', 'no_esta', 'trabaja hasta las 3', hoy_isp() + 1, 'tarde')`)
+  let t = await fila(db, `SELECT estado, fecha_visita = hoy_isp() + 1 AS manana, franja, ruta_fecha, ruta_orden,
+                                 reprogramar_desde, demora_motivo, demora_nota FROM tickets WHERE id = '${TK}'`)
+  assert.equal(t.estado, 'asignado')
+  assert.equal(t.manana, true)
+  assert.equal(t.franja, 'tarde')
+  assert.equal(t.ruta_fecha, null)
+  assert.equal(t.ruta_orden, null)
+  assert.equal(t.reprogramar_desde, null)
+  assert.equal(t.demora_motivo, 'cliente')
+  assert.match(t.demora_nota, /Oficina: no está en casa/)
+
+  // A la cuadrilla le llega el aviso de no ir.
+  const aviso = await fila(db, `SELECT titulo, detalle FROM notificaciones WHERE usuario_id = '${TEC_U}' AND tipo = 'visita_postergada'`)
+  assert.match(aviso.titulo, /No vayas: ticket #\d+ · Abonado 227/)
+  assert.match(aviso.detalle, /no está en casa \(trabaja hasta las 3\)\. Nueva visita: .* \(tarde\)\./)
+
+  // No contesta y sin fecha: va a "Por reprogramar".
+  await db.query(`UPDATE tickets SET estado = 'en_ruta', fecha_visita = hoy_isp() WHERE id = '${TK}'`)
+  await db.query(`SELECT oficina_confirma_visita('${TK}', 'no_contesta')`)
+  t = await fila(db, `SELECT estado, fecha_visita, reprogramar_desde FROM tickets WHERE id = '${TK}'`)
+  assert.equal(t.estado, 'asignado', 'si ya había salido, vuelve a asignado')
+  assert.equal(t.fecha_visita, null)
+  assert.ok(t.reprogramar_desde)
+  assert.ok(await fila(db, `SELECT 1 AS ok FROM v_tickets_por_reprogramar WHERE id = '${TK}'`))
+
+  // Ya en el sitio, no.
+  await db.query(`UPDATE tickets SET estado = 'en_proceso' WHERE id = '${TK2}'`)
+  await assert.rejects(db.query(`SELECT oficina_confirma_visita('${TK2}', 'no_esta')`), /ya está en el lugar/)
+  // Ni una fecha pasada, ni hora exacta sin hora.
+  await assert.rejects(db.query(`SELECT oficina_confirma_visita('${TK}', 'otro_dia', NULL, hoy_isp() - 1)`), /anterior a hoy/)
+  await assert.rejects(db.query(`SELECT oficina_confirma_visita('${TK}', 'otro_dia', NULL, hoy_isp(), 'exacta')`), /falta la hora/)
+
+  await sesion(db, null)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-227-la-oficina-confirma-la-visita.sql'), 'utf8')
+  await db.exec(sql)
+})

@@ -34,6 +34,8 @@ import { mapaPreferido } from '../../lib/mapaPreferido'
 import { HORA, faltaPara, hoyISO, tableroDelDia } from '../../lib/campo'
 import { supabase } from '../../lib/supabaseClient'
 import { MAX_PARADAS_GOOGLE, enlaceRutaGoogle, esCoordenada, largoDeRuta } from '../../lib/ruta.js'
+import { useConfirmaciones } from '../../components/soporte/useConfirmaciones'
+import { horaCorta } from '../../lib/confirmaciones'
 import MapaCampo from '../../components/tecnico/MapaCampo'
 import MiCuadrilla, { useMiCuadrilla } from '../../components/tecnico/MiCuadrilla'
 import ReparacionesCampo, { useReparaciones } from '../../components/tecnico/ReparacionesCampo'
@@ -668,6 +670,8 @@ function Ruta({ ruta, atrasadas, rutaDia, cargando }) {
    */
   const deLaRuta = Boolean(rutaDia)
   const lista = deLaRuta ? (rutaDia.items ?? []).map(deRutaDia) : [...ruta, ...atrasadas]
+  // La oficina llamó y el cliente está: que el técnico lo vea en la parada (227).
+  const { confirmaciones } = useConfirmaciones(lista.filter((o) => o.tipo === 'ticket').map((o) => o.id))
   if (cargando && !lista.length) return <Hueco alto="h-48" />
   const google = enlaceRutaGoogle(lista)
 
@@ -752,6 +756,11 @@ function Ruta({ ruta, atrasadas, rutaDia, cargando }) {
                   </span>
                   {/* Dice cuál falta en el mapa: si no, el técnico busca la
                       parada en el mapa y no la encuentra. */}
+                  {confirmaciones.get(o.id)?.resultado === 'esta' && (
+                    <span className="block text-[10px] font-medium text-emerald-600">
+                      La oficina confirmó: está en casa ({horaCorta(confirmaciones.get(o.id).creado_at)})
+                    </span>
+                  )}
                   {!(esCoordenada(o.latitud) && esCoordenada(o.longitud)) && (
                     <span className="block text-[10px] font-medium text-amber-600">
                       Sin ubicación: no está en el mapa

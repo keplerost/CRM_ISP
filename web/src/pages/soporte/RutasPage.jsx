@@ -8,6 +8,9 @@ import { largoDeRuta, ordenarRutaAutomatica } from '../../lib/ruta'
 import { estadoPlazo } from '../../lib/plazos'
 import { duracion } from '../../lib/alertas'
 import { Badge, Button, Card, ErrorBanner, Input, Modal, SkeletonTabla } from '../../components/ui'
+import ConfirmarVisita from '../../components/soporte/ConfirmarVisita'
+import { useConfirmaciones } from '../../components/soporte/useConfirmaciones'
+import { etiquetaLlamada, horaCorta } from '../../lib/confirmaciones'
 
 /**
  * Las rutas del día, para la oficina (migración 216).
@@ -61,6 +64,12 @@ export default function RutasPage() {
    * vista no está, queda vacío y el orden se arma solo por cercanía y franja.
    */
   const [vencimientos, setVencimientos] = useState(new Map())
+  /** La última llamada de la oficina a cada ticket postergado (227). */
+  const [llamadasReprog, setLlamadasReprog] = useState(new Map())
+
+  // Las llamadas de hoy a los tickets de las rutas: "confirmado 09:15".
+  const idsTickets = (rutas ?? []).flatMap((ru) => (ru.pendientes ?? []).filter((i) => i.tipo === 'ticket').map((i) => i.id))
+  const { confirmaciones, recargar: recargarLlamadas } = useConfirmaciones(idsTickets)
 
   const recargar = useCallback(async () => {
     setRutas(null)
@@ -71,6 +80,18 @@ export default function RutasPage() {
     if (r.error) setError(r.error)
     setRutas(r.data ?? [])
     setPorReprogramar(p.data ?? [])
+    const idsReprog = (p.data ?? []).map((t) => t.id)
+    if (idsReprog.length) {
+      const { data: ll } = await supabase
+        .from('confirmaciones_visita')
+        .select('ticket_id, resultado, detalle, creado_at')
+        .in('ticket_id', idsReprog)
+        .neq('resultado', 'esta')
+        .order('creado_at')
+      setLlamadasReprog(new Map((ll ?? []).map((x) => [x.ticket_id, x])))
+    } else {
+      setLlamadasReprog(new Map())
+    }
 
     const ids = (r.data ?? []).flatMap((ru) => (ru.pendientes ?? []).map((i) => i.id))
     if (ids.length) {
@@ -116,7 +137,14 @@ export default function RutasPage() {
         <Card title={`Por reprogramar (${porReprogramar.length})`} icon={CalendarClock}>
           <ul className="divide-y divide-slate-800/60 px-4 sm:px-6">
             {porReprogramar.map((t) => (
-              <Reprogramar key={t.id} t={t} onVerFoto={verFoto} onHecho={recargar} onError={setError} />
+              <Reprogramar
+                key={t.id}
+                t={t}
+                llamada={llamadasReprog.get(t.id)}
+                onVerFoto={verFoto}
+                onHecho={recargar}
+                onError={setError}
+              />
             ))}
           </ul>
         </Card>
@@ -135,8 +163,13 @@ export default function RutasPage() {
             r={r}
             editable={esHoy}
             vencimientos={vencimientos}
+            confirmaciones={confirmaciones}
             onVerFoto={verFoto}
             onGuardado={recargar}
+            onLlamada={() => {
+              recargar()
+              recargarLlamadas()
+            }}
             onError={setError}
           />
         ))
@@ -153,7 +186,7 @@ export default function RutasPage() {
   )
 }
 
-function RutaCard({ r, editable, vencimientos, onVerFoto, onGuardado, onError }) {
+function RutaCard({ r, editable, vencimientos, confirmaciones, onVerFoto, onGuardado, onLlamada, onError }) {
   const [orden, setOrden] = useState(r.pendientes)
   const [guardando, setGuardando] = useState(false)
   // Lo que cambió el orden automático, para decirlo al lado del botón.
@@ -253,12 +286,18 @@ function RutaCard({ r, editable, vencimientos, onVerFoto, onGuardado, onError })
                     {i.nombre} <span className="text-xs text-slate-500">{queEs(i)}</span>
                   </Link>
                   {i.en_curso && <Badge color="ambar">{i.llegada_at ? 'en el sitio' : 'en camino'}</Badge>}
+                  <Llamada c={confirmaciones?.get(i.id)} />
                   {i.prioridad === 'alta' && <Badge color="rojo">alta</Badge>}
                   <VencePlazo vence={venceDe(i)} />
                   {(i.latitud == null || i.longitud == null) && (
                     <span className="text-[11px] text-slate-500" title="Sin coordenadas: no entra en el orden por cercanía">
                       sin ubicación
                     </span>
+                  )}
+                  {/* La oficina llama antes: si no está, el técnico no viaja
+                      ni espera los diez minutos (227). */}
+                  {editable && i.tipo === 'ticket' && !i.llegada_at && (
+                    <ConfirmarVisita compacto ticket={i} onHecho={onLlamada} onError={onError} />
                   )}
                   {editable && (
                     <>
@@ -340,7 +379,7 @@ function RutaCard({ r, editable, vencimientos, onVerFoto, onGuardado, onError })
   )
 }
 
-function Reprogramar({ t, onVerFoto, onHecho, onError }) {
+function Reprogramar({ t, llamada, onVerFoto, onHecho, onError }) {
   const [fecha, setFecha] = useState('')
   const [guardando, setGuardando] = useState(false)
 
@@ -358,13 +397,23 @@ function Reprogramar({ t, onVerFoto, onHecho, onError }) {
         <Link to={`/soporte/${t.id}`} className="text-sm text-slate-100 hover:underline">
           #{t.numero} {t.nombre}
         </Link>
-        <p className="text-[11px] text-slate-500">
-          {MOTIVO[t.motivo] ?? 'No se pudo atender'}
-          {t.detalle && ` · ${t.detalle}`} · {t.cuadrilla ? `Cuadrilla ${t.cuadrilla}` : t.tecnico}
-          {t.fallida_at && ` · ${new Date(t.fallida_at).toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' })}`}
-        </p>
+        {/* Lo último que pasó: el "no se pudo" del técnico o la llamada de la
+            oficina, el que sea más nuevo. */}
+        {llamada && (!t.fallida_at || new Date(llamada.creado_at) > new Date(t.fallida_at)) ? (
+          <p className="text-[11px] text-slate-500">
+            Oficina llamó: {etiquetaLlamada(llamada.resultado)}
+            {llamada.detalle && ` · ${llamada.detalle}`} · {t.cuadrilla ? `Cuadrilla ${t.cuadrilla}` : t.tecnico}
+            {` · ${new Date(llamada.creado_at).toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' })}`}
+          </p>
+        ) : (
+          <p className="text-[11px] text-slate-500">
+            {MOTIVO[t.motivo] ?? 'No se pudo atender'}
+            {t.detalle && ` · ${t.detalle}`} · {t.cuadrilla ? `Cuadrilla ${t.cuadrilla}` : t.tecnico}
+            {t.fallida_at && ` · ${new Date(t.fallida_at).toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' })}`}
+          </p>
+        )}
       </div>
-      {t.foto && (
+      {t.foto && !(llamada && (!t.fallida_at || new Date(llamada.creado_at) > new Date(t.fallida_at))) && (
         <Button variante="fantasma" icon={Camera} onClick={() => onVerFoto(t.foto)}>
           Foto
         </Button>
@@ -376,6 +425,18 @@ function Reprogramar({ t, onVerFoto, onHecho, onError }) {
         Reprogramar
       </Button>
     </li>
+  )
+}
+
+/** Lo que dijo el cliente cuando lo llamó la oficina hoy. */
+function Llamada({ c }) {
+  if (!c) return null
+  return c.resultado === 'esta' ? (
+    <Badge color="verde">
+      <span title={c.detalle ?? ''}>confirmado {horaCorta(c.creado_at)}</span>
+    </Badge>
+  ) : (
+    <Badge color="ambar">{etiquetaLlamada(c.resultado).toLowerCase()}</Badge>
   )
 }
 

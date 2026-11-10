@@ -12,6 +12,7 @@ import MaterialUsado from '../components/inventario/MaterialUsado'
 import ConPermiso from '../components/layout/ConPermiso'
 import PasarAPendiente from '../components/pendientes/PasarAPendiente'
 import PendientesDelAbonado from '../components/pendientes/PendientesDelAbonado'
+import ConfirmarVisita, { LlamadasDelTicket } from '../components/soporte/ConfirmarVisita'
 
 /**
  * Un ticket, a pantalla completa.
@@ -40,6 +41,7 @@ export default function TicketPage() {
   const [error, setError] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState(false)
+  const [llamadas, setLlamadas] = useState(0)
 
   const cargar = useCallback(async () => {
     /*
@@ -115,6 +117,21 @@ export default function TicketPage() {
             </ConPermiso>
           )}
 
+          {/* Llamar antes de que vaya el técnico: si no está, se posterga sin
+              cerrar y nadie hace el viaje (227). */}
+          {ticket && !enCampo && ['abierto', 'asignado', 'en_ruta'].includes(ticket.estado) && (
+            <ConPermiso permiso="soporte.crear" envezDe={null}>
+              <ConfirmarVisita
+                ticket={ticket}
+                onError={setError}
+                onHecho={() => {
+                  cargar()
+                  setLlamadas((n) => n + 1)
+                }}
+              />
+            </ConPermiso>
+          )}
+
           {ticket?.client_id && !enCampo && (
             <Link
               to={`/clientes/${ticket.client_id}`}
@@ -137,6 +154,8 @@ export default function TicketPage() {
           {/* Lo que falta hacer con este abonado y no es el reclamo: si el
               técnico ya está ahí, lo resuelve en la misma visita. */}
           <PendientesDelAbonado abonado={ticket} onError={setError} />
+
+          <LlamadasDelTicket ticketId={ticket.id} clave={llamadas} />
 
           <TicketFicha ticket={ticket} onCambio={cargar} onError={setError} />
 
