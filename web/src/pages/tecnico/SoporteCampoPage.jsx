@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, MapPin, Navigation, Ticket } from 'lucide-react'
+import { ArrowRight, MapPin, Navigation, Search, Ticket, X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import {
   ESTADOS,
   PRIORIDADES,
+  coincideTicket,
+  deQuien,
   enlaceMapa,
   etiquetaIncidencia,
   grupoDeCampo,
@@ -78,6 +80,14 @@ export default function SoporteCampoPage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState(null)
+  const [busqueda, setBusqueda] = useState('')
+  /**
+   * Los suyos o los de la cuadrilla.
+   *
+   * Un ticket asignado a la cuadrilla es de todos; uno asignado a él es SUYO y
+   * lo tiene que atender él. Mezclados, no se distinguían.
+   */
+  const [deQuienVer, setDeQuienVer] = useState('todos')
   const [deCache, setDeCache] = useState(null)
 
   const recargar = useCallback(async () => {
@@ -112,8 +122,14 @@ export default function SoporteCampoPage() {
   }, [recargar])
 
   const hoy = hoyLocal()
+  const yo = perfil?.tecnico_id
+  const mios = tickets.filter((t) => deQuien(t, yo) === 'mio').length
+  const visibles = tickets.filter(
+    (t) =>
+      (deQuienVer === 'todos' || deQuien(t, yo) === deQuienVer) && coincideTicket(t, busqueda),
+  )
   const porGrupo = Object.fromEntries(
-    GRUPOS.map((g) => [g.clave, tickets.filter((t) => grupoDeCampo(t, hoy) === g.clave)]),
+    GRUPOS.map((g) => [g.clave, visibles.filter((t) => grupoDeCampo(t, hoy) === g.clave)]),
   )
   // Los próximos, por fecha: lo de mañana arriba.
   porGrupo.proximos?.sort((a, b) =>
@@ -169,6 +185,50 @@ export default function SoporteCampoPage() {
 
   return (
     <div className="space-y-3">
+      {/* Buscar: "¿tengo asignado a fulano?" sin recorrer las pestañas. */}
+      <div className="relative">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar nombre, cédula, teléfono o N°"
+          className="w-full rounded-xl border border-slate-700 bg-transparent py-2.5 pl-9 pr-9 text-[14px] text-slate-100 placeholder:text-slate-500"
+        />
+        {busqueda && (
+          <button
+            type="button"
+            onClick={() => setBusqueda('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500"
+            aria-label="Borrar búsqueda"
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
+
+      {yo && (
+        <div className="flex gap-1.5">
+          {[
+            ['todos', 'Todos', tickets.length],
+            ['mio', 'Asignados a mí', mios],
+            ['cuadrilla', 'Mi cuadrilla', tickets.length - mios],
+          ].map(([v, label, n]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setDeQuienVer(v)}
+              className={`flex-1 rounded-full border px-2 py-1.5 text-[12px] transition ${
+                deQuienVer === v
+                  ? 'border-violet-500/60 bg-violet-500/15 text-violet-300'
+                  : 'border-slate-700 text-slate-400'
+              }`}
+            >
+              {label} <span className="tabular-nums opacity-70">{n}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {deCache != null && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-[12px] text-amber-300">
           Sin conexión. Estás viendo lo guardado hace{' '}
@@ -219,7 +279,9 @@ export default function SoporteCampoPage() {
         <div className="py-12 text-center">
           <Ticket size={24} className="mx-auto mb-2 text-slate-700" />
           <p className="text-[13px] text-slate-500">
-            {activa === 'hoy'
+            {busqueda.trim()
+              ? 'Ninguno coincide en esta pestaña. Mirá el número de las otras.'
+              : activa === 'hoy'
               ? 'No tenés trabajos para hoy.'
               : activa === 'proximos'
                 ? 'No tenés trabajos programados para otros días.'
@@ -231,7 +293,7 @@ export default function SoporteCampoPage() {
       ) : (
         <div className="grid gap-2 md:grid-cols-2">
           {lista.map((t) => (
-            <Tarjeta key={t.id} t={t} />
+            <Tarjeta key={t.id} t={t} yo={yo} />
           ))}
         </div>
       )}
@@ -247,7 +309,7 @@ const fechaCorta = (f) =>
     month: 'short',
   })
 
-function Tarjeta({ t }) {
+function Tarjeta({ t, yo }) {
   const cerrado = ['resuelto', 'cancelado'].includes(t.estado)
   const p = PRIORIDADES[t.prioridad] ?? PRIORIDADES.media
   const est = ESTADOS[t.estado]
@@ -268,7 +330,7 @@ function Tarjeta({ t }) {
             {est ? ` · ${est.label}` : ''}
             {/* De quién es: el técnico creía que todo lo de la lista era
                 solo para él, y la mitad era de la cuadrilla. */}
-            {!t.tecnico_id && t.cuadrilla_id ? ' · de tu cuadrilla' : ''}
+            {yo && deQuien(t, yo) === 'mio' ? ' · asignado a vos' : t.cuadrilla_id ? ' · de tu cuadrilla' : ''}
           </p>
           {!cerrado && t.fecha_visita && String(t.fecha_visita).slice(0, 10) > hoyLocal() && (
             <p className="text-[11px] font-medium text-violet-400">

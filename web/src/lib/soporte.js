@@ -286,3 +286,49 @@ export function grupoDeCampo(t, hoy) {
 /** La fecha de hoy en la hora del teléfono, como la guarda la base. */
 export const hoyLocal = (ahora = new Date()) =>
   `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`
+
+/** Sin tildes ni mayúsculas: "Oña" se encuentra escribiendo "ona". */
+const normal = (v) =>
+  String(v ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+
+/**
+ * ¿Este ticket es el que se busca?
+ *
+ * Por lo que uno recuerda cuando no recuerda el número: el nombre (o parte, en
+ * cualquier orden: "masapanta luis"), la cédula, el teléfono, la dirección, el
+ * sector, el técnico o la cuadrilla. Y por número: "41" o "000041".
+ */
+export function coincideTicket(t, texto) {
+  const q = normal(texto).trim()
+  if (!q) return true
+
+  // Solo cifras: el número del ticket, o una cédula o teléfono que lo contenga.
+  if (/^\d+$/.test(q)) {
+    if (Number(q) === Number(t.numero)) return true
+    const cifras = [t.identificacion, t.telefono, t.telefono_whatsapp]
+      .map((v) => String(v ?? '').replace(/\D/g, ''))
+      .join(' ')
+    return q.length >= 4 && cifras.includes(q)
+  }
+
+  const donde = normal(
+    [
+      t.nombre, t.cliente, t.identificacion, t.telefono, t.telefono_whatsapp,
+      t.direccion, t.referencia, t.sector, t.tecnico, t.cuadrilla,
+      t.descripcion, t.incidencia_otro,
+    ].join(' '),
+  )
+  return q.split(/\s+/).every((palabra) => donde.includes(palabra))
+}
+
+/**
+ * De quién es un ticket, mirado por un técnico.
+ *
+ *   'mio'        asignado a él, aunque además tenga cuadrilla
+ *   'cuadrilla'  asignado a su cuadrilla (sin técnico, o a un compañero)
+ */
+export const deQuien = (t, miTecnicoId) =>
+  miTecnicoId && t.tecnico_id === miTecnicoId ? 'mio' : 'cuadrilla'

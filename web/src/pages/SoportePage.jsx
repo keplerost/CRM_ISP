@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, LifeBuoy, Plus, Radio, Waves } from 'lucide-react'
+import { AlertTriangle, LifeBuoy, Plus, Radio, Search, Waves, X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
-import { Button, Card, ErrorBanner, Modal, Stat } from '../components/ui'
+import { Button, Card, ErrorBanner, Input, Modal, Stat } from '../components/ui'
 import TicketForm from '../components/soporte/TicketForm'
 import ConPermiso from '../components/layout/ConPermiso'
 import { usePermisos } from '../lib/AuthContext'
@@ -15,6 +15,8 @@ const NADIE = '00000000-0000-0000-0000-000000000000'
 import {
   ESTADOS,
   PRIORIDADES,
+  coincideTicket,
+  deQuien,
   etiquetaIncidencia,
   haceCuanto,
 } from '../lib/soporte'
@@ -48,7 +50,12 @@ export default function SoportePage() {
   // reescribe la URL: el filtro es una vista, no un lugar.
   const [params] = useSearchParams()
   const [filtro, setFiltro] = useState(() => params.get('estado') ?? 'pendientes')
+  const [busqueda, setBusqueda] = useState('')
+  // Para el técnico: los suyos, los de su cuadrilla, o todos.
+  const [deQuienVer, setDeQuienVer] = useState('todos')
   const { puede, perfil } = usePermisos()
+  // Un técnico ve los suyos y los de su cuadrilla: puede separarlos.
+  const esTecnico = !puede('soporte.ver') && Boolean(perfil?.tecnico_id)
 
   /**
    * Trae los tickets, y solo los que corresponden.
@@ -93,10 +100,17 @@ export default function SoportePage() {
   const visibles = useMemo(() => {
     const abiertos = (t) => !['resuelto', 'cancelado'].includes(t.estado)
 
+    const buscando = busqueda.trim() !== ''
     const filtrados = tickets.filter((t) => {
-      if (filtro === 'pendientes') return abiertos(t)
-      if (filtro === 'todos') return true
-      return t.estado === filtro
+      if (!esTecnico || deQuienVer === 'todos' || deQuien(t, perfil?.tecnico_id) === deQuienVer) {
+        // Buscando, se busca en TODOS los estados: el que busca "¿le creé el
+        // ticket a esta persona?" no sabe si ya se cerró.
+        if (buscando) return coincideTicket(t, busqueda)
+        if (filtro === 'pendientes') return abiertos(t)
+        if (filtro === 'todos') return true
+        return t.estado === filtro
+      }
+      return false
     })
 
     return filtrados.sort(
@@ -105,7 +119,7 @@ export default function SoportePage() {
         (PESO_PRIORIDAD[a.prioridad] ?? 9) - (PESO_PRIORIDAD[b.prioridad] ?? 9) ||
         Number(b.horas_abierto) - Number(a.horas_abierto),
     )
-  }, [tickets, filtro])
+  }, [tickets, filtro, busqueda, deQuienVer, esTecnico, perfil?.tecnico_id])
 
   const abiertos = tickets.filter((t) => !['resuelto', 'cancelado'].includes(t.estado))
   const atrasados = abiertos.filter((t) => t.visita_atrasada)
@@ -149,6 +163,49 @@ export default function SoportePage() {
         />
       </div>
 
+      {/* El buscador. Busca en todos los estados, abiertos y cerrados. */}
+      <div className="relative">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+        <Input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, cédula, teléfono, N° de ticket, dirección o técnico"
+          className="pl-9 pr-9"
+        />
+        {busqueda && (
+          <button
+            type="button"
+            onClick={() => setBusqueda('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-300"
+            aria-label="Borrar búsqueda"
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
+
+      {esTecnico && (
+        <div className="flex gap-2">
+          {[
+            ['todos', 'Todos'],
+            ['mio', `Asignados a mí (${tickets.filter((t) => deQuien(t, perfil?.tecnico_id) === 'mio').length})`],
+            ['cuadrilla', `De mi cuadrilla (${tickets.filter((t) => deQuien(t, perfil?.tecnico_id) === 'cuadrilla').length})`],
+          ].map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => setDeQuienVer(v)}
+              className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                deQuienVer === v
+                  ? 'border-violet-500/60 bg-violet-500/15 text-violet-200'
+                  : 'border-slate-700 text-slate-400 hover:border-slate-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Filtros: en el celular se deslizan de costado en vez de apilarse. */}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {[
@@ -175,7 +232,9 @@ export default function SoportePage() {
       ) : visibles.length === 0 ? (
         <Card>
           <p className="py-8 text-center text-sm text-slate-500">
-            No hay tickets {filtro === 'pendientes' ? 'sin resolver' : 'en este estado'}.
+            {busqueda.trim()
+              ? `Ningún ticket coincide con "${busqueda.trim()}", ni abierto ni cerrado.`
+              : `No hay tickets ${filtro === 'pendientes' ? 'sin resolver' : 'en este estado'}.`}
           </p>
         </Card>
       ) : (

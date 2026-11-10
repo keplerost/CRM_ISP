@@ -35,3 +35,30 @@ test('hoyLocal: la fecha del teléfono, no la de UTC', () => {
   const tarde = new Date(2026, 10, 9, 22, 30)
   assert.equal(hoyLocal(tarde), '2026-11-09')
 })
+
+import { coincideTicket, deQuien } from '../../web/src/lib/soporte.js'
+
+test('coincideTicket: por nombre sin tildes y en cualquier orden, por número y por cédula', () => {
+  const t = {
+    numero: 41, nombre: 'DORIAN SAUL MAYORGA JIMÉNEZ', identificacion: '1250579925',
+    telefono: '0991234567', direccion: 'Barrio El Paraíso', cuadrilla: 'TROOPER',
+  }
+  assert.ok(coincideTicket(t, 'mayorga dorian'))
+  assert.ok(coincideTicket(t, 'jimenez'), 'sin tilde encuentra con tilde')
+  assert.ok(coincideTicket(t, 'paraiso'))
+  assert.ok(coincideTicket(t, 'trooper'))
+  assert.ok(coincideTicket(t, '41'))
+  assert.ok(coincideTicket(t, '000041'))
+  assert.ok(coincideTicket(t, '125057'), 'parte de la cédula')
+  assert.ok(coincideTicket(t, '1234567'), 'parte del teléfono')
+  assert.ok(coincideTicket(t, ''))
+  assert.ok(!coincideTicket(t, '42'), 'otro número')
+  assert.ok(!coincideTicket(t, '125'), 'tres cifras no buscan cédula: matchearía de todo')
+  assert.ok(!coincideTicket(t, 'mayorga pedro'))
+})
+
+test('deQuien: lo asignado a mí es mío aunque tenga cuadrilla', () => {
+  assert.equal(deQuien({ tecnico_id: 'yo', cuadrilla_id: 'c' }, 'yo'), 'mio')
+  assert.equal(deQuien({ tecnico_id: null, cuadrilla_id: 'c' }, 'yo'), 'cuadrilla')
+  assert.equal(deQuien({ tecnico_id: 'otro', cuadrilla_id: 'c' }, 'yo'), 'cuadrilla')
+})
