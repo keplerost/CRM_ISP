@@ -5440,3 +5440,39 @@ test('la llamada sin señal se sube con su hora y una sola vez; "otro trabajo" v
   const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-228-llamada-sin-senal-y-otro-trabajo.sql'), 'utf8')
   await db.exec(sql)
 })
+
+/** Migración 229: el "no se pudo" le llega a quien crea o asigna tickets. */
+test('el "no se pudo atender" avisa a toda la oficina que maneja tickets, no al que lo marca', async () => {
+  await sesion(db, null)
+  const SOP_AUTH = 'a2290000-0000-0000-0000-000000000001'
+  const SOP = 'c2290000-0000-0000-0000-000000000001'
+  const CAJ = 'c2290000-0000-0000-0000-000000000002'
+  const TEC_AUTH = 'a2290000-0000-0000-0000-000000000003'
+  const TEC_U = 'c2290000-0000-0000-0000-000000000003'
+  const TEC = 'b2290000-0000-0000-0000-000000000001'
+  const TK = '12290000-0000-0000-0000-000000000001'
+
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${SOP_AUTH}', 'sop229@demo.ec'), ('${TEC_AUTH}', 'tec229@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${TEC}', 'Tito 229', true);
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('${SOP}', '${SOP_AUTH}', 'sop229', 'sop229@demo.ec', 'Sofi', 'Soporte', 'supervisor', '["soporte.crear"]'::jsonb, true, NULL),
+        ('${CAJ}', NULL, 'caj229', 'caj229@demo.ec', 'Caro', 'Caja', 'cajero', '["pagos.registrar"]'::jsonb, true, NULL),
+        ('${TEC_U}', '${TEC_AUTH}', 'tec229', 'tec229@demo.ec', 'Tito', 'Técnico', 'tecnico', '["soporte.asignados","soporte.crear"]'::jsonb, true, '${TEC}');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, tecnico_id, fecha_visita, llegada_at)
+      VALUES ('${TK}', 'Abonado 229', 'otro', 'en_proceso', '${TEC}', hoy_isp(), NOW());
+  `)
+
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-229-el-no-se-pudo-le-llega-a-la-oficina.sql'), 'utf8')
+  await db.exec(sql)
+
+  await sesion(db, TEC_AUTH)
+  await db.query(`SELECT no_se_pudo_atender('${TK}', 'requiere_otro', 'No tiene potencia, es instalación nueva', NULL)`)
+
+  const aviso = (u) => fila(db, `SELECT COUNT(*)::int AS n FROM notificaciones
+                                   WHERE usuario_id = '${u}' AND tipo = 'visita_fallida' AND entidad_id = '${TK}'`)
+  assert.equal((await aviso(SOP)).n, 1, 'quien crea tickets, aunque no sea admin')
+  assert.equal((await aviso(CAJ)).n, 0, 'la caja no')
+  assert.equal((await aviso(TEC_U)).n, 0, 'el que lo marcó no se avisa a sí mismo')
+  await sesion(db, null)
+})
