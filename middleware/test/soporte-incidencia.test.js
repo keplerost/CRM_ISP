@@ -62,3 +62,41 @@ test('deQuien: lo asignado a mí es mío aunque tenga cuadrilla', () => {
   assert.equal(deQuien({ tecnico_id: null, cuadrilla_id: 'c' }, 'yo'), 'cuadrilla')
   assert.equal(deQuien({ tecnico_id: 'otro', cuadrilla_id: 'c' }, 'yo'), 'cuadrilla')
 })
+
+// --- Personal en campo (panel) ----------------------------------------------
+
+import { personalEnCampo } from '../../web/src/lib/soporte.js'
+
+test('personal en campo: cuenta tickets propios, de su cuadrilla e instalaciones', () => {
+  const tecnicos = [
+    { id: 'byron', nombre: 'Byron' },
+    { id: 'david', nombre: 'David' },
+    { id: 'john', nombre: 'John' },
+    { id: 'adonis', nombre: 'Adonis' },
+  ]
+  const miembros = [
+    { cuadrilla_id: 'trooper', tecnico_id: 'byron' },
+    { cuadrilla_id: 'trooper', tecnico_id: 'david' },
+  ]
+  const tickets = [
+    { estado: 'asignado', tecnico_id: null, cuadrilla_id: 'trooper', nombre: 'A' },
+    { estado: 'en_proceso', tecnico_id: 'byron', cuadrilla_id: null, nombre: 'Roddy' },
+    { estado: 'resuelto', tecnico_id: null, cuadrilla_id: 'trooper', nombre: 'B' },
+    { estado: 'cancelado', tecnico_id: 'john', nombre: 'X' },
+  ]
+  const instalaciones = [{ estado: 'en_ruta', tecnico_id: 'john', cliente: 'Nueva' }]
+
+  const r = personalEnCampo(tecnicos, { tickets, instalaciones, miembros })
+  const de = Object.fromEntries(r.map((p) => [p.id, p]))
+
+  assert.equal(de.byron.estado, 'en_sitio')
+  assert.equal(de.byron.actual, 'Roddy')
+  assert.equal(de.byron.total, 3)
+  // David no tiene el de Byron, pero sí los de la cuadrilla.
+  assert.equal(de.david.estado, 'con_ruta')
+  assert.deepEqual([de.david.total, de.david.hechas, de.david.pendientes], [2, 1, 1])
+  assert.equal(de.john.estado, 'en_camino')
+  assert.equal(de.john.total, 1, 'el cancelado no cuenta')
+  assert.equal(de.adonis.estado, 'libre')
+  assert.deepEqual(r.map((p) => p.id), ['byron', 'john', 'david', 'adonis'])
+})

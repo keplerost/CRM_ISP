@@ -332,3 +332,65 @@ export function coincideTicket(t, texto) {
  */
 export const deQuien = (t, miTecnicoId) =>
   miTecnicoId && t.tecnico_id === miTecnicoId ? 'mio' : 'cuadrilla'
+
+/**
+ * Qué está haciendo cada técnico hoy, para el panel.
+ *
+ * Antes el panel miraba solo las instalaciones: con un día lleno de tickets
+ * todos salían "Libre". Ahora cuenta las dos cosas, y los tickets de una
+ * cuadrilla son de cada uno de sus integrantes.
+ *
+ * @param tecnicos       [{ id, nombre }]
+ * @param tickets        los de hoy (y los que están en camino o en sitio)
+ * @param instalaciones  las de hoy, con tecnico_id
+ * @param miembros       [{ cuadrilla_id, tecnico_id }]
+ * @returns por técnico { id, nombre, estado, actual, total, hechas, pendientes },
+ *          con estado 'en_sitio' | 'en_camino' | 'con_ruta' | 'libre';
+ *          primero los que están trabajando
+ */
+export function personalEnCampo(tecnicos = [], { tickets = [], instalaciones = [], miembros = [] } = {}) {
+  const cuadrillasDe = new Map()
+  for (const m of miembros) {
+    if (!cuadrillasDe.has(m.tecnico_id)) cuadrillasDe.set(m.tecnico_id, new Set())
+    cuadrillasDe.get(m.tecnico_id).add(m.cuadrilla_id)
+  }
+
+  const trabajos = [
+    ...tickets
+      .filter((t) => t.estado !== 'cancelado')
+      .map((t) => ({
+        tecnico_id: t.tecnico_id,
+        cuadrilla_id: t.cuadrilla_id,
+        nombre: t.nombre ?? t.cliente,
+        en_sitio: t.estado === 'en_proceso',
+        en_camino: t.estado === 'en_ruta',
+        hecha: t.estado === 'resuelto',
+      })),
+    ...instalaciones
+      .filter((i) => !['cancelada', 'reprogramada', 'no_realizada'].includes(i.estado))
+      .map((i) => ({
+        tecnico_id: i.tecnico_id,
+        cuadrilla_id: null,
+        nombre: i.cliente ?? i.nombre,
+        en_sitio: i.estado === 'en_curso',
+        en_camino: i.estado === 'en_ruta',
+        hecha: i.estado === 'hecha',
+      })),
+  ]
+
+  const ORDEN = { en_sitio: 0, en_camino: 1, con_ruta: 2, libre: 3 }
+  return tecnicos
+    .map((tec) => {
+      const suyas = cuadrillasDe.get(tec.id) ?? new Set()
+      const mios = trabajos.filter(
+        (w) => w.tecnico_id === tec.id || (!w.tecnico_id && w.cuadrilla_id && suyas.has(w.cuadrilla_id)),
+      )
+      const sitio = mios.find((w) => w.en_sitio)
+      const camino = mios.find((w) => w.en_camino)
+      const hechas = mios.filter((w) => w.hecha).length
+      const pendientes = mios.length - hechas
+      const estado = sitio ? 'en_sitio' : camino ? 'en_camino' : pendientes ? 'con_ruta' : 'libre'
+      return { id: tec.id, nombre: tec.nombre, estado, actual: (sitio ?? camino)?.nombre ?? null, total: mios.length, hechas, pendientes }
+    })
+    .sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || b.pendientes - a.pendientes)
+}

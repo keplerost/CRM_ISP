@@ -32,6 +32,7 @@ import { puedeEntrar } from '../lib/rutasPermisos'
 import { clientesConVencido, fechaLocal } from '../lib/abonados'
 import { UMBRAL_RX_DBM } from '../components/olt/ONUStatsCard'
 import { ErrorBanner, Skeleton } from '../components/ui'
+import { personalEnCampo } from '../lib/soporte'
 import ResumenAreas from '../components/layout/ResumenAreas'
 
 /**
@@ -506,7 +507,7 @@ export default function Dashboard() {
         .limit(6),
       supabase
         .from('v_instalaciones')
-        .select('id, numero, cliente, nombre, tecnico_nombre, estado, hora')
+        .select('id, numero, cliente, nombre, tecnico_id, tecnico_nombre, estado, hora')
         .eq('fecha', hoy),
       supabase.from('tecnicos').select('id, nombre').eq('activo', true).order('nombre'),
       supabase.from('v_expedientes').select('id').eq('completo', false),
@@ -528,6 +529,15 @@ export default function Dashboard() {
          base sobre TODO, no sobre las filas que bajan. Sin la migración 206
          falla sola y las tarjetas que dependen de ella no se dibujan. */
       supabase.rpc('panel_facturacion', { p_hoy: hoy }),
+      /* Los tickets del día, y los que están en camino o en sitio aunque
+         fueran de otro día: sin esto "Personal en campo" solo veía las
+         instalaciones y con la ruta llena de tickets todos salían libres. */
+      supabase
+        .from('tickets')
+        .select('id, numero, nombre, estado, tecnico_id, cuadrilla_id')
+        .or(`fecha_visita.eq.${hoy},estado.in.(en_ruta,en_proceso)`)
+        .neq('estado', 'cancelado'),
+      supabase.from('cuadrilla_miembros').select('cuadrilla_id, tecnico_id'),
     ]
 
     Promise.allSettled(consultas).then((res) => {
@@ -563,6 +573,8 @@ export default function Dashboard() {
         pausadosVencidosTotal: cuantas(10),
         routers: filas(11),
         facturacion: filas(12)[0] ?? null,
+        ticketsHoy: filas(13),
+        miembros: filas(14),
       })
     })
 
@@ -616,8 +628,15 @@ export default function Dashboard() {
         { nombre: 'Por vencer', valor: new Set(porVencer.map((f) => f.client_id)).size, color: '#F59E0B' },
         { nombre: 'Vencido', valor: idsVencidos.size, color: '#EF4444' },
       ].map((x) => ({ ...x, valor: Math.max(0, x.valor) })),
-      visitasHoy: d.instalaciones,
-      enCurso: d.instalaciones.filter((i) => i.estado === 'en_curso').length,
+      visitasHoy: [...d.instalaciones, ...d.ticketsHoy],
+      enCurso:
+        d.instalaciones.filter((i) => ['en_ruta', 'en_curso'].includes(i.estado)).length +
+        d.ticketsHoy.filter((t) => ['en_ruta', 'en_proceso'].includes(t.estado)).length,
+      personal: personalEnCampo(d.tecnicos, {
+        tickets: d.ticketsHoy,
+        instalaciones: d.instalaciones,
+        miembros: d.miembros,
+      }),
       cobradoHoy: d.pagos
         .filter((p) => String(p.fecha_pago || '').slice(0, 10) === hoy)
         .reduce((s, p) => s + Number(p.monto || 0), 0),
@@ -749,7 +768,7 @@ export default function Dashboard() {
             icon={Truck}
             etiqueta="Visitas técnicas hoy"
             valor={numero(m.visitasHoy.length)}
-            pista={`${m.enCurso} en curso`}
+            pista={`${d.ticketsHoy.length} tickets · ${d.instalaciones.length} instalaciones · ${m.enCurso} en curso`}
             a="/clientes/instalaciones"
           />
         )}
@@ -999,13 +1018,18 @@ export default function Dashboard() {
 
         {abre('/soporte/tecnicos') && (
           <Seccion titulo="Personal en campo" subtitulo="Quién está y con qué" a="/soporte/tecnicos">
-            {d.tecnicos.length === 0 ? (
+            {m.personal.length === 0 ? (
               <Vacio icon={HardHat} titulo="No hay técnicos activos" />
             ) : (
               <ul className="space-y-2">
-                {d.tecnicos.slice(0, 5).map((t) => {
-                  const suyas = m.visitasHoy.filter((i) => i.tecnico_nombre === t.nombre)
-                  const enCurso = suyas.find((i) => i.estado === 'en_curso')
+                {m.personal.slice(0, 8).map((t) => {
+                  const ESTADO = {
+                    en_sitio: ['En sitio', 't-badge-aviso'],
+                    en_camino: ['En camino', 't-badge-marca'],
+                    con_ruta: ['Con ruta', 't-badge-neutro'],
+                    libre: ['Libre', 't-badge-ok'],
+                  }
+                  const [etiqueta, clase] = ESTADO[t.estado]
                   return (
                     <li key={t.id}>
                       <Link
@@ -1015,6 +1039,7 @@ export default function Dashboard() {
                         <span className="t-dato grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#F0F9FF] text-[11px] font-bold text-sky-400">
                           {t.nombre
                             .split(' ')
+                            .filter(Boolean)
                             .slice(0, 2)
                             .map((p) => p[0])
                             .join('')
@@ -1023,16 +1048,14 @@ export default function Dashboard() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-xs font-semibold text-slate-200">{t.nombre}</p>
                           <p className="truncate text-[11px] text-slate-500">
-                            {enCurso
-                              ? `En sitio · ${enCurso.cliente ?? enCurso.nombre ?? ''}`
-                              : suyas.length
-                                ? `${suyas.length} visita${suyas.length > 1 ? 's' : ''} hoy`
+                            {t.actual
+                              ? `${etiqueta} · ${t.actual}`
+                              : t.total
+                                ? `${t.hechas} de ${t.total} hecha${t.total > 1 ? 's' : ''} hoy`
                                 : 'Sin visitas hoy'}
                           </p>
                         </div>
-                        <span className={`t-badge ${enCurso ? 't-badge-aviso' : 't-badge-ok'}`}>
-                          {enCurso ? 'En sitio' : 'Libre'}
-                        </span>
+                        <span className={`t-badge ${clase}`}>{etiqueta}</span>
                       </Link>
                     </li>
                   )
