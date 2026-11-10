@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, ListOrdered, PhoneOff, Route, Wand2 } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, ListOrdered, PhoneCall, PhoneOff, Route, Wand2 } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { etiquetaIncidencia } from '../../lib/soporte'
@@ -10,7 +10,7 @@ import { duracion } from '../../lib/alertas'
 import { Badge, Button, Card, ErrorBanner, Input, Modal, SkeletonTabla } from '../../components/ui'
 import ConfirmarVisita from '../../components/soporte/ConfirmarVisita'
 import { useConfirmaciones } from '../../components/soporte/useConfirmaciones'
-import { etiquetaLlamada, horaCorta } from '../../lib/confirmaciones'
+import { diaAnterior, etiquetaLlamada, horaCorta, ordenParaLlamar } from '../../lib/confirmaciones'
 
 /**
  * Las rutas del día, para la oficina (migración 216).
@@ -70,7 +70,9 @@ export default function RutasPage() {
 
   // Las llamadas de hoy a los tickets de las rutas: "confirmado 09:15".
   const idsTickets = (rutas ?? []).flatMap((ru) => (ru.pendientes ?? []).filter((i) => i.tipo === 'ticket').map((i) => i.id))
-  const { confirmaciones, recargar: recargarLlamadas } = useConfirmaciones(idsTickets)
+  // Para la ruta de un día sirve la llamada de ese día o del anterior: la de
+  // mañana se confirma llamando hoy.
+  const { confirmaciones, recargar: recargarLlamadas } = useConfirmaciones(idsTickets, { desdeDia: diaAnterior(fecha) })
 
   const recargar = useCallback(async () => {
     setRutas(null)
@@ -117,6 +119,17 @@ export default function RutasPage() {
   }
 
   const esHoy = fecha === hoyLocal()
+  const manana = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    return d.toLocaleDateString('en-CA')
+  })()
+  // Se llama para hoy y para lo que viene; el pasado ya pasó.
+  const llamable = fecha >= hoyLocal()
+  const alLlamar = () => {
+    recargar()
+    recargarLlamadas()
+  }
 
   return (
     <div className="space-y-6">
@@ -127,8 +140,27 @@ export default function RutasPage() {
             Qué hace cada cuadrilla, en qué orden, y qué no se pudo atender
           </p>
         </div>
-        <div className="w-44">
-          <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        <div className="flex items-center gap-2">
+          {[
+            [hoyLocal(), 'Hoy'],
+            [manana, 'Mañana'],
+          ].map(([f, label]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setFecha(f)}
+              className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                fecha === f
+                  ? 'border-sky-500/60 bg-sky-500/15 text-sky-200'
+                  : 'border-slate-700 text-slate-400 hover:border-slate-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <div className="w-44">
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </div>
         </div>
       </div>
 
@@ -151,6 +183,18 @@ export default function RutasPage() {
         </Card>
       )}
 
+      {/* La lista de Jessica: a quién hay que llamar, de todas las cuadrillas
+          juntas, en el orden en que se los visita en el día. */}
+      {llamable && rutas?.length > 0 && (
+        <ParaConfirmar
+          rutas={rutas}
+          confirmaciones={confirmaciones}
+          esHoy={esHoy}
+          onLlamada={alLlamar}
+          onError={setError}
+        />
+      )}
+
       {rutas === null ? (
         <SkeletonTabla filas={5} columnas={4} />
       ) : !rutas.length ? (
@@ -165,12 +209,10 @@ export default function RutasPage() {
             editable={esHoy}
             vencimientos={vencimientos}
             confirmaciones={confirmaciones}
+            llamable={llamable}
             onVerFoto={verFoto}
             onGuardado={recargar}
-            onLlamada={() => {
-              recargar()
-              recargarLlamadas()
-            }}
+            onLlamada={alLlamar}
             onError={setError}
           />
         ))
@@ -187,7 +229,7 @@ export default function RutasPage() {
   )
 }
 
-function RutaCard({ r, editable, vencimientos, confirmaciones, onVerFoto, onGuardado, onLlamada, onError }) {
+function RutaCard({ r, editable, llamable, vencimientos, confirmaciones, onVerFoto, onGuardado, onLlamada, onError }) {
   const [orden, setOrden] = useState(r.pendientes)
   const [guardando, setGuardando] = useState(false)
   // Lo que cambió el orden automático, para decirlo al lado del botón.
@@ -297,7 +339,7 @@ function RutaCard({ r, editable, vencimientos, confirmaciones, onVerFoto, onGuar
                   )}
                   {/* La oficina llama antes: si no está, el técnico no viaja
                       ni espera los diez minutos (227). */}
-                  {editable && i.tipo === 'ticket' && !i.llegada_at && (
+                  {llamable && i.tipo === 'ticket' && !i.llegada_at && (
                     <ConfirmarVisita compacto ticket={i} onHecho={onLlamada} onError={onError} />
                   )}
                   {editable && (
@@ -431,12 +473,72 @@ function Reprogramar({ t, llamada, onVerFoto, onHecho, onError }) {
   )
 }
 
-/** Lo que dijo el cliente cuando lo llamó la oficina hoy. */
+/**
+ * A quién hay que llamar: los tickets del día de TODAS las rutas, en el orden
+ * del día (citas por hora, mañana, sin franja, tarde), con lo que ya se sabe
+ * de cada uno. Por omisión muestra solo los que faltan confirmar.
+ */
+function ParaConfirmar({ rutas, confirmaciones, esHoy, onLlamada, onError }) {
+  const [todos, setTodos] = useState(false)
+  const lista = rutas
+    .flatMap((r) =>
+      (r.pendientes ?? [])
+        .filter((i) => i.tipo === 'ticket' && !i.llegada_at)
+        .map((i) => ({ ...i, de: r.clase === 'cuadrilla' ? `Cuadrilla ${r.nombre}` : r.nombre })),
+    )
+    .sort(ordenParaLlamar)
+  const falta = lista.filter((i) => !confirmaciones?.get(i.id))
+  const visibles = todos ? lista : falta
+  if (!lista.length) return null
+
+  const FRANJA = { manana: 'Mañana', tarde: 'Tarde', exacta: 'Hora fija' }
+  return (
+    <Card
+      title={`Para confirmar ${esHoy ? 'hoy' : 'ese día'} (${falta.length} de ${lista.length})`}
+      icon={PhoneCall}
+      subtitle="Llamá o escribí antes de que vaya la cuadrilla: si no está, se posterga sin que nadie haga el viaje"
+      actions={
+        <button
+          type="button"
+          onClick={() => setTodos((v) => !v)}
+          className="text-xs text-sky-400 hover:text-sky-300"
+        >
+          {todos ? 'Solo los que faltan' : 'Ver todos'}
+        </button>
+      }
+    >
+      {!visibles.length ? (
+        <p className="p-4 text-sm text-emerald-400">Ya están todos confirmados. 🎉</p>
+      ) : (
+        <ul className="divide-y divide-slate-800/60 px-4 sm:px-6">
+          {visibles.map((i) => (
+            <li key={i.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
+              <span className="w-16 shrink-0 text-xs tabular-nums text-slate-400">
+                {i.hora ? String(i.hora).slice(0, 5) : FRANJA[i.franja] ?? '—'}
+              </span>
+              <Link to={`/soporte/${i.id}`} className="min-w-0 flex-1 truncate text-slate-200 hover:underline">
+                {i.nombre} <span className="text-xs text-slate-500">#{i.numero} · {i.de}</span>
+              </Link>
+              {i.telefono && <span className="text-xs tabular-nums text-slate-500">{i.telefono}</span>}
+              <Llamada c={confirmaciones?.get(i.id)} />
+              <ConfirmarVisita compacto ticket={i} onHecho={onLlamada} onError={onError} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+/** Lo que dijo el cliente cuando lo llamó la oficina. */
 function Llamada({ c }) {
   if (!c) return null
   return c.resultado === 'esta' ? (
     <Badge color="verde">
-      <span title={c.detalle ?? ''}>confirmado {horaCorta(c.creado_at)}</span>
+      <span title={c.detalle ?? ''}>
+        confirmado {new Date(c.creado_at).toLocaleDateString('en-CA') === hoyLocal() ? '' : 'ayer '}
+        {horaCorta(c.creado_at)}
+      </span>
     </Badge>
   ) : (
     <Badge color="ambar">{etiquetaLlamada(c.resultado).toLowerCase()}</Badge>
