@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Info, Loader2, X, CheckCircle2 } from 'lucide-react'
 
 /**
@@ -305,17 +305,31 @@ export const Cargando = ({ texto = 'Cargando…' }) => (
   </div>
 )
 
+/**
+ * ── Por qué el fondo mira dónde EMPEZÓ el clic ──
+ *
+ * Al seleccionar el texto de un campo arrastrando (o con doble clic y un
+ * pequeño movimiento) es fácil soltar el botón fuera de la ventana. El
+ * navegador cuenta eso como un clic en el ancestro común —el fondo— y la
+ * ventana se cerraba con todo lo escrito. Ahora se cierra solo si el botón se
+ * apretó Y se soltó sobre el fondo.
+ */
 export function Modal({ abierto, titulo, onCerrar, children, ancho = 'max-w-lg' }) {
+  const empezoEnFondo = useRef(false)
   if (!abierto) return null
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(15,23,42,0.45)] p-4 pt-16 backdrop-blur-[2px]"
-      onClick={onCerrar}
+      onMouseDown={(e) => {
+        empezoEnFondo.current = e.target === e.currentTarget
+      }}
+      onClick={(e) => {
+        const delFondo = empezoEnFondo.current && e.target === e.currentTarget
+        empezoEnFondo.current = false
+        if (delFondo) onCerrar?.()
+      }}
     >
-      <div
-        className={`t-card w-full ${ancho} overflow-hidden shadow-2xl`}
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className={`t-card w-full ${ancho} overflow-hidden shadow-2xl`}>
         <header className="flex items-center justify-between border-b border-[rgba(15,23,42,0.06)] px-6 py-4">
           <h3 className="t-titulo text-sm font-bold text-slate-100">{titulo}</h3>
           <button
