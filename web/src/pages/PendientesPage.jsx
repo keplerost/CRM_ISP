@@ -46,7 +46,7 @@ export default function PendientesPage() {
     const q = sinTildes(busqueda).trim()
     return lista.filter((p) => {
       if (q) {
-        const donde = sinTildes([p.nombre, p.identificacion, p.telefono, p.detalle, etiquetaPendiente(p.tipo), p.numero].join(' '))
+        const donde = sinTildes([p.nombre, p.identificacion, p.telefono, p.detalle, etiquetaPendiente(p.tipo, p.tipo_otro), p.numero].join(' '))
         return q.split(/\s+/).every((w) => donde.includes(w))
       }
       if (vista === 'hechos') return Boolean(p.hecho_at)

@@ -35,7 +35,7 @@ export default function MisPendientesCampo() {
       <ul className="mt-2 space-y-1 text-[13px]">
         {lista.map((p) => (
           <li key={p.id} className="truncate text-slate-300">
-            <b>{etiquetaPendiente(p.tipo)}</b> · {p.nombre}
+            <b>{etiquetaPendiente(p.tipo, p.tipo_otro)}</b> · {p.nombre}
           </li>
         ))}
       </ul>

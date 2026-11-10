@@ -40,6 +40,7 @@ export default function PasarAPendiente({ ticket, onError }) {
     if (!abierto) return
     setForm({
       tipo: tipoSugerido(ticket),
+      tipo_otro: ticket.incidencia_otro ?? '',
       detalle: ticket.incidencia_otro || ticket.descripcion || '',
       asignado_a: perfil?.id ?? '',
       vence_el: ticket.fecha_visita ? String(ticket.fecha_visita).slice(0, 10) : '',
@@ -55,13 +56,17 @@ export default function PasarAPendiente({ ticket, onError }) {
   async function pasar() {
     setGuardando(true)
     onError?.(null)
-    const { error } = await supabase.rpc('pasar_ticket_a_pendiente', {
+    const { data: id, error } = await supabase.rpc('pasar_ticket_a_pendiente', {
       p_ticket: ticket.id,
       p_tipo: form.tipo,
       p_detalle: form.detalle.trim() || null,
       p_asignado_a: form.asignado_a || null,
       p_vence_el: form.vence_el || null,
     })
+    if (!error && id && form.tipo === 'otro' && form.tipo_otro.trim()) {
+      // Lo otro se guarda aparte (226): la función de la 225 no lo recibe.
+      await supabase.from('pendientes').update({ tipo_otro: form.tipo_otro.trim() }).eq('id', id)
+    }
     setGuardando(false)
     if (error) return onError?.(error)
     setAbierto(false)
@@ -102,6 +107,11 @@ export default function PasarAPendiente({ ticket, onError }) {
                 <Input type="date" value={form.vence_el} onChange={set('vence_el')} />
               </Field>
             </div>
+            {form.tipo === 'otro' && (
+              <Field label="¿Qué es lo otro?" hint="En pocas palabras">
+                <Input value={form.tipo_otro} onChange={set('tipo_otro')} maxLength={120} />
+              </Field>
+            )}
             <Field label="Detalle">
               <Textarea rows={2} value={form.detalle} onChange={set('detalle')} />
             </Field>

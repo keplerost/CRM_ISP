@@ -50,7 +50,7 @@ export default function ListaPendientes({ pendientes = [], usuarios = new Map(),
   async function borrar(p) {
     const ok = await confirmar({
       titulo: 'Borrar el pendiente',
-      mensaje: `¿Borrar "${etiquetaPendiente(p.tipo)} · ${p.nombre}"? Si ya se hizo, mejor tildalo: queda el registro.`,
+      mensaje: `¿Borrar "${etiquetaPendiente(p.tipo, p.tipo_otro)} · ${p.nombre}"? Si ya se hizo, mejor tildalo: queda el registro.`,
       etiquetaAccion: 'Borrar',
     })
     if (!ok) return
@@ -82,7 +82,7 @@ export default function ListaPendientes({ pendientes = [], usuarios = new Map(),
 
               <div className="min-w-0 flex-1">
                 <p className={`text-sm ${hecho ? 'text-slate-500 line-through' : 'text-slate-100'}`}>
-                  <b>{etiquetaPendiente(p.tipo)}</b>
+                  <b>{etiquetaPendiente(p.tipo, p.tipo_otro)}</b>
                   {!compacto && <> · {p.nombre}</>}
                   {p.privado && <Lock size={12} className="ml-1 inline text-slate-500" />}
                 </p>

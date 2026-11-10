@@ -22,6 +22,7 @@ const VACIO = {
   identificacion: '',
   telefono: '',
   tipo: 'otro',
+  tipo_otro: '',
   detalle: '',
   asignado_a: '',
   vence_el: '',
@@ -85,6 +86,8 @@ export default function PendienteForm({ inicial = null, cliente = null, onGuarda
       identificacion: texto(form.identificacion),
       telefono: texto(form.telefono),
       tipo: form.tipo,
+      // Solo con "Otro": si se cambió a un tipo de la lista, ya no corresponde.
+      tipo_otro: form.tipo === 'otro' ? texto(form.tipo_otro) : null,
       detalle: texto(form.detalle),
       asignado_a: form.asignado_a || null,
       vence_el: form.vence_el || null,
@@ -175,6 +178,18 @@ export default function PendienteForm({ inicial = null, cliente = null, onGuarda
           </Select>
         </Field>
       </div>
+
+      {/* Con "Otro", cuál: si no, en la lista solo dice "Otro". */}
+      {form.tipo === 'otro' && (
+        <Field label="¿Qué es lo otro?" hint="En pocas palabras. El detalle va abajo.">
+          <Input
+            value={form.tipo_otro}
+            onChange={set('tipo_otro')}
+            placeholder="Ej.: entregar factura impresa, actualizar correo, cambiar titular"
+            maxLength={120}
+          />
+        </Field>
+      )}
 
       <Field label="Detalle" hint="Ej.: pasar al plan de $23.10 · llevar el contrato impreso">
         <Textarea rows={2} value={form.detalle} onChange={set('detalle')} />

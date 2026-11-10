@@ -55,3 +55,10 @@ test('pareceAdministrativo: los tickets de la base que no eran soporte', () => {
   assert.ok(!pareceAdministrativo({ descripcion: 'RETIRO DE EQUIPO' }))
   assert.equal(etiquetaPendiente('firma_contrato'), 'Firma del contrato')
 })
+
+test('etiquetaPendiente: "Otro" con lo que se escribió', () => {
+  assert.equal(etiquetaPendiente('otro', 'entregar factura impresa'), 'Otro: entregar factura impresa')
+  assert.equal(etiquetaPendiente('otro', '  '), 'Otro')
+  assert.equal(etiquetaPendiente('otro'), 'Otro')
+  assert.equal(etiquetaPendiente('cobro', 'algo viejo'), 'Cobro', 'solo con "Otro"')
+})

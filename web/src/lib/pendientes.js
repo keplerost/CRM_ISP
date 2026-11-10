@@ -17,7 +17,14 @@ export const TIPOS_PENDIENTE = [
   { valor: 'otro', label: 'Otro' },
 ]
 
-export const etiquetaPendiente = (v) => TIPOS_PENDIENTE.find((t) => t.valor === v)?.label ?? v ?? 'Otro'
+/**
+ * El nombre del tipo. Con "Otro" y lo que se escribió (226), "Otro: entregar
+ * factura impresa": "Otro" a secas no dice nada en la lista.
+ */
+export const etiquetaPendiente = (v, otro = null) => {
+  const label = TIPOS_PENDIENTE.find((t) => t.valor === v)?.label ?? v ?? 'Otro'
+  return (v ?? 'otro') === 'otro' && String(otro ?? '').trim() ? `${label}: ${String(otro).trim()}` : label
+}
 
 /**
  * Cómo está un pendiente hoy.

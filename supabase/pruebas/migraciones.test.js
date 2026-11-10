@@ -5293,3 +5293,14 @@ test('los pendientes: quién lo cerró, el aviso al asignado y el ticket que pas
   const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-225-los-pendientes-administrativos.sql'), 'utf8')
   await db.exec(sql)
 })
+
+/** Migración 226: con "Otro", cuál es. */
+test('el otro tipo de pendiente se guarda aparte', async () => {
+  await sesion(db, null)
+  const p = await fila(db, `INSERT INTO pendientes (nombre, tipo, tipo_otro, creado_por)
+                            VALUES ('Abonado 226', 'otro', 'entregar factura impresa', NULL)
+                            RETURNING tipo_otro`)
+  assert.equal(p.tipo_otro, 'entregar factura impresa')
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-226-cual-es-el-otro-pendiente.sql'), 'utf8')
+  await db.exec(sql)
+})
