@@ -5139,3 +5139,57 @@ test('el plazo por cuadrilla: fila propia y sin contar dos veces', async () => {
   const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-222-el-plazo-por-cuadrilla.sql'), 'utf8')
   await db.exec(sql)
 })
+
+/**
+ * Migración 223: la ruta se ordena sola, y lo ordenado a mano no se pisa.
+ */
+test('la ruta automática: ordena, marca que es automática y respeta lo manual', async () => {
+  await sesion(db, null)
+  const CU = '22300000-0000-0000-0000-0000000000c1'
+  const TEC = '22300000-0000-0000-0000-0000000000a1'
+  const T1 = '22300000-0000-0000-0000-000000000001'
+  const T2 = '22300000-0000-0000-0000-000000000002'
+
+  await db.exec(`
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${TEC}', 'Técnico 223', true);
+      INSERT INTO cuadrillas (id, nombre, activo) VALUES ('${CU}', 'CARRO 223', true);
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES ('${CU}', '${TEC}', 'lider');
+      INSERT INTO tickets (id, nombre, tipo_incidencia, estado, cuadrilla_id, fecha_visita) VALUES
+        ('${T1}', 'Uno', 'lentitud', 'asignado', '${CU}', hoy_isp()),
+        ('${T2}', 'Dos', 'lentitud', 'asignado', '${CU}', hoy_isp());
+  `)
+
+  const ruta = async () => fila(db, `SELECT * FROM rutas_a_ordenar() WHERE id = '${CU}'`)
+  const g = await ruta()
+  assert.equal(g.manual, false)
+  assert.deepEqual(g.cuadrillas, [CU])
+  assert.deepEqual(g.tecnicos, [TEC])
+
+  // El automático ordena: 2 primero, 1 después.
+  const n = await fila(db, `SELECT ordenar_ruta_auto('[{"tipo":"ticket","id":"${T2}"},{"tipo":"ticket","id":"${T1}"}]'::jsonb) AS n`)
+  assert.equal(n.n, 2)
+  const items = (await db.query(`SELECT id, orden_fijado FROM items_de_ruta(ARRAY['${TEC}']::uuid[], ARRAY['${CU}']::uuid[], hoy_isp())`)).rows
+  assert.deepEqual(items.map((i) => i.id), [T2, T1])
+  assert.equal((await fila(db, `SELECT ruta_auto FROM tickets WHERE id = '${T2}'`)).ruta_auto, true)
+  assert.equal((await ruta()).manual, false, 'lo puso el automático: sigue siendo automática')
+
+  // Alguien lo ordena a mano (como la oficina): queda manual...
+  await db.query(`UPDATE tickets SET ruta_orden = 1, ruta_auto = FALSE WHERE id = '${T1}'`)
+  assert.equal((await ruta()).manual, true)
+
+  // ...y el automático ya no lo pisa.
+  await fila(db, `SELECT ordenar_ruta_auto('[{"tipo":"ticket","id":"${T1}"}]'::jsonb) AS n`)
+  const t1 = await fila(db, `SELECT ruta_orden, ruta_auto FROM tickets WHERE id = '${T1}'`)
+  assert.equal(t1.ruta_auto, false)
+  assert.equal(t1.ruta_orden, 1)
+
+  // La tarea se enciende de fábrica.
+  const ct = await fila(db, `SELECT rutas_automatico, rutas_cada_minutos FROM config_tareas LIMIT 1`).catch(() => null)
+  if (ct) {
+    assert.equal(ct.rutas_automatico, true)
+    assert.equal(ct.rutas_cada_minutos, 10)
+  }
+
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-223-la-ruta-se-ordena-sola.sql'), 'utf8')
+  await db.exec(sql)
+})

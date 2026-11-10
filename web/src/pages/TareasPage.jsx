@@ -90,6 +90,7 @@ const CAMPOS = {
   ],
   optica: [{ campo: 'optica_cada_minutos', label: 'Cada', tipo: 'minutos' }],
   esperando: [{ campo: 'esperando_cada_minutos', label: 'Cada', tipo: 'minutos' }],
+  rutas: [{ campo: 'rutas_cada_minutos', label: 'Cada', tipo: 'minutos' }],
 }
 
 /** La columna que enciende cada tarea. */
@@ -100,6 +101,7 @@ const LLAVE = {
   consumo: 'consumo_automatico',
   nms: 'nms_automatico',
   esperando: 'esperando_automatico',
+  rutas: 'rutas_automatico',
   // Sin estas dos, el interruptor de la tarea se dibuja apagado y al tocarlo
   // guarda en un campo `undefined`: la tarea no se puede encender desde acá y no
   // hay ningún error que lo explique.

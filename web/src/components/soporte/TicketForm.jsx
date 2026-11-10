@@ -11,6 +11,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { coordenadasDeTexto } from '../../lib/ruta'
+import TrabajosCercanos from './TrabajosCercanos'
 import { supabase } from '../../lib/supabaseClient'
 import { Aviso, Button, Field, Input, Select, Textarea } from '../ui'
 import { FRANJAS, INCIDENCIAS } from '../../lib/soporte'
@@ -656,6 +657,24 @@ export default function TicketForm({
           >
             <Textarea rows={3} value={form.descripcion} onChange={set('descripcion')} />
           </Field>
+
+          {/* Lo que ya hay en la misma zona: agendarlo junto es lo que ahorra
+              el viaje de vuelta. */}
+          <TrabajosCercanos
+            latitud={form.latitud}
+            longitud={form.longitud}
+            excluir={ticketInicial?.id ?? null}
+            onElegir={(t) =>
+              setForm((f) => ({
+                ...f,
+                fecha_visita: t.fecha_visita ? String(t.fecha_visita).slice(0, 10) : f.fecha_visita,
+                franja: t.franja ?? f.franja,
+                hora_visita: t.franja === 'exacta' && t.hora_visita ? String(t.hora_visita).slice(0, 5) : f.hora_visita,
+                tecnico_id: t.tecnico_id ?? '',
+                cuadrilla_id: t.tecnico_id ? '' : (t.cuadrilla_id ?? ''),
+              }))
+            }
+          />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Fecha de visita">

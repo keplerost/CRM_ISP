@@ -255,3 +255,20 @@ test('esCoordenada: null y vacío no son el punto 0,0', () => {
   ])
   assert.ok(metros < 5000, `${metros} m`)
 })
+
+import { trabajosCercanos } from '../../web/src/lib/ruta.js'
+
+test('trabajosCercanos: los de la zona, del más cercano al más lejano, sin el propio', () => {
+  const aqui = { latitud: -0.94, longitud: -79.24 }
+  const lista = [
+    { id: 'lejos', latitud: -0.80, longitud: -79.28 }, // ~15 km
+    { id: 'cerca', latitud: -0.941, longitud: -79.241 }, // ~150 m
+    { id: 'medio', latitud: -0.95, longitud: -79.245 }, // ~1.2 km
+    { id: 'yo', latitud: -0.94, longitud: -79.24 },
+    { id: 'sin', latitud: null, longitud: null },
+  ]
+  const r = trabajosCercanos(aqui, lista, { excluir: 'yo' })
+  assert.deepEqual(r.map((t) => t.id), ['cerca', 'medio'])
+  assert.ok(r[0].metros < 300)
+  assert.deepEqual(trabajosCercanos({ latitud: '', longitud: '' }, lista), [], 'sin ubicación no busca')
+})

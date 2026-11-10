@@ -18,6 +18,7 @@ import { programarCorteMora, estadoMora } from './corteMora.js'
 import { programarFirmas, estadoFirmas } from './firmasProgramadas.js'
 import { programarFotoRouters, estadoFotoRouters } from './fotoRouters.js'
 import { programarSubida, estadoSubida } from './subidaSaturada.js'
+import { programarRutas, estadoRutas } from './rutaAutomatica.js'
 
 /**
  * Los automatismos: qué corre solo, cada cuánto y a qué hora.
@@ -245,6 +246,14 @@ export const TAREAS = [
       programarStock({ activo: v.stock_automatico, hora: v.stock_hora, ...extra }),
   },
   {
+    clave: 'rutas',
+    nombre: 'Ordenar las rutas del día',
+    que: 'Ordena sola la ruta de cada cuadrilla y técnico: lo urgente primero, después por franja, y dentro de cada una el cliente más cercano al anterior. Una ruta ordenada a mano no se toca.',
+    tipo: 'intervalo',
+    arrancar: (v) =>
+      v.rutas_automatico ? programarRutas({ activo: true, cada_minutos: v.rutas_cada_minutos }) : null,
+  },
+  {
     clave: 'esperando',
     nombre: 'ONTs esperando autorización',
     que: 'Busca ONTs recién conectadas. Cada una es alguien esperando el servicio.',
@@ -273,6 +282,10 @@ const DEL_ARCHIVO = () => ({
   optica_automatica: config.optica.automatica,
   optica_cada_minutos: config.optica.cada_minutos,
   esperando_automatico: config.esperando.automatico,
+  // Encendida: no le escribe a nadie ni toca equipos, y respeta lo que una
+  // persona ordenó a mano. Apagada, la ruta vuelve a ir de punta a punta.
+  rutas_automatico: true,
+  rutas_cada_minutos: 10,
   esperando_cada_minutos: config.esperando.cada_minutos,
   // Apagada por defecto. Una tarea que congela lo que se le va a pagar a alguien
   // no se enciende sola porque sí: la prende una persona cuando las bases y los
@@ -503,6 +516,7 @@ export async function estado() {
       firmas: estadoFirmas?.ultimaCorrida ?? null,
       foto_routers: estadoFotoRouters?.ultimaCorrida ?? null,
       subida: estadoSubida?.ultimaCorrida ?? null,
+      rutas: estadoRutas().ultimaCorrida ?? null,
     },
 
     /**

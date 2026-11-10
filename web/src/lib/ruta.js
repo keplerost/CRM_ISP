@@ -275,3 +275,31 @@ export function enlaceRutaGoogle(paradas = []) {
   if (intermedias.length) url += `&waypoints=${encodeURIComponent(intermedias.map(punto).join('|'))}`
   return { url, incluidas: tramo.length, total: ubicadas.length }
 }
+
+/** Hasta dónde un trabajo cuenta como "de la misma zona": dos kilómetros. */
+export const RADIO_ZONA_M = 2000
+
+/**
+ * Los trabajos pendientes cerca de un punto, del más cercano al más lejano.
+ *
+ * Para quien carga un ticket: si a 600 m ya hay dos visitas el miércoles por
+ * la mañana, conviene agendar este junto a ellas y no un jueves a la tarde en
+ * la otra punta. Se mide con coordenadas y no por sector porque el sector casi
+ * nunca se llena.
+ *
+ * @param punto     { latitud, longitud } del ticket que se está cargando
+ * @param trabajos  pendientes con latitud/longitud
+ * @param excluir   id a dejar afuera (el propio ticket, al editar)
+ */
+export function trabajosCercanos(punto, trabajos = [], { radio = RADIO_ZONA_M, excluir = null } = {}) {
+  if (!esCoordenada(punto?.latitud) || !esCoordenada(punto?.longitud)) return []
+  const desde = { lat: Number(punto.latitud), lng: Number(punto.longitud) }
+  return trabajos
+    .filter((t) => t.id !== excluir && esCoordenada(t.latitud) && esCoordenada(t.longitud))
+    .map((t) => {
+      const d = distanciaEnMetros(desde, { lat: Number(t.latitud), lng: Number(t.longitud) })
+      return { ...t, metros: d == null ? null : Math.round(d) }
+    })
+    .filter((t) => t.metros != null && t.metros <= radio)
+    .sort((a, b) => a.metros - b.metros)
+}
