@@ -42,6 +42,43 @@ const CAMPOS = `
 const nombreCompleto = (u) => `${u.nombre} ${u.apellido || ''}`.trim()
 
 /**
+ * La ficha de Soporte de alguien que no es técnico pero también sale a campo.
+ *
+ * El administrador que atiende un soporte cuando los técnicos están llenos no
+ * necesita un segundo usuario: con una ficha vinculada se le asignan tickets,
+ * tiene su ruta en la app de campo y lo que atiende cuenta a su nombre.
+ *
+ * Para los roles técnico y jefe técnico la ficha la crea la base sola (208).
+ * Para el resto, la pantalla manda `tecnico_id: 'nuevo'` y se crea acá.
+ *
+ * @param valor   lo que mandó la pantalla: un id, 'nuevo', o vacío
+ * @param persona { nombre, apellido, email, celular, auth_id }
+ * @param actual  el tecnico_id que ya tenía, si tenía
+ */
+export async function resolverFichaTecnico(valor, persona, actual = null, cliente = db()) {
+  if (valor !== 'nuevo') return valor || null
+  if (actual) {
+    // Ya tenía una: se reactiva en vez de duplicarla.
+    await cliente.from('tecnicos').update({ activo: true }).eq('id', actual)
+    return actual
+  }
+  const { data, error } = await cliente
+    .from('tecnicos')
+    .insert({
+      nombre: nombreCompleto(persona) || persona.usuario || 'Sin nombre',
+      email: persona.email ?? null,
+      telefono: persona.celular ?? null,
+      user_id: persona.auth_id ?? null,
+      activo: true,
+      especialidad: 'ambas',
+    })
+    .select('id')
+    .single()
+  if (error) throw new AppError(`No se pudo crear la ficha de técnico: ${error.message}`, { status: 502 })
+  return data.id
+}
+
+/**
  * Quién pide, y si tiene derecho a estar acá.
  *
  * El legajo faltante NO es "sin permisos": es un usuario de Auth que quedó
@@ -255,8 +292,17 @@ router.post(
       todas_las_zonas: req.body.todas_las_zonas === true,
       dos_factores: req.body.dos_factores === true,
       permisos,
-      tecnico_id: req.body.tecnico_id || null,
+      tecnico_id: req.body.tecnico_id === 'nuevo' ? null : req.body.tecnico_id || null,
       creado_por: actor.id,
+    }
+    if (req.body.tecnico_id === 'nuevo' && !['tecnico', 'jefe_tecnico'].includes(rol)) {
+      // La credencial ya está creada: si la ficha falla, el usuario se crea
+      // igual sin ella (se le agrega editándolo) en vez de dejar una credencial
+      // huérfana.
+      fila.tecnico_id = await resolverFichaTecnico('nuevo', { ...fila }).catch((err) => {
+        console.error('[personal] no se pudo crear la ficha de técnico:', err.message)
+        return null
+      })
     }
 
     const { data, error } = await db().from('usuarios_sistema').insert(fila).select(CAMPOS).single()
@@ -334,7 +380,14 @@ router.patch(
     for (const bandera of ['activo', 'todas_las_zonas', 'dos_factores']) {
       if (req.body[bandera] !== undefined) cambios[bandera] = req.body[bandera] === true
     }
-    if (req.body.tecnico_id !== undefined) cambios.tecnico_id = req.body.tecnico_id || null
+    if (req.body.tecnico_id !== undefined) {
+      cambios.tecnico_id = await resolverFichaTecnico(req.body.tecnico_id, { ...previo, ...cambios }, previo.tecnico_id)
+      // Deja de salir a campo: la ficha queda (es su historia en el desempeño)
+      // pero inactiva, para que no aparezca al asignar tickets.
+      if (!cambios.tecnico_id && previo.tecnico_id && !['tecnico', 'jefe_tecnico'].includes(rol)) {
+        await db().from('tecnicos').update({ activo: false }).eq('id', previo.tecnico_id)
+      }
+    }
 
     if (req.body.permisos !== undefined && !esUnoMismo) {
       if (!tienePermiso(actor, 'usuarios.permisos')) {

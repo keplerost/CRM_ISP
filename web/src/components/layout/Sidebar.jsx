@@ -143,6 +143,7 @@ const SECCIONES = [
       // Lo administrativo con cada abonado, separado de Soporte (225): antes se
       // cargaba como ticket y le llenaba la ruta a la cuadrilla.
       { to: '/pendientes', label: 'Pendientes', icon: ClipboardList },
+      { to: '/campo', label: 'Mi ruta de campo', icon: Route, soloConFicha: true },
       {
         to: '/finanzas',
         label: 'Finanzas',
@@ -502,6 +503,10 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
             // la cartera: no es su trabajo diario. No es un permiso —puede
             // entrar igual— es no ocuparle el menú con lo de otro.
             if (item.soloVendedor && puede('clientes.cartera')) return null
+            // La app de campo, para quien también sale a campo sin ser técnico
+            // (el administrador con ficha de Soporte). Al técnico no: él entra
+            // directo a su app y no usa este menú.
+            if (item.soloConFicha && !perfil?.tecnico_id) return null
             if (item.permiso && ![item.permiso].flat().some((p) => puede(p))) return null
             if (!item.hijos) return item.permiso ? item : puedeEntrar(puede, item.to) ? item : null
             const hijos = item.hijos.filter(
@@ -511,7 +516,7 @@ export default function Sidebar({ abierto = false, onCerrar = () => {} }) {
           })
           .filter(Boolean),
       })).filter((s) => s.items.length),
-    [puede, pais],
+    [puede, pais, perfil?.tecnico_id],
   )
 
   return (

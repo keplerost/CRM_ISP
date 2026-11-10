@@ -57,6 +57,9 @@ export default function SoportePage() {
   const { puede, perfil } = usePermisos()
   // Un técnico ve los suyos y los de su cuadrilla: puede separarlos.
   const esTecnico = !puede('soporte.ver') && Boolean(perfil?.tecnico_id)
+  // Quien ve todo pero también sale a campo (el administrador con ficha de
+  // técnico): puede filtrar lo que le asignaron a él.
+  const conFicha = Boolean(perfil?.tecnico_id)
 
   /**
    * Trae los tickets, y solo los que corresponden.
@@ -103,7 +106,7 @@ export default function SoportePage() {
 
     const buscando = busqueda.trim() !== ''
     const filtrados = tickets.filter((t) => {
-      if (!esTecnico || deQuienVer === 'todos' || deQuien(t, perfil?.tecnico_id) === deQuienVer) {
+      if (!conFicha || deQuienVer === 'todos' || deQuien(t, perfil?.tecnico_id) === deQuienVer) {
         // Buscando, se busca en TODOS los estados: el que busca "¿le creé el
         // ticket a esta persona?" no sabe si ya se cerró.
         if (buscando) return coincideTicket(t, busqueda)
@@ -120,7 +123,7 @@ export default function SoportePage() {
         (PESO_PRIORIDAD[a.prioridad] ?? 9) - (PESO_PRIORIDAD[b.prioridad] ?? 9) ||
         Number(b.horas_abierto) - Number(a.horas_abierto),
     )
-  }, [tickets, filtro, busqueda, deQuienVer, esTecnico, perfil?.tecnico_id])
+  }, [tickets, filtro, busqueda, deQuienVer, conFicha, perfil?.tecnico_id])
 
   const abiertos = tickets.filter((t) => !['resuelto', 'cancelado'].includes(t.estado))
   const atrasados = abiertos.filter((t) => t.visita_atrasada)
@@ -185,12 +188,16 @@ export default function SoportePage() {
         )}
       </div>
 
-      {esTecnico && (
+      {conFicha && (
         <div className="flex gap-2">
           {[
             ['todos', 'Todos'],
             ['mio', `Asignados a mí (${tickets.filter((t) => deQuien(t, perfil?.tecnico_id) === 'mio').length})`],
-            ['cuadrilla', `De mi cuadrilla (${tickets.filter((t) => deQuien(t, perfil?.tecnico_id) === 'cuadrilla').length})`],
+            // "De mi cuadrilla" solo para el técnico: para quien ve todo,
+            // "lo que no es mío" sería la bandeja entera.
+            ...(esTecnico
+              ? [['cuadrilla', `De mi cuadrilla (${tickets.filter((t) => deQuien(t, perfil?.tecnico_id) === 'cuadrilla').length})`]]
+              : []),
           ].map(([v, label]) => (
             <button
               key={v}

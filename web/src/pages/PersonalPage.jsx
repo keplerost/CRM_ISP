@@ -588,6 +588,25 @@ export default function PersonalPage() {
                   la ficha se crea sola al guardar con su nombre, correo y
                   celular. Elegir una sirve solo para enlazar una ficha que ya
                   estaba cargada a mano, y no duplicarla. */}
+              {/* Quien no es técnico pero a veces sale a campo —el
+                  administrador cuando los técnicos están llenos—: con una ficha
+                  se le asignan tickets, tiene su ruta en la app de campo y lo
+                  que atiende cuenta a su nombre. Sin segundo usuario. */}
+              {!['tecnico', 'jefe_tecnico'].includes(editando.rol) && (
+                <div className="flex flex-col justify-end gap-1 pb-1">
+                  <Casilla
+                    marcado={Boolean(editando.tecnico_id)}
+                    // 'nuevo': el servidor crea la ficha, o reactiva la que ya
+                    // tenía si alguna vez la tuvo.
+                    onCambiar={(v) => setEditando({ ...editando, tecnico_id: v ? 'nuevo' : null })}
+                  >
+                    También hace trabajos de campo
+                  </Casilla>
+                  <p className="text-[11px] text-slate-500">
+                    Se le pueden asignar tickets y tiene su ruta en la app de campo, sin crearle otro usuario.
+                  </p>
+                </div>
+              )}
               {['tecnico', 'jefe_tecnico'].includes(editando.rol) && (
                 <Field
                   label="Ficha en Soporte"
