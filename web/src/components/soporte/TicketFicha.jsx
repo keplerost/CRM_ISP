@@ -399,7 +399,7 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
           <div className="min-w-0">
             <p className="font-mono text-xs opacity-80">TICKET N° {t.codigo}</p>
             <h2 className="truncate text-xl font-bold">{t.nombre}</h2>
-            <p className="text-sm opacity-90">{etiquetaIncidencia(t.tipo_incidencia)}</p>
+            <p className="text-sm opacity-90">{etiquetaIncidencia(t.tipo_incidencia, t.incidencia_otro)}</p>
           </div>
 
           <div className="flex shrink-0 flex-col items-end gap-1">

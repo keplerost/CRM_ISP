@@ -200,7 +200,7 @@ export default function SoportePage() {
                       </p>
                       <b className="block truncate text-slate-100">{t.nombre}</b>
                       <p className="truncate text-sm text-slate-400">
-                        {etiquetaIncidencia(t.tipo_incidencia)}
+                        {etiquetaIncidencia(t.tipo_incidencia, t.incidencia_otro)}
                       </p>
                     </div>
 

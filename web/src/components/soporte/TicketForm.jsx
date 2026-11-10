@@ -60,6 +60,7 @@ const VACIO = {
   senal_dbm: '',
   antena_modelo: '',
   tipo_incidencia: 'sin_internet',
+  incidencia_otro: '',
   descripcion: '',
   prioridad: 'media',
   fecha_visita: '',
@@ -236,6 +237,10 @@ export default function TicketForm({
         longitud: soloNumero(form.longitud),
         tecnologia: form.tecnologia,
         tipo_incidencia: form.tipo_incidencia,
+        // Solo con "Otro": si se cambió a un tipo de la lista, el detalle viejo
+        // ya no corresponde.
+        incidencia_otro:
+          form.tipo_incidencia === 'otro' ? soloTexto(form.incidencia_otro) : null,
         descripcion: soloTexto(form.descripcion),
         prioridad: form.prioridad,
         fecha_visita: form.fecha_visita || null,
@@ -627,6 +632,23 @@ export default function TicketForm({
               </div>
             </Field>
           </div>
+
+          {/* Con "Otro", cuál: el técnico tiene que saber qué trabajo va a
+              hacer sin deducirlo de lo que contó el abonado. */}
+          {form.tipo_incidencia === 'otro' && (
+            <Field
+              label="¿Cuál es el otro tipo de incidencia?"
+              hint="El tipo de trabajo, en pocas palabras. Lo que cuenta el abonado va abajo."
+            >
+              <Input
+                value={form.incidencia_otro}
+                onChange={set('incidencia_otro')}
+                placeholder="Ej.: cambio de router, reubicar la ONT, cableado interno"
+                maxLength={120}
+                autoFocus
+              />
+            </Field>
+          )}
 
           <Field
             label="Qué reporta el abonado"

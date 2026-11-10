@@ -5075,3 +5075,24 @@ test('el aviso de plazo nombra la cuadrilla y sus integrantes', async () => {
   // v_plazos_tecnico sigue funcionando sobre la vista nueva.
   await db.query('SELECT * FROM v_plazos_tecnico')
 })
+
+/**
+ * Migración 221: con "Otro", cuál; y v_tickets rehecha deja ver las columnas
+ * agregadas después de la 28.
+ */
+test('el otro tipo de incidencia llega a v_tickets', async () => {
+  await sesion(db, null)
+  const TK = '22100000-0000-0000-0000-000000000001'
+  await db.query(
+    `INSERT INTO tickets (id, nombre, tipo_incidencia, incidencia_otro, estado, demora_motivo)
+     VALUES ('${TK}', 'Abonado 221', 'otro', 'cambio de router', 'abierto', 'cliente')`,
+  )
+  const v = await fila(db, `SELECT incidencia_otro, demora_motivo, codigo FROM v_tickets WHERE id = '${TK}'`)
+  assert.equal(v.incidencia_otro, 'cambio de router')
+  assert.equal(v.demora_motivo, 'cliente', 'la 219 también llega a la vista')
+  assert.ok(v.codigo)
+
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-221-cual-otro-tipo-de-incidencia.sql'), 'utf8')
+  await db.exec(sql)
+  assert.equal((await fila(db, `SELECT incidencia_otro FROM v_tickets WHERE id = '${TK}'`)).incidencia_otro, 'cambio de router')
+})

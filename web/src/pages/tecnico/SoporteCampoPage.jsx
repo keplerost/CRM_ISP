@@ -237,7 +237,7 @@ function Tarjeta({ t }) {
           <p className={`truncate text-[14px] font-medium ${cerrado ? 'text-slate-500' : 'text-slate-100'}`}>
             {t.nombre ?? 'Sin nombre'}
           </p>
-          <p className="mt-0.5 text-[12px] text-slate-400">{etiquetaIncidencia(t.tipo_incidencia)}</p>
+          <p className="mt-0.5 text-[12px] text-slate-400">{etiquetaIncidencia(t.tipo_incidencia, t.incidencia_otro)}</p>
           <p className="text-[11px] text-slate-600">
             #{t.numero}
             {est ? ` · ${est.label}` : ''}

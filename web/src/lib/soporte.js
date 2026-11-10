@@ -83,8 +83,14 @@ export const INCIDENCIAS = [
   { valor: 'otro', label: 'Otro', tecnologia: null },
 ]
 
-export const etiquetaIncidencia = (v) =>
-  INCIDENCIAS.find((i) => i.valor === v)?.label ?? v ?? '—'
+/**
+ * El nombre del tipo de incidencia. Con "Otro" y el detalle de cuál (221),
+ * "Otro: cambio de router": "Otro" a secas no le dice nada al técnico.
+ */
+export const etiquetaIncidencia = (v, otro = null) => {
+  const label = INCIDENCIAS.find((i) => i.valor === v)?.label ?? v ?? '—'
+  return v === 'otro' && String(otro ?? '').trim() ? `${label}: ${String(otro).trim()}` : label
+}
 
 export const FRANJAS = {
   manana: 'Mañana (08:00 – 12:00)',

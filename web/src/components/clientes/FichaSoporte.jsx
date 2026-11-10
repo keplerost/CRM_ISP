@@ -84,7 +84,7 @@ export default function FichaSoporte({ cliente, onError }) {
                       </span>
                     </span>
                     <span className="block truncate text-sm text-slate-200">
-                      {etiquetaIncidencia(t.tipo_incidencia)}
+                      {etiquetaIncidencia(t.tipo_incidencia, t.incidencia_otro)}
                     </span>
                     <span className="block text-[11px] text-slate-500">
                       {fecha(t.created_at)} · {haceCuanto(t.horas_abierto)}
