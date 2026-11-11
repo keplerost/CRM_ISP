@@ -5579,3 +5579,151 @@ test('el que sale por su cuenta registra su vehículo; el que va en la camioneta
 
   await db.exec(sql)
 })
+
+/** Migración 232: las obras de red y los indicadores de la cuadrilla que construye. */
+test('una obra de red: se asigna, se reporta, no se entrega sin documentación, y da sus indicadores', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2320000-0000-0000-0000-000000000001'
+  const JEFE_AUTH = 'a2320000-0000-0000-0000-000000000002'
+  const AYU_AUTH = 'a2320000-0000-0000-0000-000000000003'
+  const AJENO_AUTH = 'a2320000-0000-0000-0000-000000000004'
+  const OFI = 'c2320000-0000-0000-0000-000000000001'
+  const JEFE_U = 'c2320000-0000-0000-0000-000000000002'
+  const AYU_U = 'c2320000-0000-0000-0000-000000000003'
+  const JEFE = 'b2320000-0000-0000-0000-000000000001'
+  const AYU = 'b2320000-0000-0000-0000-000000000002'
+  const AJENO = 'b2320000-0000-0000-0000-000000000003'
+  const CU = 'd2320000-0000-0000-0000-000000000001'
+  const ART = 'e2320000-0000-0000-0000-000000000002'
+  const BOD = 'e2320000-0000-0000-0000-000000000003'
+  const CLI = 'e2320000-0000-0000-0000-000000000004'
+
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'o232@demo.ec'), ('${JEFE_AUTH}', 'j232@demo.ec'),
+        ('${AYU_AUTH}', 'a232@demo.ec'), ('${AJENO_AUTH}', 'x232@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${JEFE}', 'Jefe 232', true), ('${AYU}', 'Ayudante 232', true), ('${AJENO}', 'Ajeno 232', true);
+      INSERT INTO cuadrillas (id, nombre) VALUES ('${CU}', 'MAZDA 232');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES ('${CU}', '${JEFE}', 'lider'), ('${CU}', '${AYU}', 'tecnico');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('${OFI}', '${OFI_AUTH}', 'o232', 'o232@demo.ec', 'Ofelia', 'Obras', 'supervisor', '["soporte.obras"]'::jsonb, true, NULL),
+        ('${JEFE_U}', '${JEFE_AUTH}', 'j232', 'j232@demo.ec', 'Jefe', 'Mazda', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${JEFE}'),
+        ('${AYU_U}', '${AYU_AUTH}', 'a232', 'a232@demo.ec', 'Ayu', 'Mazda', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${AYU}'),
+        ('c2320000-0000-0000-0000-000000000004', '${AJENO_AUTH}', 'x232', 'x232@demo.ec', 'Ajeno', 'Otro', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${AJENO}');
+      -- El almacén del técnico se crea solo al darlo de alta.
+      INSERT INTO almacenes (nombre, tipo, tecnico_id) VALUES ('Almacén Ayu 232', 'tecnico', '${AYU}') ON CONFLICT DO NOTHING;
+      INSERT INTO almacenes (id, nombre, tipo) VALUES ('${BOD}', 'Bodega 232', 'bodega');
+      INSERT INTO articulos (id, nombre, categoria, unidad) VALUES ('${ART}', 'Fibra ADSS 232', 'cable', 'm');
+      INSERT INTO movimientos_inventario (tipo, articulo_id, cantidad, almacen_origen_id, almacen_destino_id)
+      VALUES ('transferencia', '${ART}', 500, '${BOD}', (SELECT id FROM almacenes WHERE tecnico_id = '${AYU}'));
+  `)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-232-las-obras-de-red.sql'), 'utf8')
+  await db.exec(sql)
+
+  // Solo la oficina crea obras.
+  await sesion(db, JEFE_AUTH)
+  await assert.rejects(db.query(`SELECT guardar_obra(NULL, '{"titulo":"x","cuadrilla_id":"${CU}"}')`), /Solo administración/)
+
+  await sesion(db, OFI_AUTH)
+  const { id: OBRA } = await fila(db, `SELECT guardar_obra(NULL, jsonb_build_object(
+      'titulo', 'Expansión barrio Norte', 'tipo', 'expansion', 'zona', 'Barrio Norte', 'cuadrilla_id', '${CU}',
+      'fecha_inicio', hoy_isp() - 3, 'fecha_meta', hoy_isp() + 5,
+      'meta_metros', 1000, 'meta_naps', 2, 'meta_fusiones', 10)) AS id`)
+  await db.query(`INSERT INTO obra_materiales (obra_id, articulo_id, descripcion, unidad, presupuesto)
+                  VALUES ('${OBRA}', '${ART}', 'Fibra ADSS', 'm', 400)`)
+  const mat = await fila(db, `SELECT id FROM obra_materiales WHERE obra_id = '${OBRA}'`)
+
+  // Le llega a toda la cuadrilla, no al ajeno.
+  const avisos = await fila(db, `SELECT COUNT(*)::int AS n FROM notificaciones WHERE tipo = 'obra_asignada' AND entidad_id = '${OBRA}'`)
+  assert.equal(avisos.n, 2)
+
+  // El ajeno no la ve ni reporta.
+  await sesion(db, AJENO_AUTH)
+  assert.equal((await fila(db, `SELECT ve_obra('${OBRA}') AS ok`)).ok, false)
+  await assert.rejects(db.query(`SELECT reportar_avance_obra('${OBRA}', '{"metros":10}')`), /no está asignada a tu cuadrilla/)
+
+  // El ayudante reporta: la obra pasa a en curso. Con la misma clave no se duplica.
+  await sesion(db, AYU_AUTH)
+  const CLAVE = 'f2320000-0000-0000-0000-000000000001'
+  const p1 = await fila(db, `SELECT reportar_avance_obra('${OBRA}', jsonb_build_object(
+      'fecha', hoy_isp() - 1, 'metros', 600, 'fusiones', 6, 'perdida_fusion_db', 0.05,
+      'fotos', jsonb_build_array('${OBRA}/a.jpg', 'otra/obra.jpg'), 'epp_completo', true), '${CLAVE}') AS id`)
+  const p1b = await fila(db, `SELECT reportar_avance_obra('${OBRA}', '{"metros":600}', '${CLAVE}') AS id`)
+  assert.equal(p1b.id, p1.id)
+  const av = await fila(db, `SELECT fotos FROM obra_avances WHERE id = ${p1.id}`)
+  assert.deepEqual(av.fotos, [`${OBRA}/a.jpg`], 'una foto de otra obra no se acepta')
+  assert.equal((await fila(db, `SELECT estado FROM obras_red WHERE id = '${OBRA}'`)).estado, 'en_curso')
+  await assert.rejects(db.query(`SELECT reportar_avance_obra('${OBRA}', '{}')`), /Contá qué se hizo/)
+  await assert.rejects(db.query(`SELECT reportar_avance_obra('${OBRA}', '{"metros":1,"incidente":true}')`), /qué pasó en el incidente/)
+
+  // Material: se descuenta del almacén del que lo carga.
+  const c1 = await fila(db, `SELECT registrar_consumo_obra('${OBRA}', '${mat.id}', 450) AS r`)
+  assert.equal(c1.r.descontado, true)
+  assert.equal(Number((await fila(db, `SELECT cantidad FROM existencias WHERE articulo_id = '${ART}' AND almacen_id = (SELECT id FROM almacenes WHERE tecnico_id = '${AYU}')`)).cantidad), 50)
+  const c2 = await fila(db, `SELECT registrar_consumo_obra('${OBRA}', NULL, 3, 'Herraje tipo A', 'u') AS r`)
+  assert.equal(c2.r.descontado, false)
+
+  // El ayudante no entrega: lo hace el jefe. Y sin documentación, nadie.
+  assert.equal((await fila(db, `SELECT puede_entregar_obra('${OBRA}') AS ok`)).ok, false)
+  await sesion(db, JEFE_AUTH)
+  assert.equal((await fila(db, `SELECT puede_entregar_obra('${OBRA}') AS ok`)).ok, true)
+  await assert.rejects(db.query(`SELECT entregar_obra('${OBRA}', 'listo')`), /Registrar las cajas NAP: van 0 de 2/)
+
+  // Las NAP van al mapa de la red. Una sin foto bloquea la entrega.
+  await db.query(`SELECT registrar_nap_obra('${OBRA}', 'nap-n-01', -0.2, -78.5, 16, -19.5, '${OBRA}/n1.jpg')`)
+  await db.query(`SELECT registrar_nap_obra('${OBRA}', 'NAP-N-02', -0.21, -78.51, 16, -24.0, NULL)`)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM puntos_red WHERE nombre IN ('NAP-N-01', 'NAP-N-02') AND tipo = 'nap'`)).n, 2)
+  await assert.rejects(db.query(`SELECT entregar_obra('${OBRA}', 'listo')`), /1 caja\(s\) NAP sin ubicación, potencia, puertos o foto/)
+  await db.query(`SELECT registrar_nap_obra('${OBRA}', 'NAP-N-02', NULL, NULL, NULL, NULL, '${OBRA}/n2.jpg')`)
+  assert.equal((await fila(db, `SELECT cardinality(faltantes_obra('${OBRA}')) AS n`)).n, 0)
+  await db.query(`SELECT reportar_avance_obra('${OBRA}', jsonb_build_object('metros', 300, 'naps', 2, 'fusiones', 4, 'perdida_fusion_db', 0.2, 'epp_completo', false))`)
+  await db.query(`SELECT entregar_obra('${OBRA}', 'Quedó tendido y con potencias')`)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM notificaciones WHERE usuario_id = '${OFI}' AND tipo = 'obra_entregada'`)).n, 1)
+
+  // La oficina la devuelve una vez (retrabajo) y después la aprueba.
+  await sesion(db, OFI_AUTH)
+  await assert.rejects(db.query(`SELECT revisar_obra('${OBRA}', false, NULL)`), /qué falta/)
+  await db.query(`SELECT revisar_obra('${OBRA}', false, 'Falta la foto de la manga')`)
+  assert.equal((await fila(db, `SELECT devoluciones FROM obras_red WHERE id = '${OBRA}'`)).devoluciones, 1)
+  await sesion(db, JEFE_AUTH)
+  await db.query(`SELECT entregar_obra('${OBRA}', 'Agregada la foto')`)
+  await sesion(db, OFI_AUTH)
+  await db.query(`SELECT revisar_obra('${OBRA}', true, 'OK')`)
+
+  // Una falla de un abonado de esa caja después de la entrega.
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO clientes (id, nombre, estado, nap_id) VALUES ('${CLI}', 'Vecino 232', 'activo', (SELECT id FROM puntos_red WHERE nombre = 'NAP-N-01'));
+      INSERT INTO tickets (nombre, tipo_incidencia, estado, client_id, created_at) VALUES ('Vecino 232', 'sin_internet', 'abierto', '${CLI}', NOW() + INTERVAL '1 minute');
+      INSERT INTO tickets (nombre, tipo_incidencia, estado, client_id) VALUES ('Vecino 232', 'cambio_clave', 'abierto', '${CLI}');
+      INSERT INTO tickets (nombre, tipo_incidencia, estado, cuadrilla_id, cerrado_at) VALUES ('Apoyo 232', 'otro', 'resuelto', '${CU}', NOW());
+  `)
+
+  await sesion(db, OFI_AUTH)
+  const r = (await fila(db, `SELECT indicadores_obras(hoy_isp() - 7, hoy_isp()) AS r`)).r
+  const m = r.cuadrillas.find((x) => x.cuadrilla_id === CU)
+  assert.ok(m, 'MAZDA aparece')
+  assert.equal(Number(m.produccion.metros), 900)
+  assert.equal(m.produccion.dias, 2)
+  assert.equal(m.plan.entregadas, 1)
+  assert.equal(m.plan.a_tiempo, 1)
+  assert.equal(m.calidad.naps_medidas, 2)
+  assert.equal(m.calidad.naps_ok, 1, 'una NAP a -24 dBm queda bajo la meta de -22')
+  assert.equal(Number(m.calidad.perdida_promedio), 0.11) // (0.05*6 + 0.2*4) / 10
+  assert.equal(m.fallas.fallas, 1, 'solo la de sin internet, no el cambio de clave')
+  assert.equal(m.fallas.clientes_conectados, 1)
+  assert.equal(Number(m.material.desvio_pct), 12.5) // 450 / 400
+  assert.equal(m.material.extras, 1)
+  assert.equal(m.documentacion.a_la_primera, 0)
+  assert.equal(m.documentacion.revisadas, 1)
+  assert.equal(m.seguridad.partes, 2)
+  assert.equal(m.seguridad.con_epp, 1)
+  assert.equal(m.apoyo.tickets, 1)
+  assert.equal(m.por_tecnico.length, 2)
+
+  // El técnico ve solo su cuadrilla; el ajeno, nada.
+  await sesion(db, AJENO_AUTH)
+  assert.equal((await fila(db, `SELECT indicadores_obras(hoy_isp() - 7, hoy_isp()) AS r`)).r.cuadrillas.length, 0)
+
+  await sesion(db, null)
+  await db.exec(sql)
+})

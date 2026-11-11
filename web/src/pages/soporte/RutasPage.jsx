@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, ListOrdered, PhoneOff, Route, Wand2 } from 'lucide-react'
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, Hammer, ListOrdered, PhoneOff, Route, Wand2 } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { etiquetaIncidencia } from '../../lib/soporte'
@@ -655,6 +655,16 @@ function Reprogramar({ t, llamada, onVerFoto, onHecho, onError }) {
         <Button variante="fantasma" icon={Camera} onClick={() => onVerFoto(t.foto)}>
           Foto
         </Button>
+      )}
+      {/* "Hace falta otro trabajo": no es una visita más, es una obra para la
+          cuadrilla de redes (232). Al aprobarla se avisa para reprogramar. */}
+      {t.motivo === 'requiere_otro' && (
+        <Link
+          to={`/soporte/obras?ticket=${t.id}`}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 hover:text-slate-100"
+        >
+          <Hammer size={14} /> Crear obra
+        </Link>
       )}
       <div className="w-40">
         <Input type="date" value={fecha} min={hoyLocal()} onChange={(e) => setFecha(e.target.value)} />

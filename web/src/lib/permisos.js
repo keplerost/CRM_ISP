@@ -188,6 +188,11 @@ export const GRUPOS_PERMISOS = [
         nombre: 'Ordenar la ruta del día de las cuadrillas',
         nota: 'Ve las rutas de todos en Soporte → Rutas del día y cambia el orden en que se hacen los trabajos.',
       },
+      {
+        clave: 'soporte.obras',
+        nombre: 'Gestionar las obras de red',
+        nota: 'Crea las obras de construcción, las asigna a una cuadrilla, las aprueba o devuelve, y ve los indicadores de todas. La cuadrilla ve y reporta las suyas sin este permiso.',
+      },
       { clave: 'soporte.estado', nombre: 'Cambiar estados del ticket' },
       { clave: 'soporte.cerrar', nombre: 'Cerrar tickets' },
     ],

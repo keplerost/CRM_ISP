@@ -23,6 +23,7 @@ import {
   CreditCard,
   FileSignature,
   Gauge,
+  Hammer,
   HardHat,
   History,
   Inbox,
@@ -171,6 +172,9 @@ const SECCIONES = [
           { to: '/soporte/tecnicos', label: 'Técnicos y cuadrillas', icon: HardHat },
           { to: '/soporte/desempeno', label: 'Desempeño del equipo', icon: Gauge },
           { to: '/soporte/rutas', label: 'Rutas del día', icon: Route },
+          // Lo que construye la cuadrilla de redes, medido como construcción
+          // (migración 232) y no como tickets cerrados.
+          { to: '/soporte/obras', label: 'Obras de red', icon: Hammer },
           { to: '/soporte/jornadas', label: 'Ingresos del día', icon: CalendarDays },
           { to: '/soporte/vehiculos', label: 'Vehículos', icon: Truck },
         ],

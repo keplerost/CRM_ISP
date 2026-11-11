@@ -180,6 +180,7 @@ const RUTAS = [
   // su jornada, para elegir con cuál sale, pero no los da de alta.
   ['/soporte/vehiculos', 'instalaciones.ver'],
   ['/soporte/rutas', 'soporte.ruta'],
+  ['/soporte/obras', 'soporte.obras'],
   ['/soporte', ['soporte.ver', 'soporte.asignados']],
 
   // OLT / GPON

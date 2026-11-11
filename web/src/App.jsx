@@ -68,6 +68,7 @@ const TecnicosPage = lazy(() => import('./pages/TecnicosPage'))
 const DesempenoEquipoPage = lazy(() => import('./pages/DesempenoEquipoPage'))
 const JornadasPage = lazy(() => import('./pages/soporte/JornadasPage'))
 const RutasPage = lazy(() => import('./pages/soporte/RutasPage'))
+const ObrasPage = lazy(() => import('./pages/soporte/ObrasPage'))
 const VehiculosPage = lazy(() => import('./pages/VehiculosPage'))
 const RedesIpv4Page = lazy(() => import('./pages/red/RedesIpv4Page'))
 const AuditoriaPage = lazy(() => import('./pages/red/AuditoriaPage'))
@@ -96,6 +97,7 @@ const PerfilCampoPage = lazy(() => import('./pages/tecnico/PerfilPage'))
 const RedCampoPage = lazy(() => import('./pages/tecnico/RedPage'))
 const DesempenoCampoPage = lazy(() => import('./pages/tecnico/DesempenoPage'))
 const JornadaCampoPage = lazy(() => import('./pages/tecnico/JornadaPage'))
+const ObrasCampoPage = lazy(() => import('./pages/tecnico/ObrasCampoPage'))
 const BackofficePage = lazy(() => import('./pages/instalaciones/BackofficePage'))
 const StockPage = lazy(() => import('./pages/inventario/StockPage'))
 const MovimientosPage = lazy(() => import('./pages/inventario/MovimientosPage'))
@@ -223,6 +225,8 @@ export default function App() {
         <Route path="red" element={<RedCampoPage />} />
         <Route path="desempeno" element={<DesempenoCampoPage />} />
         <Route path="jornada" element={<JornadaCampoPage />} />
+        {/* Las obras de red de la cuadrilla (232): parte del día, NAP, material. */}
+        <Route path="obras" element={<ObrasCampoPage />} />
         <Route path="avisos" element={<AvisosCampoPage />} />
         <Route path="perfil" element={<PerfilCampoPage />} />
       </Route>
@@ -373,6 +377,7 @@ export default function App() {
             ticket con el id "jornadas". */}
         <Route path="soporte/jornadas" element={<JornadasPage />} />
         <Route path="soporte/rutas" element={<RutasPage />} />
+        <Route path="soporte/obras" element={<ObrasPage />} />
         <Route path="soporte/vehiculos" element={<VehiculosPage />} />
         <Route path="soporte/:id" element={<TicketPage />} />
         {/* Finanzas es solo un grupo del menú: entra por su primera página. */}

@@ -23,6 +23,7 @@ import {
   Wifi,
   PackageX,
   Package,
+  Hammer,
 } from 'lucide-react'
 import { usePermisos } from '../../lib/AuthContext'
 import { nombreRol } from '../../lib/permisos'
@@ -69,6 +70,15 @@ export default function InicioPage() {
   const cuadrilla = useMiCuadrilla(perfil?.tecnico_id)
   // La reparación de red asignada a su cuadrilla: va arriba, es lo urgente.
   const { filas: reparaciones, recargar: recargarReparaciones } = useReparaciones()
+  // Las obras de red abiertas de su cuadrilla (232). 0 sin la migración.
+  const [obras, setObras] = useState(0)
+  useEffect(() => {
+    supabase
+      .from('v_obras_red')
+      .select('id', { count: 'exact', head: true })
+      .in('estado', ['planificada', 'en_curso'])
+      .then(({ count, error }) => setObras(error ? 0 : (count ?? 0)))
+  }, [])
   // La ruta del día (migración 216): un trabajo a la vez, en el orden fijado.
   const { ruta, recargar: recargarRuta } = useMiRuta()
   const { tema, alternar } = useTemaCampo('claro')
@@ -219,6 +229,20 @@ export default function InicioPage() {
 
       <ReparacionesCampo filas={reparaciones} onCambio={recargarReparaciones} />
 
+      {obras > 0 && (
+        <Link
+          to="/campo/obras"
+          className="campo-borde campo-sup flex items-center gap-3 rounded-2xl border p-3"
+        >
+          <Hammer size={18} className="text-sky-500" />
+          <span className="campo-txt flex-1 text-[13px] font-medium">
+            {obras === 1 ? 'Tu cuadrilla tiene 1 obra abierta' : `Tu cuadrilla tiene ${obras} obras abiertas`}
+            <span className="campo-tenue block text-[11px]">Parte del día, cajas NAP y material</span>
+          </span>
+          <ArrowRight size={16} className="campo-suave" />
+        </Link>
+      )}
+
       {/* ── Fila 2 · Novedades · Jornada · Próxima ── */}
       <section className="grid gap-3 lg:grid-cols-3">
         <NovedadesRed novedades={d?.novedades} nuevas={d?.novedadesNuevas ?? 0} desde={d?.desdeUltimoIngreso} />
@@ -261,6 +285,7 @@ export default function InicioPage() {
         pendientes={d?.jornada?.pendientes ?? 0}
         avisos={d?.notificaciones?.length ?? 0}
         retiros={d?.retiros?.length ?? 0}
+        obras={obras}
       />
     </div>
   )
@@ -979,7 +1004,7 @@ function MaterialQueFalta({ filas, agotados }) {
   )
 }
 
-function AccesosRapidos({ pendientes, avisos, retiros }) {
+function AccesosRapidos({ pendientes, avisos, retiros, obras }) {
   const items = [
     { to: '/campo/ordenes', label: 'Órdenes asignadas', icono: ClipboardList, n: pendientes },
     { to: '/campo/retiros', label: 'Equipos por retirar', icono: PackageX, n: retiros },
@@ -989,6 +1014,7 @@ function AccesosRapidos({ pendientes, avisos, retiros }) {
     { to: '/campo/red', label: 'Monitoreo de red', icono: RadioTower, nota: 'Solo lectura' },
     { to: '/campo/avisos', label: 'Notificaciones', icono: Bell, n: avisos },
     { to: '/campo/desempeno', label: 'Mi desempeño', icono: BarChart3 },
+    { to: '/campo/obras', label: 'Obras de red', icono: Hammer, n: obras },
   ]
 
   return (
