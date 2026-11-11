@@ -78,12 +78,16 @@ test('el punto de partida cambia el orden, como corresponde', () => {
   assert.deepEqual(desdeEste.map((o) => o.id), ['este', 'oeste'])
 })
 
+// Con hora fija: las citas se acomodan contando desde "ahora", y estas dos
+// pruebas fallaban si se corrían antes de las 10 de la mañana.
+const TARDE = new Date(2026, 10, 10, 15, 0)
+
 test('una orden sin coordenada no se pierde ni se inventa dónde va', () => {
   const r = ordenarPorCercania([
     orden('ubicada', P(2)),
     orden('sin_gps', {}),
     orden('con_hora', { hora: '10:00', ...P(5) }),
-  ])
+  ], { ahora: TARDE })
 
   assert.equal(r.length, 3, 'no se pierde ninguna')
   // La que no se puede ubicar queda al final: meterla en el medio sería
@@ -96,7 +100,7 @@ test('ninguna con coordenadas: no se rompe, manda la hora', () => {
     orden('b', { hora: '12:00' }),
     orden('a', { hora: '08:00' }),
     orden('libre', {}),
-  ])
+  ], { ahora: TARDE })
 
   assert.deepEqual(r.map((o) => o.id), ['a', 'b', 'libre'])
 })

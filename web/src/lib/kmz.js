@@ -553,63 +553,69 @@ function datosExtendidos(o) {
   return filas.length ? `<ExtendedData>${filas.join('')}</ExtendedData>` : ''
 }
 
-/** El KML de la planta: una carpeta por tipo, con sus datos. */
-export function armarKml({ nombre = 'Planta externa', elementos = [], cables = [] }) {
+/**
+ * El KML de la planta: una carpeta por capa (o por tipo, para lo que no tiene
+ * capa), con sus datos.
+ *
+ * `estiloDe(x, 'e'|'c')` → { color: 'aabbggrr', ancho } pone el estilo propio
+ * de cada uno (el que se ve en el mapa); sin él, cada tipo lleva el suyo fijo.
+ * `carpetaDe(x, 'e'|'c')` → nombre de carpeta, o null para la del tipo.
+ */
+export function armarKml({ nombre = 'Planta externa', elementos = [], cables = [], estiloDe = null, carpetaDe = null }) {
   const estilos = Object.entries(KML_COLOR)
     .map(([k, c]) =>
       ANCHO[k]
         ? `<Style id="c-${k}"><LineStyle><color>${c}</color><width>${ANCHO[k]}</width></LineStyle></Style>`
-        : `<Style id="e-${k}"><IconStyle><color>${c}</color><scale>${k === 'poste' ? 0.6 : 1}</scale><Icon><href>https://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>`,
+        : `<Style id="e-${k}"><IconStyle><color>${c}</color><scale>${k === 'poste' ? 0.6 : 1}</scale><Icon><href>${ICONO}</href></Icon></IconStyle></Style>`,
     )
     .join('\n')
 
-  const carpetasE = Object.keys(ETIQUETA)
-    .map((t) => {
-      const lista = elementos.filter((e) => e.tipo === t)
-      if (!lista.length) return ''
-      const pm = lista
-        .map(
-          (e) => `<Placemark><name>${esc(e.nombre)}</name><styleUrl>#e-${t}</styleUrl>${datosExtendidos({
-            tipo: ETIQUETA[t],
-            estado: e.estado,
-            verificacion: e.verificacion,
-            puertos: e.capacidad,
-            abonados: e.abonados,
-            libres: e.libres,
-            hilos: e.hilos,
-            splitter: e.splitter,
-            herraje: e.herraje,
-            metros: e.metros,
-            descripcion: e.descripcion,
-          })}<Point><coordinates>${e.longitud},${e.latitud},0</coordinates></Point></Placemark>`,
-        )
-        .join('\n')
-      return `<Folder><name>${esc(PLURAL[t])} (${lista.length})</name>\n${pm}\n</Folder>`
-    })
-    .join('\n')
+  const estiloPm = (x, clase) => {
+    if (!estiloDe) return `<styleUrl>#${clase}-${x.tipo}</styleUrl>`
+    const st = estiloDe(x, clase)
+    return clase === 'e'
+      ? `<Style><IconStyle><color>${st.color}</color><scale>${Math.max(0.4, Math.min(2.5, st.ancho / 6)).toFixed(2)}</scale><Icon><href>${ICONO}</href></Icon></IconStyle></Style>`
+      : `<Style><LineStyle><color>${st.color}</color><width>${st.ancho}</width></LineStyle></Style>`
+  }
 
-  const tiposCable = ['troncal', 'feeder', 'distribucion', 'drop', 'hilo', 'otro']
-  const carpetasC = tiposCable
-    .map((t) => {
-      const lista = cables.filter((c) => c.tipo === t)
-      if (!lista.length) return ''
-      const pm = lista
-        .map(
-          (c) => `<Placemark><name>${esc(c.nombre)}</name><styleUrl>#c-${t}</styleUrl>${datosExtendidos({
-            tipo: t,
-            hilos: c.hilos,
-            color_hilo: c.color_hilo,
-            metros: c.longitud_m ?? Math.round(largoRuta(c.ruta)),
-            estado: c.estado,
-            verificacion: c.verificacion,
-            descripcion: c.descripcion,
-          })}<LineString><tessellate>1</tessellate><coordinates>${c.ruta
-            .map(([la, lo]) => `${lo},${la},0`)
-            .join(' ')}</coordinates></LineString></Placemark>`,
-        )
-        .join('\n')
-      return `<Folder><name>Cables ${esc(t)} (${lista.length})</name>\n${pm}\n</Folder>`
-    })
+  const pmElemento = (e) =>
+    `<Placemark><name>${esc(e.nombre)}</name>${estiloPm(e, 'e')}${datosExtendidos({
+      tipo: ETIQUETA[e.tipo],
+      estado: e.estado,
+      verificacion: e.verificacion,
+      puertos: e.capacidad,
+      abonados: e.abonados,
+      libres: e.libres,
+      hilos: e.hilos,
+      splitter: e.splitter,
+      herraje: e.herraje,
+      metros: e.metros,
+      descripcion: e.descripcion,
+    })}<Point><coordinates>${e.longitud},${e.latitud},0</coordinates></Point></Placemark>`
+
+  const pmCable = (c) =>
+    `<Placemark><name>${esc(c.nombre)}</name>${estiloPm(c, 'c')}${datosExtendidos({
+      tipo: c.tipo,
+      hilos: c.hilos,
+      color_hilo: c.color_hilo,
+      metros: c.longitud_m ?? Math.round(largoRuta(c.ruta)),
+      estado: c.estado,
+      verificacion: c.verificacion,
+      descripcion: c.descripcion,
+    })}<LineString><tessellate>1</tessellate><coordinates>${c.ruta
+      .map(([la, lo]) => `${lo},${la},0`)
+      .join(' ')}</coordinates></LineString></Placemark>`
+
+  // Las carpetas, en orden: primero las capas (como vengan), después los tipos.
+  const grupos = new Map()
+  const meter = (clave, item, pm) => {
+    if (!grupos.has(clave)) grupos.set(clave, [])
+    grupos.get(clave).push(pm(item))
+  }
+  for (const e of elementos) meter(carpetaDe?.(e, 'e') ?? `${PLURAL[e.tipo] ?? 'Otros'}`, e, pmElemento)
+  for (const c of cables) meter(carpetaDe?.(c, 'c') ?? `Cables ${c.tipo}`, c, pmCable)
+  const carpetas = [...grupos]
+    .map(([n, pms]) => `<Folder><name>${esc(n)} (${pms.length})</name>\n${pms.join('\n')}\n</Folder>`)
     .join('\n')
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -617,12 +623,13 @@ export function armarKml({ nombre = 'Planta externa', elementos = [], cables = [
 <Document>
 <name>${esc(nombre)}</name>
 ${estilos}
-${carpetasE}
-${carpetasC}
+${carpetas}
 </Document>
 </kml>
 `
 }
+
+const ICONO = 'https://maps.google.com/mapfiles/kml/shapes/placemark_circle.png'
 
 const PLURAL = {
   nodo: 'Nodos',

@@ -172,3 +172,19 @@ test('el KML de salida: carpetas por tipo, datos y coordenadas lng,lat', () => {
   assert.match(kml, /<coordinates>-79.22,-0.93,0 -79.22,-0.931,0<\/coordinates>/)
   assert.match(kml, /<Data name="metros"><value>111<\/value><\/Data>/)
 })
+
+test('el KML con el estilo de cada uno y una carpeta por capa', () => {
+  const kml = armarKml({
+    elementos: [{ tipo: 'poste', nombre: 'P1', latitud: -0.93, longitud: -79.22, capa: 'Postería CNEL' }],
+    cables: [
+      { nombre: 'Feeder', tipo: 'troncal', ruta: [[-0.93, -79.22], [-0.931, -79.22]], capa: 'Feeder principal' },
+      { nombre: 'Suelto', tipo: 'drop', ruta: [[-0.93, -79.22], [-0.931, -79.22]] },
+    ],
+    estiloDe: (x, clase) => (clase === 'c' ? { color: 'ff2626dc', ancho: 7 } : { color: 'ff111111', ancho: 3 }),
+    carpetaDe: (x) => x.capa ?? null,
+  })
+  assert.match(kml, /<Folder><name>Postería CNEL \(1\)<\/name>/)
+  assert.match(kml, /<Folder><name>Feeder principal \(1\)<\/name>/)
+  assert.match(kml, /<Folder><name>Cables drop \(1\)<\/name>/)
+  assert.match(kml, /<LineStyle><color>ff2626dc<\/color><width>7<\/width><\/LineStyle>/)
+})

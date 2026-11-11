@@ -5897,3 +5897,54 @@ test('la planta externa: se importa, cada NAP es su caja, se deshace sin perder 
 
   await db.exec(sql)
 })
+
+/** Migración 235: capas propias y estilos de la planta externa. */
+test('las capas de la planta: estilo validado, mover una carpeta del KMZ a una capa', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2350000-0000-0000-0000-000000000001'
+  const TEC_AUTH = 'a2350000-0000-0000-0000-000000000002'
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'o235@demo.ec'), ('${TEC_AUTH}', 't235@demo.ec');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo) VALUES
+        ('c2350000-0000-0000-0000-000000000001', '${OFI_AUTH}', 'o235', 'o235@demo.ec', 'Ofe', 'Capas', 'supervisor', '["red.planta"]'::jsonb, true),
+        ('c2350000-0000-0000-0000-000000000002', '${TEC_AUTH}', 't235', 't235@demo.ec', 'Tito', 'Campo', 'tecnico', '[]'::jsonb, true);
+  `)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-235-capas-y-estilos-de-la-planta.sql'), 'utf8')
+  await db.exec(sql)
+
+  // Los estilos de siempre vienen cargados.
+  assert.equal((await fila(db, `SELECT color FROM planta_estilos WHERE clave = 'e:nap'`)).color, '#f59e0b')
+
+  await sesion(db, OFI_AUTH)
+  const { id: CAPA } = await fila(db, `INSERT INTO planta_capas (nombre, clase, color, tamano, linea)
+                                       VALUES ('Feeder principal 235', 'cable', '#dc2626', 7, 'solida') RETURNING id`)
+  await assert.rejects(db.query(`INSERT INTO planta_capas (nombre, color) VALUES ('Mala', 'rojo')`), /planta_capas_color_check/)
+  await assert.rejects(db.query(`INSERT INTO planta_capas (nombre, tamano) VALUES ('Gorda', 80)`), /planta_capas_tamano_check/)
+
+  await db.query(`SELECT importar_planta('capas.kmz',
+      '[{"tipo":"poste","nombre":"P1","latitud":-0.9,"longitud":-79.2,"origen":{"carpeta":"POSTERIA 235"}},
+        {"tipo":"poste","nombre":"P2","latitud":-0.91,"longitud":-79.2,"origen":{"carpeta":"POSTERIA 235"}},
+        {"tipo":"poste","nombre":"P3","latitud":-0.92,"longitud":-79.2,"origen":{"carpeta":"OTRA 235"}}]',
+      '[{"nombre":"Feeder 235","tipo":"troncal","ruta":[[-0.9,-79.2],[-0.91,-79.2]],"origen":{"carpeta":"TENDIDO 235"}}]')`)
+
+  const { id: POSTES } = await fila(db, `INSERT INTO planta_capas (nombre, clase, color, tamano) VALUES ('Postería 235', 'elemento', '#111111', 3) RETURNING id`)
+  assert.equal((await fila(db, `SELECT mover_a_capa('${POSTES}', 'elemento', 'POSTERIA 235') AS n`)).n, 2)
+  assert.equal((await fila(db, `SELECT mover_a_capa('${CAPA}', 'cable', 'TENDIDO 235', 'troncal') AS n`)).n, 1)
+  await assert.rejects(db.query(`SELECT mover_a_capa('${CAPA}', 'cable')`), /Elegí la carpeta del KMZ o el tipo/)
+
+  // Estilo propio del cable, y la vista con las columnas nuevas.
+  await db.query(`UPDATE planta_cables SET color = '#00ff00', tamano = 9, linea = 'rayada' WHERE nombre = 'Feeder 235'`)
+  const v = await fila(db, `SELECT capa_id, color FROM v_planta_elementos WHERE nombre = 'P1'`)
+  assert.deepEqual([v.capa_id, v.color], [POSTES, null])
+
+  // Borrar la capa no borra lo que tenía.
+  await db.query(`DELETE FROM planta_capas WHERE id = '${POSTES}'`)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM planta_elementos WHERE nombre IN ('P1','P2') AND capa_id IS NULL`)).n, 2)
+
+  // El técnico no mueve capas.
+  await sesion(db, TEC_AUTH)
+  await assert.rejects(db.query(`SELECT mover_a_capa(NULL, 'elemento', 'OTRA 235')`), /Sin permiso/)
+
+  await sesion(db, null)
+  await db.exec(sql)
+})
