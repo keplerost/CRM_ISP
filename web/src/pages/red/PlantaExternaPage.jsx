@@ -444,7 +444,8 @@ export default function PlantaExternaPage() {
       )}
 
       <div className="grid gap-3 lg:grid-cols-[1fr_340px]">
-        <div className="t-card relative overflow-hidden">
+        {/* `isolate`: el selector Calles/Satélite (z-400) no tapa las ventanas. */}
+        <div className="t-card relative isolate overflow-hidden">
           <div ref={cont} className="h-[68vh] min-h-[420px] w-full" />
           <div className="absolute right-3 top-3 z-[400] flex overflow-hidden rounded-lg border border-slate-300 bg-white text-[12px] shadow">
             {[

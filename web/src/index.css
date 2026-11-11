@@ -106,3 +106,14 @@ body {
    sería pisar el tema con valores que después habría que mantener en dos
    lugares.
 --------------------------------------------------------------------------- */
+
+/*
+ * Los mapas (Leaflet) usan z-index de 400 a 1000 para sus capas y controles.
+ * Sin un contexto de apilado propio, esas capas quedan por ENCIMA de las
+ * ventanas (z-50): al abrir "Importar KMZ" sobre el mapa de planta externa,
+ * el mapa tapaba la ventana y no se podía seguir. `isolation` encierra esos
+ * z-index dentro del mapa.
+ */
+.leaflet-container {
+  isolation: isolate;
+}
