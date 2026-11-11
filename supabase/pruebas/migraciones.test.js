@@ -5964,3 +5964,63 @@ test('los íconos de la planta: cada tipo con el suyo, el poste A/J con su letra
   await assert.rejects(db.query(`UPDATE planta_capas SET icono = '<script>' WHERE TRUE`), /icono_check/)
   await db.exec(sql)
 })
+
+/** Migración 237: hilos, splitters, puertos PON y uniones. */
+test('las uniones: cada extremo una vez por caja, el hilo tiene que existir, los tubos del nombre', async () => {
+  await sesion(db, null)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-237-hilos-y-presupuesto-optico.sql'), 'utf8')
+  await db.exec(`
+      INSERT INTO planta_elementos (id, tipo, nombre, latitud, longitud) VALUES
+        ('e2370000-0000-0000-0000-000000000001', 'nodo', 'Nodo 237', -0.93, -79.22),
+        ('e2370000-0000-0000-0000-000000000002', 'manga', 'Manga 237', -0.931, -79.22);
+      INSERT INTO planta_cables (id, nombre, tipo, hilos, ruta) VALUES
+        ('c2370000-0000-0000-0000-000000000001', 'HL 48FO 4X12 237', 'troncal', 48, '[[-0.93,-79.22],[-0.931,-79.22]]');
+  `)
+  await db.exec(sql)
+  assert.equal((await fila(db, `SELECT hilos_por_tubo FROM planta_cables WHERE id = 'c2370000-0000-0000-0000-000000000001'`)).hilos_por_tubo, 12)
+
+  const NODO = 'e2370000-0000-0000-0000-000000000001'
+  const MANGA = 'e2370000-0000-0000-0000-000000000002'
+  const CABLE = 'c2370000-0000-0000-0000-000000000001'
+  const { id: PON } = await fila(db, `INSERT INTO planta_pon (elemento_id, nombre, clase, tx_dbm) VALUES ('${NODO}', 'OLT1 0/1/1', 'B+', 3) RETURNING id`)
+  const { id: SPL } = await fila(db, `INSERT INTO planta_splitters (elemento_id, relacion) VALUES ('${MANGA}', '1:8') RETURNING id`)
+  await assert.rejects(db.query(`INSERT INTO planta_splitters (elemento_id, relacion) VALUES ('${MANGA}', '1:3')`), /relacion_check/)
+  await db.query(`INSERT INTO planta_splitters (elemento_id, relacion) VALUES ('${MANGA}', '30/70')`)
+
+  // PON → hilo 5 en el nodo; hilo 5 → entrada del splitter en la manga.
+  await db.query(`INSERT INTO planta_uniones (elemento_id, a_tipo, a_id, b_tipo, b_id, b_num, tipo)
+                  VALUES ('${NODO}', 'pon', '${PON}', 'hilo', '${CABLE}', 5, 'conector')`)
+  await db.query(`INSERT INTO planta_uniones (elemento_id, a_tipo, a_id, a_num, b_tipo, b_id, b_num)
+                  VALUES ('${MANGA}', 'hilo', '${CABLE}', 5, 'splitter', '${SPL}', 0)`)
+
+  // El mismo extremo, dos veces en la misma caja: no.
+  await assert.rejects(
+    db.query(`INSERT INTO planta_uniones (elemento_id, a_tipo, a_id, a_num, b_tipo, b_id, b_num)
+              VALUES ('${MANGA}', 'hilo', '${CABLE}', 5, 'hilo', '${CABLE}', 6)`),
+    /ya está unido/,
+  )
+  // Pero sí del otro lado del mismo hilo (sangría).
+  await db.query(`INSERT INTO planta_uniones (elemento_id, a_tipo, a_id, a_num, a_lado, b_tipo, b_id, b_num, b_lado)
+                  VALUES ('${MANGA}', 'hilo', '${CABLE}', 7, 'd', 'hilo', '${CABLE}', 7, 'h')`)
+  await assert.rejects(
+    db.query(`INSERT INTO planta_uniones (elemento_id, a_tipo, a_id, a_num, b_tipo, b_id, b_num)
+              VALUES ('${MANGA}', 'hilo', '${CABLE}', 49, 'splitter', '${SPL}', 1)`),
+    /tiene 48 hilos/,
+  )
+  await assert.rejects(
+    db.query(`INSERT INTO planta_uniones (elemento_id, a_tipo, a_id, a_num, b_tipo, b_id, b_num)
+              VALUES ('${MANGA}', 'hilo', '${CABLE}', 9, 'splitter', '${SPL}', 9)`),
+    /salidas 1 a 8/,
+  )
+  await assert.rejects(
+    db.query(`INSERT INTO planta_uniones (elemento_id, a_tipo, a_id, b_tipo, b_id, b_num)
+              VALUES ('${MANGA}', 'pon', '${PON}', 'hilo', '${CABLE}', 10)`),
+    /no está en este nodo/,
+  )
+
+  // Borrar el splitter se lleva sus uniones.
+  await db.query(`DELETE FROM planta_splitters WHERE id = '${SPL}'`)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM planta_uniones WHERE b_id = '${SPL}'`)).n, 0)
+  assert.equal(Number((await fila(db, `SELECT atenuacion_db_km FROM planta_optica`)).atenuacion_db_km), 0.35)
+  await db.exec(sql)
+})

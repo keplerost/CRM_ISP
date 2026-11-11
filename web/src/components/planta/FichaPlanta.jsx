@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { MapPin, Route, X } from 'lucide-react'
+import { GitMerge, MapPin, Route, X } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { ETIQUETA } from '../../lib/kmz'
 import { COLOR_HILO, LINEAS, resolverEstilo } from '../../lib/planta'
 import { Badge, Button, Field, Input, Select, Textarea } from '../ui'
 import SelectorIcono from './SelectorIcono'
+import { colorHilo, describir } from '../../lib/hilos'
 
 /**
  * La ficha de lo elegido en el mapa de planta externa: ver, editar, cambiar de
@@ -23,7 +24,23 @@ export const TIPOS_CABLE = {
 const VERIF = { importado: 'Importado (sin verificar)', oficina: 'Revisado en oficina', campo: 'Verificado en campo' }
 const ESTADO = { existente: 'Existente', proyectado: 'Proyectado', retirado: 'Retirado' }
 
-export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos, onCerrar, onCambio, onError, onMover, onRuta }) {
+export default function FichaPlanta({
+  x,
+  clase,
+  edita,
+  elementos,
+  capas,
+  estilos,
+  onCerrar,
+  onCambio,
+  onError,
+  onMover,
+  onRuta,
+  onDiagrama,
+  presupuesto = null,
+  usoHilos = [],
+  red = null,
+}) {
   const [f, setF] = useState(x)
   const [guardando, setGuardando] = useState(false)
   useEffect(() => setF(x), [x])
@@ -59,7 +76,14 @@ export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos
             metros: n(f.metros),
             icono: f.icono || null,
           }
-        : { ...comunes, tipo: f.tipo, hilos: n(f.hilos), color_hilo: f.color_hilo || null, linea: f.linea || null }
+        : {
+            ...comunes,
+            tipo: f.tipo,
+            hilos: n(f.hilos),
+            color_hilo: f.color_hilo || null,
+            linea: f.linea || null,
+            hilos_por_tubo: n(f.hilos_por_tubo),
+          }
     const { error } = await supabase.from(tabla).update(fila).eq('id', x.id)
     setGuardando(false)
     if (error) return onError(error)
@@ -127,6 +151,46 @@ export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos
           <MapPin size={12} /> {Number(x.latitud).toFixed(6)}, {Number(x.longitud).toFixed(6)}
         </a>
       )}
+      {clase === 'e' && !['poste', 'reserva'].includes(x.tipo) && onDiagrama && (
+        <Button icon={GitMerge} onClick={onDiagrama} className="w-full">
+          Hilos, splitters y presupuesto
+        </Button>
+      )}
+      {presupuesto && x.tipo === 'nap' && (
+        <p
+          className={
+            presupuesto.estado === 'bien'
+              ? 'text-emerald-400'
+              : presupuesto.estado === 'atencion'
+                ? 'text-amber-400'
+                : presupuesto.estado === 'mal'
+                  ? 'text-rose-400'
+                  : 'text-slate-500'
+          }
+        >
+          {presupuesto.ok
+            ? `Debería llegar ${presupuesto.rxSalida} dBm · margen ${presupuesto.margen} dB (${presupuesto.pon.nombre})`
+            : `Presupuesto: ${presupuesto.error}`}
+        </p>
+      )}
+      {clase === 'c' && usoHilos.length > 0 && red && (
+        <div className="space-y-0.5">
+          <p className="text-[11px] font-semibold text-slate-400">Hilos en uso ({new Set(usoHilos.flatMap((u) => [u.a_id === x.id ? u.a_num : null, u.b_id === x.id ? u.b_num : null]).filter(Boolean)).size})</p>
+          {usoHilos.slice(0, 12).map((u) => {
+            const mio = u.a_tipo === 'hilo' && u.a_id === x.id ? 'a' : 'b'
+            const otro = mio === 'a' ? 'b' : 'a'
+            const num = u[`${mio}_num`]
+            const col = colorHilo(num, x.hilos_por_tubo)
+            return (
+              <p key={u.id} className="flex items-center gap-1 text-[11px] text-slate-300">
+                <span className="h-2.5 w-2.5 rounded-full border border-slate-400" style={{ background: col.color }} />
+                {num} → {describir(red, { tipo: u[`${otro}_tipo`], id: u[`${otro}_id`], num: u[`${otro}_num`], lado: u[`${otro}_lado`] })}
+                <span className="text-slate-500">({elementos.find((e) => e.id === u.elemento_id)?.nombre})</span>
+              </p>
+            )
+          })}
+        </div>
+      )}
       {x.foto_url && (
         <a href={x.foto_url} target="_blank" rel="noreferrer" className="text-sky-400">
           Ver foto del KMZ
@@ -172,6 +236,11 @@ export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos
             {(clase === 'c' || f.tipo === 'manga') && (
               <Field label="Hilos">
                 <Input type="number" min="1" value={f.hilos ?? ''} onChange={set('hilos')} />
+              </Field>
+            )}
+            {clase === 'c' && (
+              <Field label="Hilos por tubo">
+                <Input type="number" min="1" max="24" value={f.hilos_por_tubo ?? ''} onChange={set('hilos_por_tubo')} placeholder="12" />
               </Field>
             )}
             {clase === 'c' && f.tipo === 'hilo' && (

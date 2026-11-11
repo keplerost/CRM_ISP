@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { AlertTriangle, Download, FileUp, Layers, Pencil, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Download, FileUp, Gauge, Layers, Pencil, Plus, Search, X } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
@@ -13,6 +13,9 @@ import { Button, ErrorBanner, Select } from '../../components/ui'
 import ImportarKmz from '../../components/planta/ImportarKmz'
 import EditorEstilo from '../../components/planta/EditorEstilo'
 import FichaPlanta, { TIPOS_CABLE } from '../../components/planta/FichaPlanta'
+import DiagramaHilos from '../../components/planta/DiagramaHilos'
+import PresupuestoOptico from '../../components/planta/PresupuestoOptico'
+import { armarRed, presupuestoCaja } from '../../lib/hilos'
 
 /**
  * La planta externa en el mapa (migraciones 234 y 235): nodos, postes, cajas
@@ -38,6 +41,8 @@ import FichaPlanta, { TIPOS_CABLE } from '../../components/planta/FichaPlanta'
  */
 
 const CENTRO = [-0.93, -79.22]
+// El color de cada caja cuando se colorea por presupuesto óptico.
+const COLOR_PRESUPUESTO = { bien: '#16a34a', atencion: '#f59e0b', mal: '#dc2626', sin_camino: '#94a3b8' }
 // Desde este zoom los puntos se dibujan con su ícono; más lejos, como puntos
 // (cientos de íconos amontonados no se leen y pesan).
 const ZOOM_ICONOS = 15
@@ -78,11 +83,21 @@ export default function PlantaExternaPage() {
   const [zoom, setZoom] = useState(14)
   const [importar, setImportar] = useState(false)
   const [editor, setEditor] = useState(null)
+  // Fase 2 (migración 237): hilos, splitters, puertos PON y presupuesto.
+  const [splitters, setSplitters] = useState([])
+  const [pons, setPons] = useState([])
+  const [uniones, setUniones] = useState([])
+  const [optica, setOptica] = useState({})
+  const [medidos, setMedidos] = useState(new Map())
+  const [olts, setOlts] = useState([])
+  const [abonadosCaja, setAbonadosCaja] = useState([])
+  const [diagrama, setDiagrama] = useState(null)
+  const [verPresupuesto, setVerPresupuesto] = useState(false)
 
   const capas = useMemo(() => new Map(capasLista.map((c) => [c.id, c])), [capasLista])
 
   const recargar = useCallback(async () => {
-    const [e, c, a, i, k, s] = await Promise.all([
+    const [e, c, a, i, k, s, sp, po, un, op, me, ol, ac] = await Promise.all([
       supabase.from('v_planta_elementos').select('*').neq('estado', 'retirado'),
       supabase.from('planta_cables').select('*').neq('estado', 'retirado'),
       supabase.from('clientes').select('id,nombre,latitud,longitud,nap_id,puerto_nap').not('latitud', 'is', null),
@@ -90,6 +105,14 @@ export default function PlantaExternaPage() {
       // Sin la 235 no hay capas ni estilos: el mapa usa los de siempre.
       supabase.from('planta_capas').select('*').order('orden').order('nombre'),
       supabase.from('planta_estilos').select('*'),
+      // Sin la 237 estas vienen con error: el mapa funciona igual, sin hilos.
+      supabase.from('planta_splitters').select('*'),
+      supabase.from('planta_pon').select('*'),
+      supabase.from('planta_uniones').select('*'),
+      supabase.from('planta_optica').select('*').maybeSingle(),
+      supabase.from('v_planta_medido').select('*'),
+      supabase.from('olts').select('id,nombre').order('nombre'),
+      supabase.from('clientes').select('id,nombre,nap_id,puerto_nap').not('nap_id', 'is', null),
     ])
     setError(e.error ?? c.error ?? null)
     setElementos(e.data ?? [])
@@ -98,6 +121,13 @@ export default function PlantaExternaPage() {
     setImportaciones(i.data ?? [])
     setCapasLista(k.error ? [] : (k.data ?? []))
     setEstilos(s.error ? {} : Object.fromEntries((s.data ?? []).map((x) => [x.clave, x])))
+    setSplitters(sp.data ?? [])
+    setPons(po.data ?? [])
+    setUniones(un.data ?? [])
+    setOptica(op.data ?? {})
+    setMedidos(new Map((me.data ?? []).map((x) => [x.elemento_id, x])))
+    setOlts(ol.data ?? [])
+    setAbonadosCaja(ac.data ?? [])
   }, [])
 
   useEffect(() => {
@@ -114,6 +144,23 @@ export default function PlantaExternaPage() {
   }, [capasLista])
 
   const estiloDe = useCallback((x, clase) => resolverEstilo(x, clase, { capas, estilos }), [capas, estilos])
+
+  // La red de hilos, armada una vez por cada cambio de datos.
+  const red = useMemo(
+    () => armarRed({ elementos: elementos ?? [], cables, splitters, pons, uniones }),
+    [elementos, cables, splitters, pons, uniones],
+  )
+  // El presupuesto de cada caja que tiene splitter (las otras no tienen cómo).
+  const presupuestos = useMemo(() => {
+    const m = new Map()
+    const conSplitter = new Set(splitters.map((s) => s.elemento_id))
+    for (const e of elementos ?? []) {
+      if (e.tipo === 'nap') {
+        m.set(e.id, conSplitter.has(e.id) ? presupuestoCaja(red, e.id, optica) : { ok: false, estado: 'sin_camino', error: 'La caja no tiene splitter cargado.' })
+      }
+    }
+    return m
+  }, [red, elementos, splitters, optica])
 
   // ── El mapa ──
   const cont = useRef(null)
@@ -222,7 +269,12 @@ export default function PlantaExternaPage() {
     const ajuste = zoom >= 17 ? 2 : zoom <= 13 ? -1.5 : 0
     for (const e of elementos) {
       if (!visibleE(e)) continue
-      const st = estiloDe(e, 'e')
+      const base = estiloDe(e, 'e')
+      // Coloreadas por presupuesto: verde alcanza, ámbar justo, rojo no alcanza, gris sin camino.
+      const st =
+        sw.presupuesto && e.tipo === 'nap'
+          ? { ...base, color: COLOR_PRESUPUESTO[presupuestos.get(e.id)?.estado ?? 'sin_camino'] }
+          : base
       const elegido = sel?.clase === 'e' && sel.id === e.id
       const revisar = e.revisar?.length > 0
       const anillo = elegido ? '#0f172a' : revisar ? '#f59e0b' : e.verificacion === 'campo' ? '#16a34a' : null
@@ -265,7 +317,7 @@ export default function PlantaExternaPage() {
         })
         .addTo(g)
     }
-  }, [elementos, cables, abonados, sw.abonados, visibleE, visibleC, sel, zoom, estiloDe])
+  }, [elementos, cables, abonados, sw.abonados, sw.presupuesto, presupuestos, visibleE, visibleC, sel, zoom, estiloDe])
 
   // El borrador de lo que se está dibujando.
   useEffect(() => {
@@ -445,6 +497,9 @@ export default function PlantaExternaPage() {
               Importar KMZ
             </Button>
           )}
+          <Button icon={Gauge} onClick={() => setVerPresupuesto(true)} disabled={!elementos?.length}>
+            Presupuesto óptico
+          </Button>
           <Button icon={Download} onClick={exportar} disabled={!elementos?.length}>
             Exportar KMZ
           </Button>
@@ -608,6 +663,10 @@ export default function PlantaExternaPage() {
               onError={setError}
               onMover={() => setModo({ accion: 'mover', id: elegido.id })}
               onRuta={() => setModo({ accion: 'ruta', id: elegido.id, puntos: [] })}
+              onDiagrama={() => setDiagrama(elegido.id)}
+              presupuesto={sel.clase === 'e' ? presupuestos.get(elegido.id) : null}
+              usoHilos={sel.clase === 'c' ? uniones.filter((u) => (u.a_tipo === 'hilo' && u.a_id === elegido.id) || (u.b_tipo === 'hilo' && u.b_id === elegido.id)) : []}
+              red={red}
             />
           ) : (
             <>
@@ -694,6 +753,11 @@ export default function PlantaExternaPage() {
                       etiqueta={`Abonados (${abonados.length}): verde con caja, rojo sin caja`}
                     />
                     <Interruptor activo={soloRevisar} onCambio={setSoloRevisar} etiqueta="Solo lo que hay que revisar" />
+                    <Interruptor
+                      activo={sw.presupuesto}
+                      onCambio={(v) => setSw((c) => ({ ...c, presupuesto: v }))}
+                      etiqueta="Cajas por presupuesto óptico (verde alcanza, ámbar justo, rojo no, gris sin camino)"
+                    />
                   </Grupo>
                   <p className="text-[11px] leading-snug text-slate-500">
                     Lo que está en una capa se prende y apaga con su capa; el resto, con su tipo. El lápiz cambia color y grosor.
@@ -728,6 +792,38 @@ export default function PlantaExternaPage() {
             encuadrado.current = false
             recargar()
           }}
+        />
+      )}
+
+      {diagrama && elementos?.find((e) => e.id === diagrama) && (
+        <DiagramaHilos
+          elemento={elementos.find((e) => e.id === diagrama)}
+          datos={{ cables, splitters, pons, uniones, olts }}
+          red={red}
+          optica={optica}
+          medido={medidos.get(diagrama)}
+          abonados={abonadosCaja}
+          edita={edita}
+          onCerrar={() => setDiagrama(null)}
+          onCambio={recargar}
+          onError={setError}
+        />
+      )}
+
+      {verPresupuesto && (
+        <PresupuestoOptico
+          naps={(elementos ?? []).filter((e) => e.tipo === 'nap')}
+          presupuestos={presupuestos}
+          medidos={medidos}
+          optica={optica}
+          edita={edita}
+          onIr={(e) => {
+            setVerPresupuesto(false)
+            ir({ ...e, clase: 'e' })
+          }}
+          onCerrar={() => setVerPresupuesto(false)}
+          onCambio={recargar}
+          onError={setError}
         />
       )}
 
