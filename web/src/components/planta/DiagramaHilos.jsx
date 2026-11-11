@@ -32,7 +32,21 @@ const CERCA_M = 25
 
 const k = (x) => `${x.tipo}|${x.id}|${x.num ?? ''}|${x.lado ?? ''}`
 
-export default function DiagramaHilos({ elemento: E, datos, red, optica, medido, abonados = [], edita, onCerrar, onCambio, onError }) {
+export default function DiagramaHilos({
+  elemento: E,
+  datos,
+  red,
+  optica,
+  medido,
+  abonados = [],
+  proyectoId = null,
+  edita,
+  onCerrar,
+  onCambio,
+  onError,
+}) {
+  // Con un proyecto activo (238), lo que se agrega acá queda en el proyecto.
+  const enProyecto = proyectoId ? { proyecto_id: proyectoId } : {}
   const { cables, splitters, pons, uniones, olts = [] } = datos
   const [primero, setPrimero] = useState(null)
   const [preguntaLado, setPreguntaLado] = useState(null) // { cable, num }
@@ -108,6 +122,7 @@ export default function DiagramaHilos({ elemento: E, datos, red, optica, medido,
         b_lado: x.lado ?? null,
         tipo,
         perdida_db: perdida === '' ? null : Number(perdida),
+        ...enProyecto,
       }),
     )
     setPerdida('')
@@ -140,6 +155,7 @@ export default function DiagramaHilos({ elemento: E, datos, red, optica, medido,
     <Modal abierto titulo={`Hilos y presupuesto · ${E.nombre}`} onCerrar={onCerrar} ancho="max-w-6xl">
       <div className="space-y-5 text-[12px]">
         <p className="text-slate-400">
+          {proyectoId && <span className="mr-1 rounded bg-sky-500/15 px-1.5 text-sky-300">Diseñando: lo que agregues queda en el proyecto.</span>}
           {ETIQUETA[E.tipo]}
           {edita && ' · Tocá un extremo y después otro para unirlos. Tocá un extremo unido para ver con qué está.'}
         </p>
@@ -315,7 +331,7 @@ export default function DiagramaHilos({ elemento: E, datos, red, optica, medido,
                   <Button
                     icon={Plus}
                     cargando={ocupado}
-                    onClick={() => correr(() => supabase.from('planta_splitters').insert({ elemento_id: E.id, relacion: nuevoSplitter }))}
+                    onClick={() => correr(() => supabase.from('planta_splitters').insert({ elemento_id: E.id, relacion: nuevoSplitter, ...enProyecto }))}
                   >
                     Agregar
                   </Button>

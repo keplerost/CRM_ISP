@@ -437,6 +437,28 @@ function FormParte({ o, onCancelar, onListo }) {
 
 function FormNap({ o, onCancelar, onListo }) {
   const [f, setF] = useState({ nombre: '', puertos: '16', potencia: '' })
+  // Si la obra sale de un proyecto (238), sus cajas diseñadas: elegir una la
+  // registra con su nombre, y en el mapa queda la misma caja (no una nueva).
+  const [delDiseno, setDelDiseno] = useState([])
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      const { data: p } = await supabase.from('planta_proyectos').select('id').eq('obra_id', o.id).maybeSingle()
+      if (!p) return
+      const { data } = await supabase
+        // `caja` es el nombre único de la caja en el sistema: dos diseñadas
+        // como "NAP nueva" tienen cajas distintas, y hay que registrar la correcta.
+        .from('v_planta_elementos')
+        .select('id,nombre,capacidad,caja')
+        .eq('proyecto_id', p.id)
+        .eq('tipo', 'nap')
+        .order('nombre')
+      if (vivo) setDelDiseno(data ?? [])
+    })()
+    return () => {
+      vivo = false
+    }
+  }, [o.id])
   const [pos, setPos] = useState(null)
   const [midiendo, setMidiendo] = useState(false)
   const [foto, setFoto] = useState(null)
@@ -485,6 +507,26 @@ function FormNap({ o, onCancelar, onListo }) {
       <p className="text-[11px] text-slate-500">
         Si la caja ya estaba registrada con ese nombre, se actualiza: sirve para completarle la foto o la potencia.
       </p>
+      {delDiseno.length > 0 && (
+        <label className="block">
+          <Etiqueta>Caja del diseño</Etiqueta>
+          <select
+            value=""
+            onChange={(e) => {
+              const c = delDiseno.find((x) => x.id === e.target.value)
+              if (c) setF((v) => ({ ...v, nombre: c.caja ?? c.nombre, puertos: String(c.capacidad ?? v.puertos) }))
+            }}
+            className={CAMPO}
+          >
+            <option value="">— elegí cuál es —</option>
+            {delDiseno.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.caja ?? c.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="block">
         <Etiqueta>Nombre de la caja, como está rotulada</Etiqueta>
         <input

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { AlertTriangle, Download, FileUp, Gauge, Layers, Pencil, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Download, FileUp, FolderKanban, Gauge, Layers, Pencil, Plus, Search, X } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
@@ -15,6 +15,7 @@ import EditorEstilo from '../../components/planta/EditorEstilo'
 import FichaPlanta, { TIPOS_CABLE } from '../../components/planta/FichaPlanta'
 import DiagramaHilos from '../../components/planta/DiagramaHilos'
 import PresupuestoOptico from '../../components/planta/PresupuestoOptico'
+import PanelProyectos from '../../components/planta/PanelProyectos'
 import { armarRed, presupuestoCaja } from '../../lib/hilos'
 
 /**
@@ -93,11 +94,15 @@ export default function PlantaExternaPage() {
   const [abonadosCaja, setAbonadosCaja] = useState([])
   const [diagrama, setDiagrama] = useState(null)
   const [verPresupuesto, setVerPresupuesto] = useState(false)
+  // Fase 3 (migración 238): proyectos. Con uno activo, lo que se dibuja queda en él.
+  const [proyectos, setProyectos] = useState([])
+  const [proyectoActivo, setProyectoActivo] = useState(null)
+  const [soloProyecto, setSoloProyecto] = useState(null)
 
   const capas = useMemo(() => new Map(capasLista.map((c) => [c.id, c])), [capasLista])
 
   const recargar = useCallback(async () => {
-    const [e, c, a, i, k, s, sp, po, un, op, me, ol, ac] = await Promise.all([
+    const [e, c, a, i, k, s, sp, po, un, op, me, ol, ac, pr] = await Promise.all([
       supabase.from('v_planta_elementos').select('*').neq('estado', 'retirado'),
       supabase.from('planta_cables').select('*').neq('estado', 'retirado'),
       supabase.from('clientes').select('id,nombre,latitud,longitud,nap_id,puerto_nap').not('latitud', 'is', null),
@@ -113,6 +118,7 @@ export default function PlantaExternaPage() {
       supabase.from('v_planta_medido').select('*'),
       supabase.from('olts').select('id,nombre').order('nombre'),
       supabase.from('clientes').select('id,nombre,nap_id,puerto_nap').not('nap_id', 'is', null),
+      supabase.from('planta_proyectos').select('*').order('creado_at', { ascending: false }),
     ])
     setError(e.error ?? c.error ?? null)
     setElementos(e.data ?? [])
@@ -128,6 +134,7 @@ export default function PlantaExternaPage() {
     setMedidos(new Map((me.data ?? []).map((x) => [x.elemento_id, x])))
     setOlts(ol.data ?? [])
     setAbonadosCaja(ac.data ?? [])
+    setProyectos(pr.error ? [] : (pr.data ?? []))
   }, [])
 
   useEffect(() => {
@@ -219,13 +226,23 @@ export default function PlantaExternaPage() {
   }, [elementos])
 
   const visibleE = useCallback(
-    (e) => esVisible(e, 'e', sw, capas) && (sw.proyectado || e.estado !== 'proyectado') && (!soloRevisar || e.revisar?.length),
-    [sw, capas, soloRevisar],
+    (e) =>
+      (!soloProyecto || e.proyecto_id === soloProyecto) &&
+      esVisible(e, 'e', sw, capas) &&
+      (sw.proyectado || e.estado !== 'proyectado' || e.proyecto_id === proyectoActivo) &&
+      (!soloRevisar || e.revisar?.length),
+    [sw, capas, soloRevisar, soloProyecto, proyectoActivo],
   )
   const visibleC = useCallback(
-    (c) => esVisible(c, 'c', sw, capas) && (sw.proyectado || c.estado !== 'proyectado') && (!soloRevisar || c.revisar?.length),
-    [sw, capas, soloRevisar],
+    (c) =>
+      (!soloProyecto || c.proyecto_id === soloProyecto) &&
+      esVisible(c, 'c', sw, capas) &&
+      (sw.proyectado || c.estado !== 'proyectado' || c.proyecto_id === proyectoActivo) &&
+      (!soloRevisar || c.revisar?.length),
+    [sw, capas, soloRevisar, soloProyecto, proyectoActivo],
   )
+  // Lo que se dibuja con un proyecto activo queda en él, proyectado.
+  const enProyecto = proyectoActivo ? { proyecto_id: proyectoActivo, estado: 'proyectado' } : {}
 
   // Dibujar los datos.
   useEffect(() => {
@@ -358,6 +375,7 @@ export default function PlantaExternaPage() {
         longitud: p[1],
         capacidad: m.tipo === 'nap' ? 16 : null,
         capa_id: m.capa_id ?? null,
+        ...enProyecto,
       })
       if (id) setSel({ clase: 'e', id })
     } else if (m.accion === 'cable' || m.accion === 'ruta') {
@@ -389,6 +407,7 @@ export default function PlantaExternaPage() {
       desde_id: m.desde ?? null,
       hasta_id: m.hasta ?? null,
       capa_id: m.capa_id ?? null,
+      ...enProyecto,
     })
     if (id) setSel({ clase: 'c', id })
   }
@@ -437,10 +456,10 @@ export default function PlantaExternaPage() {
     else m.fitBounds(L.latLngBounds(x.ruta), { maxZoom: 18, padding: [40, 40] })
   }
 
-  async function exportar() {
+  async function exportar(proyecto = null) {
     // Cada ícono que se usa, como PNG dentro del KMZ: Google Earth lo muestra
-    // igual que el mapa.
-    const visibles = (elementos ?? []).filter(visibleE)
+    // igual que el mapa. Con un proyecto, solo lo suyo.
+    const visibles = proyecto ? (elementos ?? []).filter((e) => e.proyecto_id === proyecto.id) : (elementos ?? []).filter(visibleE)
     const usados = new Map()
     for (const e of visibles) {
       const st = estiloDe(e, 'e')
@@ -455,9 +474,9 @@ export default function PlantaExternaPage() {
       }
     }
     const bytes = armarKmz({
-      nombre: `Planta externa ${new Date().toLocaleDateString('es-EC')}`,
+      nombre: proyecto ? `Proyecto ${proyecto.nombre}` : `Planta externa ${new Date().toLocaleDateString('es-EC')}`,
       elementos: visibles,
-      cables: cables.filter(visibleC),
+      cables: proyecto ? cables.filter((c) => c.proyecto_id === proyecto.id) : cables.filter(visibleC),
       // Lo que se ve en el mapa es lo que se ve en Google Earth.
       estiloDe: (x, clase) => {
         const st = estiloDe(x, clase)
@@ -469,7 +488,9 @@ export default function PlantaExternaPage() {
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.google-earth.kmz' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = `planta-externa-${new Date().toISOString().slice(0, 10)}.kmz`
+    a.download = proyecto
+      ? `proyecto-${proyecto.nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.kmz`
+      : `planta-externa-${new Date().toISOString().slice(0, 10)}.kmz`
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 2000)
   }
@@ -500,7 +521,7 @@ export default function PlantaExternaPage() {
           <Button icon={Gauge} onClick={() => setVerPresupuesto(true)} disabled={!elementos?.length}>
             Presupuesto óptico
           </Button>
-          <Button icon={Download} onClick={exportar} disabled={!elementos?.length}>
+          <Button icon={Download} onClick={() => exportar()} disabled={!elementos?.length}>
             Exportar KMZ
           </Button>
         </div>
@@ -523,6 +544,17 @@ export default function PlantaExternaPage() {
           </div>
         ))}
       </div>
+
+      {proyectoActivo && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-500/50 bg-sky-500/10 px-3 py-2 text-[12px] text-sky-300">
+          <FolderKanban size={14} />
+          Diseñando <b>{proyectos.find((p) => p.id === proyectoActivo)?.nombre}</b>: lo que dibujes queda proyectado en este proyecto y no
+          toca la red real.
+          <Button variante="fantasma" className="ml-auto" onClick={() => setProyectoActivo(null)}>
+            Terminar
+          </Button>
+        </div>
+      )}
 
       {edita && (
         <div className="flex flex-wrap items-center gap-2">
@@ -674,6 +706,7 @@ export default function PlantaExternaPage() {
                 {[
                   ['capas', 'Capas', Layers],
                   ['revisar', `A revisar (${porRevisar.length})`, AlertTriangle],
+                  ['proyectos', `Proyectos (${proyectos.length})`, FolderKanban],
                 ].map(([k, l, I]) => (
                   <button
                     key={k}
@@ -687,7 +720,23 @@ export default function PlantaExternaPage() {
                   </button>
                 ))}
               </div>
-              {panel === 'capas' ? (
+              {panel === 'proyectos' ? (
+                <div className="max-h-[56vh] overflow-y-auto pr-1">
+                  <PanelProyectos
+                    proyectos={proyectos}
+                    datos={{ elementos: elementos ?? [], cables, splitters, uniones }}
+                    presupuestos={presupuestos}
+                    activo={proyectoActivo}
+                    solo={soloProyecto}
+                    edita={edita}
+                    onActivar={setProyectoActivo}
+                    onSolo={setSoloProyecto}
+                    onExportar={(p) => exportar(p)}
+                    onCambio={recargar}
+                    onError={setError}
+                  />
+                </div>
+              ) : panel === 'capas' ? (
                 <div className="max-h-[56vh] space-y-3 overflow-y-auto pr-1 text-[12px]">
                   <Grupo
                     titulo="Mis capas"
@@ -803,6 +852,7 @@ export default function PlantaExternaPage() {
           optica={optica}
           medido={medidos.get(diagrama)}
           abonados={abonadosCaja}
+          proyectoId={proyectoActivo}
           edita={edita}
           onCerrar={() => setDiagrama(null)}
           onCambio={recargar}

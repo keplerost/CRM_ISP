@@ -6024,3 +6024,68 @@ test('las uniones: cada extremo una vez por caja, el hilo tiene que existir, los
   assert.equal(Number((await fila(db, `SELECT atenuacion_db_km FROM planta_optica`)).atenuacion_db_km), 0.35)
   await db.exec(sql)
 })
+
+/** Migración 238: proyectos de red, del diseño a la obra y al as-built. */
+test('un proyecto: se diseña, se vuelve obra con su material, y al aprobarla queda construido', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2380000-0000-0000-0000-000000000001'
+  const CU = 'd2380000-0000-0000-0000-000000000001'
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'o238@demo.ec');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo) VALUES
+        ('c2380000-0000-0000-0000-000000000001', '${OFI_AUTH}', 'o238', 'o238@demo.ec', 'Ofe', 'Proyecto', 'admin', '[]'::jsonb, true);
+      INSERT INTO cuadrillas (id, nombre) VALUES ('${CU}', 'MAZDA 238');
+  `)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-238-proyectos-de-red.sql'), 'utf8')
+  await db.exec(sql)
+
+  await sesion(db, OFI_AUTH)
+  const { id: P } = await fila(db, `INSERT INTO planta_proyectos (nombre, zona) VALUES ('Expansión 238', 'La Merced') RETURNING id`)
+  await db.exec(`
+      INSERT INTO planta_elementos (tipo, nombre, latitud, longitud, estado, capacidad, proyecto_id)
+      VALUES ('nap', 'NAP-238-01', -0.93, -79.22, 'proyectado', 16, '${P}'),
+             ('poste', 'Poste 238', -0.931, -79.22, 'proyectado', NULL, '${P}');
+      INSERT INTO planta_cables (nombre, tipo, hilos, ruta, estado, proyecto_id)
+      VALUES ('Dist 238', 'distribucion', 12, '[[-0.93,-79.22],[-0.931,-79.22]]', 'proyectado', '${P}');
+  `)
+  // La NAP diseñada ya es una caja (para que la cuadrilla la registre por nombre).
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM puntos_red WHERE nombre = 'NAP-238-01'`)).n, 1)
+
+  const { id: OBRA } = await fila(db, `SELECT proyecto_a_obra('${P}', '${CU}', hoy_isp() + 10,
+      '{"meta_metros": 122, "meta_naps": 1, "meta_postes": 1, "meta_puertos": 16}',
+      '[{"descripcion":"Cable ADSS 12 hilos","unidad":"m","cantidad":122},{"descripcion":"Caja NAP 16 puertos","unidad":"u","cantidad":1},{"descripcion":"nada","cantidad":0}]') AS id`)
+  const o = await fila(db, `SELECT titulo, tipo, zona, meta_metros, meta_naps, cuadrilla_id FROM obras_red WHERE id = '${OBRA}'`)
+  assert.deepEqual([o.titulo, o.tipo, o.zona, Number(o.meta_metros), o.meta_naps, o.cuadrilla_id], ['Expansión 238', 'expansion', 'La Merced', 122, 1, CU])
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM obra_materiales WHERE obra_id = '${OBRA}'`)).n, 2)
+  assert.equal((await fila(db, `SELECT estado FROM planta_proyectos WHERE id = '${P}'`)).estado, 'en_obra')
+
+  // En obra ya no se borra ni se vuelve a convertir.
+  await assert.rejects(db.query(`SELECT borrar_proyecto('${P}')`), /no se borra/)
+  await assert.rejects(db.query(`SELECT proyecto_a_obra('${P}', '${CU}', NULL, '{}')`), /ya tiene obra/)
+
+  // Aprobada la obra: construido, y lo suyo pasa a existente.
+  await sesion(db, null)
+  await db.exec(`UPDATE obras_red SET estado = 'aprobada' WHERE id = '${OBRA}'`)
+  assert.equal((await fila(db, `SELECT estado FROM planta_proyectos WHERE id = '${P}'`)).estado, 'construido')
+  const estados = await db.query(`SELECT DISTINCT estado FROM planta_elementos WHERE proyecto_id = '${P}'
+                                  UNION SELECT DISTINCT estado FROM planta_cables WHERE proyecto_id = '${P}'`)
+  assert.deepEqual(estados.rows.map((r) => r.estado), ['existente'])
+
+  // Otro proyecto: cancelar la obra lo devuelve a diseño, y en diseño se borra con lo suyo.
+  await sesion(db, OFI_AUTH)
+  const { id: P2 } = await fila(db, `INSERT INTO planta_proyectos (nombre) VALUES ('Troncal 238') RETURNING id`)
+  await db.exec(`INSERT INTO planta_elementos (tipo, nombre, latitud, longitud, estado, proyecto_id)
+                 VALUES ('manga', 'Manga 238', -0.94, -79.22, 'proyectado', '${P2}')`)
+  const { id: O2 } = await fila(db, `SELECT proyecto_a_obra('${P2}', '${CU}', NULL, '{"meta_mangas":1}') AS id`)
+  await sesion(db, null)
+  await db.exec(`UPDATE obras_red SET estado = 'cancelada' WHERE id = '${O2}'`)
+  const p2 = await fila(db, `SELECT estado, obra_id FROM planta_proyectos WHERE id = '${P2}'`)
+  assert.deepEqual([p2.estado, p2.obra_id], ['diseno', null])
+  await sesion(db, OFI_AUTH)
+  const b = (await fila(db, `SELECT borrar_proyecto('${P2}') AS r`)).r
+  assert.equal(b.elementos, 1)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM planta_proyectos WHERE id = '${P2}'`)).n, 0)
+
+  await sesion(db, null)
+  await db.exec(sql)
+})
