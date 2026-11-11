@@ -18,14 +18,17 @@ import ImportarKmz from '../../components/planta/ImportarKmz'
  *
  *   · relleno tenue      importado de un KMZ, nadie lo verificó
  *   · relleno lleno      cargado o revisado en la oficina
- *   · borde blanco       verificado en campo (obra o mapeo)
+ *   · borde verde        verificado en campo (obra o mapeo)
+ *
+ * Todo lleva un borde blanco fino: los postes de un tendido están justo
+ * encima de la línea del cable, y sin ese borde la línea se los comía.
  *   · borde ámbar        tiene algo para revisar
  *   · línea punteada     proyectado (todavía no existe)
  */
 
 const COLOR = {
   nodo: '#dc2626',
-  poste: '#94a3b8',
+  poste: '#475569',
   nap: '#f59e0b',
   manga: '#9333ea',
   reserva: '#0d9488',
@@ -33,7 +36,7 @@ const COLOR = {
   odf: '#334155',
   otro: '#64748b',
 }
-const RADIO = { nodo: 9, poste: 3, nap: 6, manga: 6, reserva: 5, splitter: 5, odf: 7, otro: 4 }
+const RADIO = { nodo: 9, poste: 4, nap: 6, manga: 6, reserva: 5, splitter: 5, odf: 7, otro: 4 }
 const CABLE = {
   troncal: { color: '#1d4ed8', peso: 5, label: 'Troncal' },
   feeder: { color: '#2563eb', peso: 4, label: 'Feeder' },
@@ -72,6 +75,8 @@ export default function PlantaExternaPage() {
   const [modo, setModo] = useState(null) // { accion: 'punto'|'cable'|'mover'|'ruta', tipo?, id?, puntos? }
   const [busqueda, setBusqueda] = useState('')
   const [panel, setPanel] = useState('capas')
+  // El tamaño de los puntos acompaña el zoom: de lejos no tapan, de cerca se tocan.
+  const [zoom, setZoom] = useState(14)
   const [importar, setImportar] = useState(false)
 
   const recargar = useCallback(async () => {
@@ -118,6 +123,7 @@ export default function PlantaExternaPage() {
     m.on('click', (ev) => clicMapa.current?.(ev.latlng))
     m.on('dblclick', () => terminarCable.current?.())
     m.doubleClickZoom.disable()
+    m.on('zoomend', () => setZoom(m.getZoom()))
     mapa.current = m
     return () => {
       m.remove()
@@ -197,11 +203,11 @@ export default function PlantaExternaPage() {
       const elegido = sel?.clase === 'e' && sel.id === e.id
       const revisar = e.revisar?.length > 0
       L.circleMarker([e.latitud, e.longitud], {
-        radius: RADIO[e.tipo] + (elegido ? 3 : 0),
-        color: elegido ? '#0f172a' : revisar ? '#f59e0b' : e.verificacion === 'campo' ? '#ffffff' : COLOR[e.tipo],
-        weight: elegido ? 3 : revisar || e.verificacion === 'campo' ? 2 : 1,
+        radius: Math.max(2.5, RADIO[e.tipo] + (zoom >= 17 ? 2 : zoom <= 13 ? -1.5 : 0)) + (elegido ? 3 : 0),
+        color: elegido ? '#0f172a' : revisar ? '#f59e0b' : e.verificacion === 'campo' ? '#16a34a' : '#ffffff',
+        weight: elegido ? 3 : revisar || e.verificacion === 'campo' ? 2.5 : 1.2,
         fillColor: COLOR[e.tipo],
-        fillOpacity: e.verificacion === 'importado' ? 0.45 : 0.95,
+        fillOpacity: e.verificacion === 'importado' ? 0.7 : 1,
         dashArray: e.estado === 'proyectado' ? '3 3' : null,
       })
         .bindTooltip(
@@ -216,7 +222,7 @@ export default function PlantaExternaPage() {
         })
         .addTo(g)
     }
-  }, [elementos, cables, abonados, capas, visibleE, visibleC, sel])
+  }, [elementos, cables, abonados, capas, visibleE, visibleC, sel, zoom])
 
   // El borrador de lo que se está dibujando.
   useEffect(() => {
@@ -552,8 +558,8 @@ export default function PlantaExternaPage() {
                     <Interruptor activo={soloRevisar} onCambio={setSoloRevisar} etiqueta="Solo lo que hay que revisar" />
                   </Grupo>
                   <p className="text-[11px] leading-snug text-slate-500">
-                    Relleno tenue: importado sin verificar. Borde blanco: verificado en campo. Borde ámbar: a revisar. Punteado:
-                    proyectado.
+                    Relleno tenue: importado sin verificar. Borde verde: verificado en campo. Borde ámbar: a revisar.
+                    Punteado: proyectado.
                   </p>
                 </div>
               ) : (
