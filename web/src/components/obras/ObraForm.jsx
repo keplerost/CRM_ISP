@@ -29,6 +29,10 @@ const VACIA = {
   latitud: '',
   longitud: '',
   ticket_id: '',
+  // El mapeo (233): de qué OLT y puerto PON es la zona, para sugerir abonados.
+  olt_id: '',
+  slot: '',
+  puerto_pon: '',
   ...Object.fromEntries(METAS.map((m) => [`meta_${m.clave}`, ''])),
 }
 
@@ -37,6 +41,7 @@ export default function ObraForm({ obra, desdeTicket, cuadrillas = [], tecnicos 
   const [materiales, setMateriales] = useState([])
   const [borrados, setBorrados] = useState([])
   const [articulos, setArticulos] = useState([])
+  const [olts, setOlts] = useState([])
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
 
@@ -47,7 +52,14 @@ export default function ObraForm({ obra, desdeTicket, cuadrillas = [], tecnicos 
       .eq('activo', true)
       .order('nombre')
       .then(({ data }) => setArticulos((data ?? []).filter((a) => !a.por_serie)))
+    supabase
+      .from('olts')
+      .select('id,nombre')
+      .order('nombre')
+      .then(({ data }) => setOlts(data ?? []))
   }, [])
+
+  const esMapeo = form.tipo === 'mapeo'
 
   useEffect(() => {
     if (obra) {
@@ -190,10 +202,39 @@ export default function ObraForm({ obra, desdeTicket, cuadrillas = [], tecnicos 
           </Field>
         </div>
 
+        {esMapeo && (
+          <div className="space-y-3 rounded-xl border border-sky-500/30 p-3">
+            <p className="text-[12px] text-slate-400">
+              La cuadrilla registra cada caja que ya existe y releva puerto por puerto qué abonado está. No cuenta como
+              producción ni como calidad de lo construido: tiene su propio indicador.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="OLT" hint="opcional: sugiere los abonados de ese puerto PON">
+                <Select value={form.olt_id} onChange={set('olt_id')}>
+                  <option value="">—</option>
+                  {olts.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nombre}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Placa (slot)">
+                <Input type="number" min="0" value={form.slot} onChange={set('slot')} />
+              </Field>
+              <Field label="Puerto PON">
+                <Input value={form.puerto_pon} onChange={set('puerto_pon')} maxLength={20} />
+              </Field>
+            </div>
+          </div>
+        )}
+
         <div>
-          <p className="mb-2 text-xs font-semibold text-slate-400">Alcance (deja en blanco lo que la obra no incluye)</p>
+          <p className="mb-2 text-xs font-semibold text-slate-400">
+            {esMapeo ? 'Cuántas cajas hay que mapear' : 'Alcance (deja en blanco lo que la obra no incluye)'}
+          </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-            {METAS.map((m) => (
+            {METAS.filter((m) => !esMapeo || m.clave === 'naps').map((m) => (
               <Field key={m.clave} label={`${m.label}${m.unidad ? ` (${m.unidad})` : ''}`}>
                 <Input
                   type="number"

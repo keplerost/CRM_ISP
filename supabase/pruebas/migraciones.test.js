@@ -5727,3 +5727,89 @@ test('una obra de red: se asigna, se reporta, no se entrega sin documentación, 
   await sesion(db, null)
   await db.exec(sql)
 })
+
+/** Migración 233: el mapeo de la red que ya existe, puerto por puerto. */
+test('el mapeo: la caja vieja queda verificada, cada puerto con su abonado, y no infla la producción', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2330000-0000-0000-0000-000000000001'
+  const JEFE_AUTH = 'a2330000-0000-0000-0000-000000000002'
+  const JEFE = 'b2330000-0000-0000-0000-000000000001'
+  const CU = 'd2330000-0000-0000-0000-000000000001'
+  const CERCA = 'e2330000-0000-0000-0000-000000000001'
+  const LEJOS = 'e2330000-0000-0000-0000-000000000002'
+  const SIN_GPS = 'e2330000-0000-0000-0000-000000000003'
+
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'o233@demo.ec'), ('${JEFE_AUTH}', 'j233@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${JEFE}', 'Jefe 233', true);
+      INSERT INTO cuadrillas (id, nombre) VALUES ('${CU}', 'MAPEO 233');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES ('${CU}', '${JEFE}', 'lider');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('c2330000-0000-0000-0000-000000000001', '${OFI_AUTH}', 'o233', 'o233@demo.ec', 'Ofe', 'Mapa', 'admin', '[]'::jsonb, true, NULL),
+        ('c2330000-0000-0000-0000-000000000002', '${JEFE_AUTH}', 'j233', 'j233@demo.ec', 'Jefe', 'Mapa', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${JEFE}');
+      INSERT INTO clientes (id, nombre, estado, latitud, longitud) VALUES
+        ('${CERCA}', 'Vecina Cerca 233', 'activo', -0.2004, -78.5),
+        ('${LEJOS}', 'Vecino Lejos 233', 'activo', -0.22, -78.5),
+        ('${SIN_GPS}', 'Zoila Buscada 233', 'activo', NULL, NULL);
+  `)
+  // La prueba de la 232 vuelve a correr su archivo: se aplica la 233 antes de probar.
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-233-el-mapeo-de-la-red-existente.sql'), 'utf8')
+  await db.exec(sql)
+
+  await sesion(db, OFI_AUTH)
+  const { id: OBRA } = await fila(db, `SELECT guardar_obra(NULL, jsonb_build_object(
+      'titulo', 'Mapeo zona 233', 'tipo', 'mapeo', 'cuadrilla_id', '${CU}', 'meta_naps', 1, 'puerto_pon', '3')) AS id`)
+  const o = await fila(db, `SELECT tipo, puerto_pon FROM obras_red WHERE id = '${OBRA}'`)
+  assert.deepEqual([o.tipo, o.puerto_pon], ['mapeo', '3'])
+  assert.equal((await fila(db, `SELECT titulo FROM notificaciones WHERE entidad_id = '${OBRA}' LIMIT 1`)).titulo, 'Mapeo asignado: Mapeo zona 233')
+
+  await sesion(db, JEFE_AUTH)
+  const { id: NAP } = await fila(db, `SELECT registrar_nap_obra('${OBRA}', 'NAP-VIEJA-01', -0.2, -78.5, 4, -20.1, '${OBRA}/nap.jpg') AS id`)
+  const punto = await fila(db, `SELECT p.id, p.origen, p.puerto_pon FROM puntos_red p JOIN obra_naps n ON n.punto_id = p.id WHERE n.id = '${NAP}'`)
+  assert.deepEqual([punto.origen, punto.puerto_pon], ['campo', '3'])
+
+  // Sugeridos por GPS: la vecina a 45 m sí, el de 2 km no. Por nombre, la que no tiene GPS.
+  const cerca = await db.query(`SELECT cliente_id, por, distancia_m FROM abonados_para_caja('${OBRA}', -0.2, -78.5)`)
+  assert.deepEqual(cerca.rows.map((x) => x.cliente_id).filter((x) => [CERCA, LEJOS, SIN_GPS].includes(x)), [CERCA])
+  assert.ok(cerca.rows[0].distancia_m < 60)
+  const busq = await db.query(`SELECT cliente_id, por FROM abonados_para_caja('${OBRA}', NULL, NULL, 'zoila')`)
+  assert.deepEqual(busq.rows.map((x) => [x.cliente_id, x.por]), [[SIN_GPS, 'busqueda']])
+
+  // Puerto por puerto.
+  await db.query(`SELECT relevar_puerto_nap('${NAP}', 1, 'ocupado', '${CERCA}')`)
+  await db.query(`SELECT relevar_puerto_nap('${NAP}', 2, 'libre')`)
+  await db.query(`SELECT relevar_puerto_nap('${NAP}', 3, 'danado', NULL, 'conector roto')`)
+  await assert.rejects(db.query(`SELECT relevar_puerto_nap('${NAP}', 5, 'libre')`), /tiene 4 puertos/)
+  await assert.rejects(db.query(`SELECT relevar_puerto_nap('${NAP}', 4, 'ocupado')`), /qué abonado está/)
+  const c1 = await fila(db, `SELECT nap_id, puerto_nap FROM clientes WHERE id = '${CERCA}'`)
+  assert.deepEqual([c1.nap_id, c1.puerto_nap], [punto.id, '1'])
+
+  // Sin el puerto 4, no se entrega.
+  assert.deepEqual((await fila(db, `SELECT faltantes_obra('${OBRA}') AS f`)).f, ['1 caja(s) con puertos sin relevar'])
+
+  // La vecina estaba en realidad en el 4: se mueve, y el 1 queda para la que se buscó por nombre.
+  await db.query(`SELECT relevar_puerto_nap('${NAP}', 4, 'ocupado', '${CERCA}')`)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM mapeo_puertos WHERE cliente_id = '${CERCA}'`)).n, 1)
+  assert.equal((await fila(db, `SELECT puerto_nap FROM clientes WHERE id = '${CERCA}'`)).puerto_nap, '4')
+  await db.query(`SELECT relevar_puerto_nap('${NAP}', 1, 'ocupado', '${SIN_GPS}')`)
+
+  // Sin parte con foto alcanza: la foto es la de la caja.
+  assert.deepEqual((await fila(db, `SELECT faltantes_obra('${OBRA}') AS f`)).f, [])
+  await db.query(`SELECT entregar_obra('${OBRA}', 'Caja relevada completa')`)
+  const vo = await fila(db, `SELECT puertos_relevados, abonados_ubicados, puertos_libres FROM v_obras_red WHERE id = '${OBRA}'`)
+  assert.deepEqual([Number(vo.puertos_relevados), Number(vo.abonados_ubicados), Number(vo.puertos_libres)], [4, 2, 1])
+
+  // Indicadores: el mapeo aparte, y la caja vieja no cuenta como calidad de lo construido.
+  await sesion(db, OFI_AUTH)
+  const r = (await fila(db, `SELECT indicadores_obras(hoy_isp() - 7, hoy_isp()) AS r`)).r
+  const m = r.cuadrillas.find((x) => x.cuadrilla_id === CU)
+  assert.deepEqual(
+    [m.mapeo.cajas, m.mapeo.relevados, m.mapeo.ubicados, m.mapeo.libres, m.mapeo.danados],
+    [1, 4, 2, 1, 1],
+  )
+  assert.equal(m.calidad.naps_medidas, 0)
+  assert.equal(m.fallas.obras, 0)
+
+  await sesion(db, null)
+  await db.exec(sql)
+})

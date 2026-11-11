@@ -4,7 +4,7 @@ import { AlertTriangle, Camera, HardHat, MapPin, ShieldAlert } from 'lucide-reac
 
 import { supabase } from '../../lib/supabaseClient'
 import { hoyLocal } from '../../lib/soporte'
-import { ESTADOS_OBRA, TIPOS_OBRA, diasParaMeta, fmt, progresoMetas } from '../../lib/obras'
+import { ESTADOS_OBRA, ESTADOS_PUERTO, TIPOS_OBRA, diasParaMeta, fmt, progresoMetas, resumenCaja } from '../../lib/obras'
 import { Badge } from '../ui'
 import { useFotosObra } from './fotos'
 
@@ -19,7 +19,7 @@ export function useObra(id) {
   const [d, setD] = useState(null)
   const recargar = useCallback(async () => {
     if (!id) return setD(null)
-    const [o, av, naps, mat, con, bit, falt, cfg] = await Promise.all([
+    const [o, av, naps, mat, con, bit, falt, cfg, pts] = await Promise.all([
       supabase.from('v_obras_red').select('*').eq('id', id).maybeSingle(),
       supabase.from('v_obra_avances').select('*').eq('obra_id', id).order('fecha', { ascending: false }).order('id', { ascending: false }),
       supabase.from('obra_naps').select('*').eq('obra_id', id).order('nombre'),
@@ -28,6 +28,8 @@ export function useObra(id) {
       supabase.from('v_obra_bitacora').select('*').eq('obra_id', id).order('creado_at', { ascending: false }),
       supabase.rpc('faltantes_obra', { p_id: id }),
       supabase.from('obras_config').select('*').maybeSingle(),
+      // Lo relevado puerto por puerto (233). Vacío sin la migración.
+      supabase.from('v_mapeo_puertos').select('*').eq('obra_id', id).order('puerto'),
     ])
     setD({
       obra: o.data,
@@ -39,6 +41,7 @@ export function useObra(id) {
       bitacora: bit.data ?? [],
       faltantes: falt.data ?? [],
       config: cfg.data ?? {},
+      puertos: pts.error ? [] : (pts.data ?? []),
     })
   }, [id])
   useEffect(() => {
@@ -162,7 +165,8 @@ const fecha = (f) =>
   new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString('es-EC', { weekday: 'short', day: 'numeric', month: 'short' })
 
 export default function DetalleObra({ d, enlaceTicket = true }) {
-  const { obra: o, avances, naps, materiales, consumos, bitacora, config } = d
+  const { obra: o, avances, naps, materiales, consumos, bitacora, config, puertos = [] } = d
+  const esMapeo = o.tipo === 'mapeo'
   const rutas = useMemo(
     () => [...avances.flatMap((a) => a.fotos ?? []), ...naps.map((n) => n.foto)].filter(Boolean),
     [avances, naps],
@@ -247,6 +251,7 @@ export default function DetalleObra({ d, enlaceTicket = true }) {
         <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800">
           {naps.map((n) => {
             const ok = n.potencia_dbm == null ? null : Number(n.potencia_dbm) >= min
+            const rc = esMapeo ? resumenCaja(n, puertos) : null
             return (
               <li key={n.id} className="flex flex-wrap items-center gap-3 p-2.5 text-[12px]">
                 <span className="min-w-0 flex-1 font-medium text-slate-100">{n.nombre}</span>
@@ -276,6 +281,28 @@ export default function DetalleObra({ d, enlaceTicket = true }) {
                   )
                 ) : (
                   <span className="text-rose-400">sin foto</span>
+                )}
+                {rc && (
+                  <div className="w-full space-y-1.5">
+                    <p className={rc.completa ? 'text-emerald-400' : 'text-amber-400'}>
+                      {rc.relevados} de {rc.total || '?'} puertos relevados · {rc.ubicados} abonados · {rc.libres} libres
+                      {rc.danados ? ` · ${rc.danados} dañados` : ''}
+                    </p>
+                    <ul className="grid gap-1 sm:grid-cols-2">
+                      {puertos
+                        .filter((p) => p.obra_nap_id === n.id)
+                        .map((p) => (
+                          <li key={p.id} className="flex gap-2 text-slate-300">
+                            <span className={`rounded border px-1.5 text-[11px] ${ESTADOS_PUERTO[p.estado]?.clase ?? ''}`}>
+                              {p.puerto}
+                            </span>
+                            <span className="truncate">
+                              {p.cliente ?? (p.nota ? `“${p.nota}”` : ESTADOS_PUERTO[p.estado]?.label)}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
                 )}
               </li>
             )

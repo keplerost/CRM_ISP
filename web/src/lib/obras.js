@@ -14,7 +14,34 @@ export const TIPOS_OBRA = {
   preventivo: 'Mantenimiento preventivo',
   reparacion: 'Reparación de red',
   acometida: 'Acometida / extensión para abonado',
+  mapeo: 'Mapeo de red existente',
   otro: 'Otro',
+}
+
+/** Lo que se ve en cada puerto de una caja al mapear (migración 233). */
+export const ESTADOS_PUERTO = {
+  ocupado: { label: 'Ocupado', clase: 'border-sky-500 bg-sky-500/15 text-sky-300' },
+  libre: { label: 'Libre', clase: 'border-emerald-500 bg-emerald-500/15 text-emerald-300' },
+  danado: { label: 'Dañado', clase: 'border-rose-500 bg-rose-500/15 text-rose-300' },
+}
+
+/**
+ * Cómo quedó cada caja del mapeo: cuántos puertos se miraron, cuántos
+ * abonados se ubicaron, cuántos libres y dañados. `puertos` son las filas de
+ * `v_mapeo_puertos`.
+ */
+export function resumenCaja(nap, puertos = []) {
+  const mios = puertos.filter((p) => p.obra_nap_id === nap.id)
+  const total = Number(nap.puertos) || 0
+  return {
+    total,
+    relevados: mios.length,
+    faltan: Math.max(0, total - mios.length),
+    ubicados: mios.filter((p) => p.cliente_id).length,
+    libres: mios.filter((p) => p.estado === 'libre').length,
+    danados: mios.filter((p) => p.estado === 'danado').length,
+    completa: total > 0 && mios.length >= total,
+  }
 }
 
 export const ESTADOS_OBRA = {
@@ -200,7 +227,25 @@ export function leerIndicadores(c, cfg = {}) {
           ? 'sin_datos'
           : semaforo(ap.pct, cfg.apoyo_max_pct ?? ap.apoyo_max_pct, { mayorEsMejor: false, margen: 10 }),
     },
+    // El mapeo de la red existente (233): aparte, solo si hubo.
+    ...(Number(c?.mapeo?.cajas) > 0 ? [leerMapeo(c.mapeo)] : []),
   ]
+}
+
+function leerMapeo(m) {
+  const relevado = pct(m.relevados, m.puertos)
+  const identificados = pct(m.ubicados, Number(m.ubicados) + Number(m.sin_identificar))
+  return {
+    clave: 'mapeo',
+    titulo: 'Mapeo de red existente',
+    valor: `${fmt(m.cajas)} caja(s)`,
+    detalle:
+      `${fmt(m.relevados)} de ${fmt(m.puertos)} puertos relevados · ${fmt(m.ubicados)} abonados ubicados · ` +
+      `${fmt(m.libres)} libres · ${fmt(m.danados)} dañados` +
+      (m.sin_identificar ? ` · ${m.sin_identificar} ocupados sin identificar` : ''),
+    meta: 'Meta: 100% de los puertos relevados y cada ocupado con su abonado',
+    estado: peor(semaforo(relevado, 100, { margen: 10 }), semaforo(identificados, 100, { margen: 15 })),
+  }
 }
 
 const ORDEN = { mal: 0, atencion: 1, bien: 2, sin_datos: 3 }

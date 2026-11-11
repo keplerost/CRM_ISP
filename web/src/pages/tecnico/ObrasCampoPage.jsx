@@ -16,10 +16,11 @@ import {
 import { supabase } from '../../lib/supabaseClient'
 import { hoyLocal, ubicacionActual } from '../../lib/soporte'
 import { completarIngreso } from '../../lib/servicio'
-import { METAS, fmt } from '../../lib/obras'
+import { METAS, fmt, resumenCaja } from '../../lib/obras'
 import { usePrepararIngreso } from '../../components/tecnico/IngresoGrupal'
 import DetalleObra, { AvanceMetas, EncabezadoObra, useObra } from '../../components/obras/ObraDetalle'
 import { subirFotoObra } from '../../components/obras/fotos'
+import PuertosCaja from '../../components/obras/PuertosCaja'
 
 /**
  * Las obras de mi cuadrilla (migración 232), en el celular.
@@ -89,9 +90,13 @@ function ObraCampo({ fila, abiertaDeInicio, onCambio }) {
   const [modo, setModo] = useState(null) // 'parte' | 'nap' | 'material' | 'entregar'
   const [verTodo, setVerTodo] = useState(abiertaDeInicio)
   const [hecho, setHecho] = useState(null)
-  const { d, recargar } = useObra(verTodo || modo ? fila.id : null)
+  // El mapeo (233) muestra sus cajas siempre: es lo que se trabaja.
+  const esMapeo = fila.tipo === 'mapeo'
+  const [caja, setCaja] = useState(null)
+  const { d, recargar } = useObra(esMapeo || verTodo || modo ? fila.id : null)
   const o = d?.obra ?? fila
   const abierta = ['planificada', 'en_curso'].includes(o.estado)
+  const napAbierta = d?.naps.find((n) => n.id === caja)
 
   async function listo(msg) {
     setModo(null)
@@ -150,7 +155,53 @@ function ObraCampo({ fila, abiertaDeInicio, onCambio }) {
       )}
 
       {modo === 'parte' && <FormParte o={o} onCancelar={() => setModo(null)} onListo={() => listo('Parte enviado.')} />}
-      {modo === 'nap' && <FormNap o={o} onCancelar={() => setModo(null)} onListo={() => listo('Caja registrada.')} />}
+      {modo === 'nap' && (
+        <FormNap
+          o={o}
+          onCancelar={() => setModo(null)}
+          onListo={async (id) => {
+            await listo(esMapeo ? 'Caja registrada: ahora releva sus puertos.' : 'Caja registrada.')
+            if (esMapeo && id) setCaja(id)
+          }}
+        />
+      )}
+
+      {esMapeo && d && (
+        <section className="space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Cajas del mapeo ({d.naps.length}
+            {o.meta_naps ? ` de ${o.meta_naps}` : ''})
+          </p>
+          {!d.naps.length && (
+            <p className="text-[12px] text-slate-500">Registrá la primera caja con “Caja NAP”, parado junto a ella.</p>
+          )}
+          {napAbierta ? (
+            <PuertosCaja obra={o} nap={napAbierta} puertos={d.puertos} onCambio={recargar} onCerrar={() => setCaja(null)} />
+          ) : (
+            <ul className="space-y-1.5">
+              {d.naps.map((n) => {
+                const rc = resumenCaja(n, d.puertos)
+                return (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      disabled={!abierta}
+                      onClick={() => setCaja(n.id)}
+                      className="flex w-full items-center gap-2 rounded-lg border border-slate-700 p-2.5 text-left text-[12px]"
+                    >
+                      <span className="flex-1 font-medium text-slate-100">{n.nombre}</span>
+                      <span className={rc.completa ? 'text-emerald-400' : 'text-amber-400'}>
+                        {rc.relevados}/{rc.total || '?'} puertos
+                      </span>
+                      {abierta && <span className="text-sky-400">Relevar</span>}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      )}
       {modo === 'material' && d && (
         <FormMaterial
           o={o}
@@ -372,7 +423,7 @@ function FormParte({ o, onCancelar, onListo }) {
           className={CAMPO}
         />
       )}
-      {!fotos.length && <p className="text-[11px] text-amber-400">Sin fotos, la obra no se puede entregar: al menos un parte tiene que tener.</p>}
+      {!fotos.length && o.tipo !== 'mapeo' && <p className="text-[11px] text-amber-400">Sin fotos, la obra no se puede entregar: al menos un parte tiene que tener.</p>}
       {error && <p className="text-[12px] text-rose-400">{error}</p>}
       <Botones
         onCancelar={onCancelar}
@@ -411,7 +462,7 @@ function FormNap({ o, onCancelar, onListo }) {
     setError(null)
     try {
       const ruta = foto ? await subirFotoObra(o.id, foto, 'nap') : null
-      const { error: err } = await supabase.rpc('registrar_nap_obra', {
+      const { data: id, error: err } = await supabase.rpc('registrar_nap_obra', {
         p_obra: o.id,
         p_nombre: f.nombre,
         p_lat: pos?.lat ?? null,
@@ -421,7 +472,7 @@ function FormNap({ o, onCancelar, onListo }) {
         p_foto: ruta,
       })
       if (err) throw err
-      onListo()
+      onListo(id)
     } catch (err) {
       setError(err.message)
     } finally {

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { diasParaMeta, leerIndicadores, peor, periodo, progresoMetas, semaforo } from '../../web/src/lib/obras.js'
+import { diasParaMeta, leerIndicadores, peor, periodo, progresoMetas, resumenCaja, semaforo } from '../../web/src/lib/obras.js'
 
 test('el semáforo: arriba o abajo de la meta, con margen amarillo', () => {
   assert.equal(semaforo(95, 90), 'bien')
@@ -75,4 +75,21 @@ test('los ocho indicadores con sus semáforos', () => {
   const k2 = leerIndicadores({ seguridad: { partes: 5, con_epp: 5, incidentes: 1 }, fallas: { obras: 0 } }, cfg)
   assert.equal(k2.find((x) => x.clave === 'seguridad').estado, 'mal')
   assert.equal(k2.find((x) => x.clave === 'fallas').estado, 'sin_datos')
+})
+
+test('el mapeo: su indicador aparece solo si hubo, y el resumen de cada caja', () => {
+  const sin = leerIndicadores({}, {})
+  assert.equal(sin.length, 8)
+  const con = leerIndicadores({ mapeo: { cajas: 2, puertos: 32, relevados: 30, ubicados: 20, libres: 8, danados: 1, sin_identificar: 1 } }, {})
+  const m = con.find((x) => x.clave === 'mapeo')
+  assert.equal(con.length, 9)
+  assert.equal(m.estado, 'atencion', '94% relevado')
+  assert.match(m.detalle, /20 abonados ubicados/)
+
+  const r = resumenCaja({ id: 'n1', puertos: 4 }, [
+    { obra_nap_id: 'n1', estado: 'ocupado', cliente_id: 'c1' },
+    { obra_nap_id: 'n1', estado: 'libre' },
+    { obra_nap_id: 'n2', estado: 'libre' },
+  ])
+  assert.deepEqual([r.relevados, r.faltan, r.ubicados, r.libres, r.completa], [2, 2, 1, 1, false])
 })
