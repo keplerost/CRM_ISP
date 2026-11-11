@@ -6,7 +6,9 @@ import { AlertTriangle, Download, FileUp, Layers, Pencil, Plus, Search, X } from
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { ETIQUETA, armarKmz, largoRuta } from '../../lib/kmz'
-import { DASH, ESTILOS_BASE, esVisible, kmlColor, resolverEstilo } from '../../lib/planta'
+import { DASH, ESTILOS_BASE, ICONO_POR_TIPO, esVisible, kmlColor, resolverEstilo } from '../../lib/planta'
+import { archivoIcono, svgIcono } from '../../lib/iconos'
+import { IconoSvg } from '../../components/planta/SelectorIcono'
 import { Button, ErrorBanner, Select } from '../../components/ui'
 import ImportarKmz from '../../components/planta/ImportarKmz'
 import EditorEstilo from '../../components/planta/EditorEstilo'
@@ -36,6 +38,22 @@ import FichaPlanta, { TIPOS_CABLE } from '../../components/planta/FichaPlanta'
  */
 
 const CENTRO = [-0.93, -79.22]
+// Desde este zoom los puntos se dibujan con su ícono; más lejos, como puntos
+// (cientos de íconos amontonados no se leen y pesan).
+const ZOOM_ICONOS = 15
+
+/** El SVG de un ícono a PNG, para meterlo en el KMZ. */
+async function pngDe(svg, px = 64) {
+  const img = new Image()
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  await img.decode()
+  const lienzo = document.createElement('canvas')
+  lienzo.width = px
+  lienzo.height = px
+  lienzo.getContext('2d').drawImage(img, 0, 0, px, px)
+  const blob = await new Promise((r) => lienzo.toBlob(r, 'image/png'))
+  return new Uint8Array(await blob.arrayBuffer())
+}
 const TIPOS_E = Object.keys(ETIQUETA)
 
 export default function PlantaExternaPage() {
@@ -207,14 +225,33 @@ export default function PlantaExternaPage() {
       const st = estiloDe(e, 'e')
       const elegido = sel?.clase === 'e' && sel.id === e.id
       const revisar = e.revisar?.length > 0
-      L.circleMarker([e.latitud, e.longitud], {
-        radius: Math.max(2.5, st.tamano + ajuste) + (elegido ? 3 : 0),
-        color: elegido ? '#0f172a' : revisar ? '#f59e0b' : e.verificacion === 'campo' ? '#16a34a' : '#ffffff',
-        weight: elegido ? 3 : revisar || e.verificacion === 'campo' ? 2.5 : 1.2,
-        fillColor: st.color,
-        fillOpacity: st.opacidad * (e.verificacion === 'importado' ? 0.75 : 1),
-        dashArray: e.estado === 'proyectado' ? '3 3' : null,
-      })
+      const anillo = elegido ? '#0f172a' : revisar ? '#f59e0b' : e.verificacion === 'campo' ? '#16a34a' : null
+      const opacidad = st.opacidad * (e.verificacion === 'importado' ? 0.75 : 1) * (e.estado === 'proyectado' ? 0.7 : 1)
+      const marca =
+        zoom >= ZOOM_ICONOS && st.icono !== 'circulo'
+          ? (() => {
+              const px = Math.round(Math.max(10, (st.tamano + ajuste) * 3.2)) + (elegido ? 8 : 0)
+              return L.marker([e.latitud, e.longitud], {
+                icon: L.divIcon({
+                  className: '',
+                  iconSize: [px, px],
+                  iconAnchor: [px / 2, px / 2],
+                  html: `<div style="width:${px}px;height:${px}px;opacity:${opacidad};border-radius:50%;${
+                    anillo ? `box-shadow:0 0 0 ${elegido ? 3 : 2}px ${anillo};` : ''
+                  }${e.estado === 'proyectado' ? 'outline:1.5px dashed #0f172a;outline-offset:1px;' : ''}">${svgIcono(st.icono, st.color, px)}</div>`,
+                }),
+                keyboard: false,
+              })
+            })()
+          : L.circleMarker([e.latitud, e.longitud], {
+              radius: Math.max(2.5, st.tamano + ajuste) + (elegido ? 3 : 0),
+              color: anillo ?? '#ffffff',
+              weight: elegido ? 3 : anillo ? 2.5 : 1.2,
+              fillColor: st.color,
+              fillOpacity: opacidad,
+              dashArray: e.estado === 'proyectado' ? '3 3' : null,
+            })
+      marca
         .bindTooltip(
           `${e.nombre}${e.tipo === 'nap' && e.capacidad ? ` · ${e.abonados ?? 0}/${e.capacidad}` : ''}${
             e.tipo === 'poste' && e.herraje ? ` · ${e.herraje}` : ''
@@ -348,18 +385,35 @@ export default function PlantaExternaPage() {
     else m.fitBounds(L.latLngBounds(x.ruta), { maxZoom: 18, padding: [40, 40] })
   }
 
-  function exportar() {
+  async function exportar() {
+    // Cada ícono que se usa, como PNG dentro del KMZ: Google Earth lo muestra
+    // igual que el mapa.
+    const visibles = (elementos ?? []).filter(visibleE)
+    const usados = new Map()
+    for (const e of visibles) {
+      const st = estiloDe(e, 'e')
+      if (st.icono) usados.set(archivoIcono(st.icono, st.color), [st.icono, st.color])
+    }
+    const archivos = []
+    for (const [nombre, [clave, color]] of usados) {
+      try {
+        archivos.push({ nombre, datos: await pngDe(svgIcono(clave, color, 64)) })
+      } catch {
+        usados.delete(nombre)
+      }
+    }
     const bytes = armarKmz({
       nombre: `Planta externa ${new Date().toLocaleDateString('es-EC')}`,
-      elementos: (elementos ?? []).filter(visibleE),
+      elementos: visibles,
       cables: cables.filter(visibleC),
       // Lo que se ve en el mapa es lo que se ve en Google Earth.
       estiloDe: (x, clase) => {
         const st = estiloDe(x, clase)
-        return { color: kmlColor(st.color, st.opacidad), ancho: st.tamano }
+        const png = st.icono ? archivoIcono(st.icono, st.color) : null
+        return { color: kmlColor(st.color, st.opacidad), ancho: st.tamano, icono: png && usados.has(png) ? png : undefined }
       },
       carpetaDe: (x) => (x.capa_id ? (capas.get(x.capa_id)?.nombre ?? null) : null),
-    })
+    }, archivos)
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.google-earth.kmz' }))
     const a = document.createElement('a')
     a.href = url
@@ -374,7 +428,7 @@ export default function PlantaExternaPage() {
     return clave.startsWith('c:') ? (
       <span className="inline-block w-5 rounded" style={{ height: Math.min(8, Math.max(2, st.tamano)), background: st.color }} />
     ) : (
-      <span className="inline-block h-3 w-3 rounded-full border border-white" style={{ background: st.color }} />
+      <IconoSvg clave={st.icono || ICONO_POR_TIPO[clave.slice(2)]} color={st.color} tamano={18} />
     )
   }
 
@@ -600,7 +654,7 @@ export default function PlantaExternaPage() {
                           c.clase === 'cable' ? (
                             <span className="inline-block w-5 rounded" style={{ height: Math.min(8, Math.max(2, c.tamano)), background: c.color }} />
                           ) : (
-                            <span className="inline-block h-3 w-3 rounded-full border border-white" style={{ background: c.color }} />
+                            <IconoSvg clave={c.icono || 'circulo'} color={c.color} tamano={18} />
                           )
                         }
                         etiqueta={`${c.nombre} (${cuantos(c.clase === 'cable' ? cables : (elementos ?? []), (x) => x.capa_id === c.id)})`}

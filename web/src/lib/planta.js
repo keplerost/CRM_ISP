@@ -27,6 +27,10 @@ export const ESTILOS_BASE = {
   'c:otro': { color: '#64748b', tamano: 2 },
 }
 
+/** El ícono de cada tipo de punto (migración 236). */
+export { ICONO_POR_TIPO } from './iconos.js'
+import { ICONO_POR_TIPO } from './iconos.js'
+
 /** Los colores del código de hilos (TIA-598). */
 export const COLOR_HILO = {
   azul: '#2563eb', naranja: '#f97316', verde: '#16a34a', cafe: '#92400e', gris: '#6b7280', blanco: '#e5e7eb',
@@ -50,8 +54,19 @@ export function resolverEstilo(x, clase, { capas = new Map(), estilos = {} } = {
   const capa = x.capa_id ? capas.get(x.capa_id) : null
   // Un hilo sin color propio ni capa va con el color del hilo.
   const colorHilo = clase === 'c' && x.tipo === 'hilo' && x.color_hilo ? COLOR_HILO[x.color_hilo] : null
-  const de = x.color || num(x.tamano) || x.linea ? 'propio' : capa ? 'capa' : 'tipo'
+  const de = x.color || num(x.tamano) || x.linea || x.icono ? 'propio' : capa ? 'capa' : 'tipo'
   return {
+    // Solo los puntos llevan ícono; el poste con herraje, su letra.
+    icono:
+      clase === 'e'
+        ? x.icono ||
+          capa?.icono ||
+          (x.tipo === 'poste' && !estilos[clave]?.icono && x.herraje === 'A' ? 'poste_a' : null) ||
+          (x.tipo === 'poste' && !estilos[clave]?.icono && x.herraje === 'J' ? 'poste_j' : null) ||
+          tipo.icono ||
+          ICONO_POR_TIPO[x.tipo] ||
+          'circulo'
+        : null,
     color: x.color || capa?.color || colorHilo || tipo.color,
     tamano: num(x.tamano) ?? num(capa?.tamano) ?? num(tipo.tamano) ?? 3,
     linea: x.linea || capa?.linea || tipo.linea || 'solida',

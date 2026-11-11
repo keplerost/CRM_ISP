@@ -5948,3 +5948,19 @@ test('las capas de la planta: estilo validado, mover una carpeta del KMZ a una c
   await sesion(db, null)
   await db.exec(sql)
 })
+
+/** Migración 236: íconos en la planta externa. */
+test('los íconos de la planta: cada tipo con el suyo, el poste A/J con su letra, clave validada', async () => {
+  await sesion(db, null)
+  await db.exec(`INSERT INTO planta_elementos (tipo, nombre, latitud, longitud, herraje) VALUES
+                   ('poste', 'Poste A 236', -0.9, -79.2, 'A'), ('poste', 'Poste J 236', -0.9, -79.21, 'J'),
+                   ('poste', 'Poste sin 236', -0.9, -79.22, NULL)`)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-236-iconos-de-la-planta.sql'), 'utf8')
+  await db.exec(sql)
+
+  assert.equal((await fila(db, `SELECT icono FROM planta_estilos WHERE clave = 'e:manga'`)).icono, 'manga_domo')
+  const postes = await db.query(`SELECT nombre, icono FROM v_planta_elementos WHERE nombre LIKE 'Poste % 236' ORDER BY nombre`)
+  assert.deepEqual(postes.rows.map((r) => r.icono), ['poste_a', 'poste_j', null])
+  await assert.rejects(db.query(`UPDATE planta_capas SET icono = '<script>' WHERE TRUE`), /icono_check/)
+  await db.exec(sql)
+})

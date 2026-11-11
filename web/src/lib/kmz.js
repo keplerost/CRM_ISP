@@ -557,8 +557,9 @@ function datosExtendidos(o) {
  * El KML de la planta: una carpeta por capa (o por tipo, para lo que no tiene
  * capa), con sus datos.
  *
- * `estiloDe(x, 'e'|'c')` → { color: 'aabbggrr', ancho } pone el estilo propio
- * de cada uno (el que se ve en el mapa); sin él, cada tipo lleva el suyo fijo.
+ * `estiloDe(x, 'e'|'c')` → { color: 'aabbggrr', ancho, icono? } pone el estilo
+ * propio de cada uno (el que se ve en el mapa); sin él, cada tipo lleva el suyo
+ * fijo. `icono` es la ruta del PNG dentro del KMZ (va en `archivos`).
  * `carpetaDe(x, 'e'|'c')` → nombre de carpeta, o null para la del tipo.
  */
 export function armarKml({ nombre = 'Planta externa', elementos = [], cables = [], estiloDe = null, carpetaDe = null }) {
@@ -574,7 +575,7 @@ export function armarKml({ nombre = 'Planta externa', elementos = [], cables = [
     if (!estiloDe) return `<styleUrl>#${clase}-${x.tipo}</styleUrl>`
     const st = estiloDe(x, clase)
     return clase === 'e'
-      ? `<Style><IconStyle><color>${st.color}</color><scale>${Math.max(0.4, Math.min(2.5, st.ancho / 6)).toFixed(2)}</scale><Icon><href>${ICONO}</href></Icon></IconStyle></Style>`
+      ? `<Style><IconStyle><color>${st.icono ? 'ffffffff' : st.color}</color><scale>${Math.max(0.4, Math.min(2.5, st.ancho / 6)).toFixed(2)}</scale><Icon><href>${esc(st.icono ?? ICONO)}</href></Icon></IconStyle></Style>`
       : `<Style><LineStyle><color>${st.color}</color><width>${st.ancho}</width></LineStyle></Style>`
   }
 
@@ -642,8 +643,11 @@ const PLURAL = {
   otro: 'Otros',
 }
 
-/** El KMZ listo para descargar. */
-export function armarKmz(planta) {
+/**
+ * El KMZ listo para descargar. `archivos` son los que van al lado del KML
+ * (los PNG de los íconos): [{ nombre: 'iconos/nap-f59e0b.png', datos }].
+ */
+export function armarKmz(planta, archivos = []) {
   const kml = new TextEncoder().encode(armarKml(planta))
-  return armarZip([{ nombre: 'doc.kml', datos: kml }])
+  return armarZip([{ nombre: 'doc.kml', datos: kml }, ...archivos])
 }

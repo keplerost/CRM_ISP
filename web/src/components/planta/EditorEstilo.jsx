@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabaseClient'
 import { ETIQUETA } from '../../lib/kmz'
 import { LINEAS } from '../../lib/planta'
 import { Button, Field, Input, Modal, Select, Textarea } from '../ui'
+import SelectorIcono, { IconoSvg } from './SelectorIcono'
+import { ICONO_POR_TIPO } from '../../lib/iconos'
 
 /**
  * Crear o editar una capa propia, o el estilo de un tipo (migración 235).
@@ -44,6 +46,7 @@ export default function EditorEstilo({ objetivo, elementos = [], cables = [], on
     e.preventDefault()
     setGuardando(true)
     const estilo = { color: f.color, tamano: Number(f.tamano), linea: f.linea, opacidad: Number(f.opacidad) }
+    if (clase === 'elemento') estilo.icono = f.icono || null
     const r = esTipo
       ? await supabase.from('planta_estilos').update(estilo).eq('clave', objetivo.tipo)
       : f.id
@@ -107,8 +110,8 @@ export default function EditorEstilo({ objetivo, elementos = [], cables = [], on
         )}
 
         <div className="flex items-center gap-4 rounded-xl border border-slate-800 p-3">
-          <svg width="90" height="40" aria-hidden="true">
-            {clase === 'cable' ? (
+          {clase === 'cable' && (
+            <svg width="90" height="40" aria-hidden="true">
               <line
                 x1="6"
                 y1="20"
@@ -120,10 +123,17 @@ export default function EditorEstilo({ objetivo, elementos = [], cables = [], on
                 strokeDasharray={f.linea === 'rayada' ? '12 8' : f.linea === 'punteada' ? '2 7' : undefined}
                 strokeLinecap="round"
               />
-            ) : (
-              <circle cx="45" cy="20" r={Math.min(18, Number(f.tamano))} fill={f.color} fillOpacity={f.opacidad} stroke="#fff" strokeWidth="1.2" />
-            )}
-          </svg>
+            </svg>
+          )}
+          {clase === 'elemento' && (
+            <span style={{ opacity: f.opacidad }}>
+              <IconoSvg
+                clave={f.icono || (esTipo ? ICONO_POR_TIPO[objetivo.tipo.slice(2)] : 'circulo')}
+                color={f.color}
+                tamano={Math.round(Math.min(18, Number(f.tamano)) * 3.2)}
+              />
+            </span>
+          )}
           <span className="text-[12px] text-slate-400">Así se va a ver en el mapa.</span>
         </div>
 
@@ -152,6 +162,17 @@ export default function EditorEstilo({ objetivo, elementos = [], cables = [], on
             <input type="range" min="0.1" max="1" step="0.05" value={f.opacidad} onChange={set('opacidad')} className="w-full" />
           </Field>
         </div>
+
+        {clase === 'elemento' && (
+          <Field label="Ícono">
+            <SelectorIcono
+              valor={f.icono}
+              color={f.color}
+              onCambio={(k) => setF((v) => ({ ...v, icono: k }))}
+              vacio={esTipo ? null : '— el de su tipo —'}
+            />
+          </Field>
+        )}
 
         {!esTipo && (
           <>

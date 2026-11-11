@@ -188,3 +188,15 @@ test('el KML con el estilo de cada uno y una carpeta por capa', () => {
   assert.match(kml, /<Folder><name>Cables drop \(1\)<\/name>/)
   assert.match(kml, /<LineStyle><color>ff2626dc<\/color><width>7<\/width><\/LineStyle>/)
 })
+
+test('el KMZ con los íconos adentro', async () => {
+  const kml = armarKml({
+    elementos: [{ tipo: 'nap', nombre: 'NAP-01', latitud: -0.93, longitud: -79.22 }],
+    estiloDe: () => ({ color: 'ff0b9ef5', ancho: 6, icono: 'iconos/nap-f59e0b.png' }),
+  })
+  assert.match(kml, /<IconStyle><color>ffffffff<\/color><scale>1.00<\/scale><Icon><href>iconos\/nap-f59e0b.png<\/href>/)
+  const { armarKmz } = await import('../../web/src/lib/kmz.js')
+  const png = new Uint8Array([137, 80, 78, 71])
+  const zip = await leerZip(armarKmz({ elementos: [] }, [{ nombre: 'iconos/nap-f59e0b.png', datos: png }]))
+  assert.deepEqual(Object.keys(zip).sort(), ['doc.kml', 'iconos/nap-f59e0b.png'])
+})

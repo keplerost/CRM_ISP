@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { ETIQUETA } from '../../lib/kmz'
 import { COLOR_HILO, LINEAS, resolverEstilo } from '../../lib/planta'
 import { Badge, Button, Field, Input, Select, Textarea } from '../ui'
+import SelectorIcono from './SelectorIcono'
 
 /**
  * La ficha de lo elegido en el mapa de planta externa: ver, editar, cambiar de
@@ -31,8 +32,9 @@ export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos
   const n = (v) => (v === '' || v == null ? null : Number(v))
   const capasDeClase = [...capas.values()].filter((c) => c.clase === (clase === 'e' ? 'elemento' : 'cable'))
   // El estilo que tendría sin uno propio: para mostrar qué se está pisando.
-  const heredado = resolverEstilo({ ...f, color: null, tamano: null, linea: null }, clase, { capas, estilos })
-  const propio = Boolean(f.color || f.tamano || f.linea)
+  const heredado = resolverEstilo({ ...f, color: null, tamano: null, linea: null, icono: null }, clase, { capas, estilos })
+  const propio = Boolean(f.color || f.tamano || f.linea || f.icono)
+  const [verIconos, setVerIconos] = useState(false)
 
   async function guardar(extra = {}) {
     setGuardando(true)
@@ -55,6 +57,7 @@ export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos
             splitter: f.splitter || null,
             herraje: f.herraje || null,
             metros: n(f.metros),
+            icono: f.icono || null,
           }
         : { ...comunes, tipo: f.tipo, hilos: n(f.hilos), color_hilo: f.color_hilo || null, linea: f.linea || null }
     const { error } = await supabase.from(tabla).update(fila).eq('id', x.id)
@@ -222,7 +225,7 @@ export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos
               {propio && (
                 <button
                   type="button"
-                  onClick={() => setF((v) => ({ ...v, color: null, tamano: null, linea: null }))}
+                  onClick={() => setF((v) => ({ ...v, color: null, tamano: null, linea: null, icono: null }))}
                   className="font-normal text-sky-400"
                 >
                   Usar el de {f.capa_id ? 'la capa' : 'su tipo'}
@@ -262,6 +265,23 @@ export default function FichaPlanta({ x, clase, edita, elementos, capas, estilos
                 </Field>
               )}
             </div>
+            {clase === 'e' && (
+              <div>
+                <button type="button" onClick={() => setVerIconos((v) => !v)} className="text-[11px] text-sky-400">
+                  {verIconos ? 'Ocultar íconos' : f.icono ? 'Cambiar el ícono' : 'Elegir un ícono propio'}
+                </button>
+                {verIconos && (
+                  <div className="mt-1">
+                    <SelectorIcono
+                      valor={f.icono}
+                      color={f.color || heredado.color}
+                      onCambio={(k) => setF((v) => ({ ...v, icono: k }))}
+                      vacio={`— el de ${f.capa_id ? 'la capa' : 'su tipo'} —`}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             {!propio && <p className="text-[11px] text-slate-500">Hoy toma el de {f.capa_id ? 'su capa' : 'su tipo'}.</p>}
           </div>
 
