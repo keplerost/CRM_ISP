@@ -21,3 +21,7 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Planos de la red (KMZ/KML): datos de la infraestructura, no se versionan.
+*.kmz
+*.kml

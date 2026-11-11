@@ -224,6 +224,11 @@ export const GRUPOS_PERMISOS = [
       { clave: 'red.routers', nombre: 'Routers MikroTik' },
       { clave: 'red.ipam', nombre: 'Direccionamiento y VLANs' },
       {
+        clave: 'red.planta',
+        nombre: 'Editar la planta externa',
+        nota: 'Dibujar y corregir postes, cajas, mangas y cables en el mapa, e importar o deshacer un KMZ.',
+      },
+      {
         clave: 'red.diagnostico',
         nombre: 'Diagnosticar la conexión de un abonado',
         nota: 'Leer su señal, pinguearlo y reiniciarle la ONT. Es lo que se le habilita al bot para que resuelva "no tengo internet" sin pasar por una persona: solo toca el equipo del abonado que consulta.',
@@ -663,6 +668,8 @@ export const ROLES = [
       'red.onus_ver',
       'red.monitoreo',
       'red.cortes',
+      // Mantiene el plano de la red: la planta externa es de operaciones.
+      'red.planta',
       // Despacha material a los técnicos.
       'inventario.ver',
       'inventario.movimientos',

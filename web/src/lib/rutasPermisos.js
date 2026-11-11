@@ -202,6 +202,8 @@ const RUTAS = [
   // desde la ficha del cliente del ticket.
   ['/onus', 'red.olts_ver'],
   ['/naps', 'red.olts_ver'],
+  // Verla alcanza con ver la red; editarla lo decide `red.planta` adentro.
+  ['/planta', ['red.planta', 'red.olts_ver']],
   ['/perfiles', 'red.olts_gestionar'],
   ['/tr069', 'red.olts_ver'],
   ['/metricas', 'red.olts_ver'],

@@ -16,6 +16,7 @@ const ONUsPage = lazy(() => import('./pages/ONUsPage'))
 const OnusPage = lazy(() => import('./pages/olt/OnusPage'))
 const OnuDetallePage = lazy(() => import('./pages/olt/OnuDetallePage'))
 const CajasNapPage = lazy(() => import('./pages/olt/CajasNapPage'))
+const PlantaExternaPage = lazy(() => import('./pages/red/PlantaExternaPage'))
 const PerfilesPage = lazy(() => import('./pages/PerfilesPage'))
 const MiPerfilPage = lazy(() => import('./pages/MiPerfilPage'))
 const NuevaClavePage = lazy(() => import('./pages/NuevaClavePage'))
@@ -266,6 +267,8 @@ export default function App() {
         <Route path="onus/aprovisionar" element={<ONUsPage />} />
         <Route path="onus/:id" element={<OnuDetallePage />} />
         <Route path="naps" element={<CajasNapPage />} />
+        {/* La red física en el mapa, con KMZ (migración 234). */}
+        <Route path="planta" element={<PlantaExternaPage />} />
         <Route path="perfiles" element={<PerfilesPage />} />
 
         {/* Sin permiso: cualquiera que entró tiene que poder cambiar SU

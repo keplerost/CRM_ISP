@@ -265,6 +265,8 @@ const SECCIONES = [
       { to: '/onu-types', label: 'Tipos de ONU', icon: Cpu },
       { to: '/onus', label: 'ONUs', icon: Radio },
       { to: '/naps', label: 'Cajas NAP', icon: Box },
+      // La red física dibujada: postes, mangas, cajas y cables, con KMZ.
+      { to: '/planta', label: 'Planta externa (mapa)', icon: Map },
       { to: '/perfiles', label: 'Perfiles y planes', icon: Layers },
       // Global y no por OLT, por lo mismo que los tipos de ONU: un ACS sirve a
       // todas. Tenerlo por equipo es cómo se llega a que cada OLT apunte a una

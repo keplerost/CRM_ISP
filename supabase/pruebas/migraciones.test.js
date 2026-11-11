@@ -5813,3 +5813,87 @@ test('el mapeo: la caja vieja queda verificada, cada puerto con su abonado, y no
   await sesion(db, null)
   await db.exec(sql)
 })
+
+/** Migración 234: la planta externa en el mapa, importada de un KMZ. */
+test('la planta externa: se importa, cada NAP es su caja, se deshace sin perder lo verificado', async () => {
+  await sesion(db, null)
+  const OFI_AUTH = 'a2340000-0000-0000-0000-000000000001'
+  const TEC_AUTH = 'a2340000-0000-0000-0000-000000000002'
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${OFI_AUTH}', 'o234@demo.ec'), ('${TEC_AUTH}', 't234@demo.ec');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo) VALUES
+        ('c2340000-0000-0000-0000-000000000001', '${OFI_AUTH}', 'o234', 'o234@demo.ec', 'Ofe', 'Planta', 'supervisor', '["red.planta"]'::jsonb, true),
+        ('c2340000-0000-0000-0000-000000000002', '${TEC_AUTH}', 't234', 't234@demo.ec', 'Tito', 'Campo', 'tecnico', '["soporte.asignados"]'::jsonb, true);
+  `)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-234-la-planta-externa.sql'), 'utf8')
+  await db.exec(sql)
+
+  // Los metros salen de la ruta: dos puntos a 0,001° de latitud son ~111 m.
+  assert.equal(Number((await fila(db, `SELECT ruta_metros('[[-0.93,-79.22],[-0.931,-79.22]]') AS m`)).m), 111.2)
+
+  // El técnico no importa.
+  await sesion(db, TEC_AUTH)
+  await assert.rejects(db.query(`SELECT importar_planta('x.kmz', '[{"tipo":"poste","nombre":"P","latitud":-0.9,"longitud":-79.2}]', '[]')`), /Solo administración/)
+
+  await sesion(db, OFI_AUTH)
+  const elementos = JSON.stringify([
+    { tipo: 'nap', nombre: 'NAP', latitud: -0.93, longitud: -79.22, capacidad: 16, revisar: ['Sin nombre propio'] },
+    { tipo: 'nap', nombre: 'NAP', latitud: -0.935, longitud: -79.225 },
+    { tipo: 'nap', nombre: 'NAP-LOMA 234', latitud: -0.94, longitud: -79.23, capacidad: 8 },
+    { tipo: 'poste', nombre: 'A', herraje: 'A', latitud: -0.931, longitud: -79.221, estado: 'proyectado' },
+    { tipo: 'manga', nombre: 'MANGA TRONCAL 24', hilos: 24, latitud: -0.932, longitud: -79.222 },
+  ])
+  const cables = JSON.stringify([
+    { nombre: 'Tendido tramo 1', tipo: 'troncal', hilos: 24, ruta: [[-0.93, -79.22], [-0.931, -79.22], [-0.932, -79.22]], revisar: ['Ruta armada uniendo postes'] },
+  ])
+  const { id: IMP } = await fila(db, `SELECT importar_planta('red.kmz', '${elementos}', '${cables}') AS id`)
+
+  // Cada NAP tiene su caja, con nombre único aunque el KMZ las llame igual.
+  const naps = await db.query(`SELECT e.nombre, p.nombre AS caja, p.origen, e.verificacion FROM planta_elementos e
+                                 JOIN puntos_red p ON p.id = e.punto_id WHERE e.importacion_id = '${IMP}' ORDER BY p.nombre`)
+  assert.equal(naps.rows.length, 3)
+  assert.equal(new Set(naps.rows.map((r) => r.caja)).size, 3)
+  assert.ok(naps.rows.some((r) => r.caja === 'NAP'))
+  assert.ok(naps.rows.some((r) => /^NAP · [0-9A-F]{4}$/.test(r.caja)))
+  assert.deepEqual([...new Set(naps.rows.map((r) => r.origen))], ['kmz'])
+  const cab = await fila(db, `SELECT longitud_m, verificacion, revisar FROM planta_cables WHERE importacion_id = '${IMP}'`)
+  assert.equal(Number(cab.longitud_m), 222.4)
+  assert.equal(cab.verificacion, 'importado')
+
+  // Renombrar la NAP renombra la caja; un nombre que ya existe, no.
+  await db.query(`UPDATE planta_elementos SET nombre = 'NAP-MERCADO 234', verificacion = 'oficina', revisar = '{}'
+                   WHERE importacion_id = '${IMP}' AND nombre = 'NAP' AND capacidad = 16`)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM puntos_red WHERE nombre = 'NAP-MERCADO 234'`)).n, 1)
+  await assert.rejects(
+    db.query(`UPDATE planta_elementos SET nombre = 'NAP-LOMA 234' WHERE nombre = 'NAP-MERCADO 234'`),
+    /Ya hay otra caja que se llama NAP-LOMA 234/,
+  )
+
+  // La vista: abonados y puertos libres de la caja.
+  await sesion(db, null)
+  await db.exec(`INSERT INTO clientes (nombre, estado, nap_id) VALUES ('Abonado 234', 'activo', (SELECT id FROM puntos_red WHERE nombre = 'NAP-LOMA 234'))`)
+  await sesion(db, OFI_AUTH)
+  const loma = await fila(db, `SELECT abonados, libres FROM v_planta_elementos WHERE nombre = 'NAP-LOMA 234'`)
+  assert.deepEqual([loma.abonados, loma.libres], [1, 7])
+
+  // Deshacer: se va lo que nadie tocó; queda la NAP revisada y la caja con abonado.
+  const d = (await fila(db, `SELECT deshacer_importacion_planta('${IMP}') AS r`)).r
+  assert.deepEqual([d.elementos, d.cables], [4, 1])
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM planta_elementos WHERE importacion_id = '${IMP}'`)).n, 1)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM puntos_red WHERE nombre = 'NAP-LOMA 234'`)).n, 1, 'tiene un abonado: no se borra')
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM puntos_red WHERE nombre LIKE 'NAP · %'`)).n, 0)
+
+  // Una caja registrada en una obra aparece en el mapa, verificada en campo.
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO cuadrillas (id, nombre) VALUES ('d2340000-0000-0000-0000-000000000001', 'C234');
+      INSERT INTO obras_red (id, titulo, cuadrilla_id) VALUES ('f2340000-0000-0000-0000-000000000001', 'Obra 234', 'd2340000-0000-0000-0000-000000000001');
+      INSERT INTO puntos_red (id, nombre, tipo) VALUES ('f2340000-0000-0000-0000-000000000002', 'NAP-NUEVA 234', 'nap');
+      INSERT INTO obra_naps (obra_id, punto_id, nombre, latitud, longitud, puertos)
+      VALUES ('f2340000-0000-0000-0000-000000000001', 'f2340000-0000-0000-0000-000000000002', 'NAP-NUEVA 234', -0.95, -79.24, 16);
+  `)
+  const nueva = await fila(db, `SELECT tipo, verificacion, capacidad FROM planta_elementos WHERE punto_id = 'f2340000-0000-0000-0000-000000000002'`)
+  assert.deepEqual([nueva.tipo, nueva.verificacion, nueva.capacidad], ['nap', 'campo', 16])
+
+  await db.exec(sql)
+})
