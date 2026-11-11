@@ -316,8 +316,8 @@ export function clasificar(placemarks, { unirTendidos = true, vanoMaximo = 150, 
 
   for (const p of placemarks) {
     if (!p.coords?.length) continue
-    const origen = { carpeta: p.carpeta, nombre: p.nombre, estilo: p.estilo || undefined }
-    const estado = esProyecto(p.carpeta) ? 'proyectado' : 'existente'
+    const origen = { carpeta: p.carpeta, nombre: p.nombre, estilo: p.estilo || undefined, fila: p.fila }
+    const estado = p.estado ?? (esProyecto(p.carpeta) ? 'proyectado' : 'existente')
     const nombre = mejorNombre(p)
     const descripcion = mejorDescripcion(p)
 
@@ -339,7 +339,8 @@ export function clasificar(placemarks, { unirTendidos = true, vanoMaximo = 150, 
       continue
     }
 
-    const tipo = tipoDePunto(p.carpeta, nombre)
+    // Lo que trae una planilla (columnas Tipo, Herraje, Hilos…) manda sobre lo adivinado.
+    const tipo = p.tipo ?? tipoDePunto(p.carpeta, nombre)
     const n = normal(nombre)
     const [lat, lng] = p.coords[0]
     const e = {
@@ -350,9 +351,9 @@ export function clasificar(placemarks, { unirTendidos = true, vanoMaximo = 150, 
       estado,
       descripcion,
       origen,
-      revisar: [],
+      revisar: [...(p.revisar ?? [])],
     }
-    const herraje = n.match(/^(A|J)\b/)?.[1]
+    const herraje = p.herraje ?? n.match(/^(A|J)\b/)?.[1]
     if (herraje && (tipo === 'poste' || tipo === 'reserva')) e.herraje = herraje
     if (tipo === 'manga') e.hilos = hilosDe(nombre)
     if (tipo === 'reserva') e.metros = metrosDe(`${nombre} ${descripcion ?? ''}`)
@@ -364,6 +365,10 @@ export function clasificar(placemarks, { unirTendidos = true, vanoMaximo = 150, 
     if (tipo === 'poste' && /^(A|J)\s*-\s*(NAP|MANGA)/.test(n)) {
       e.descripcion = [descripcion, `En este poste: ${n.replace(/^(A|J)\s*-\s*/, '')}`].filter(Boolean).join(' · ')
     }
+    if (p.hilos) e.hilos = p.hilos
+    if (p.capacidad) e.capacidad = p.capacidad
+    if (p.metros != null) e.metros = p.metros
+    if (p.splitter) e.splitter = p.splitter
     const foto = Object.entries(p.datos ?? {}).find(([k]) => normal(k) === 'GX_MEDIA_LINKS')?.[1]
     if (foto) e.foto_url = foto.split(/\s+/)[0]
 
@@ -385,7 +390,7 @@ export function clasificar(placemarks, { unirTendidos = true, vanoMaximo = 150, 
       if (p.geom !== 'punto') continue
       const c = cuenta.get(p.carpeta) ?? { total: 0, aj: 0 }
       c.total += 1
-      if (/^(A|J)\b/.test(normal(p.nombre))) c.aj += 1
+      if (p.herraje || /^(A|J)\b/.test(normal(p.nombre))) c.aj += 1
       cuenta.set(p.carpeta, c)
     }
     for (const [k, c] of cuenta) if (c.total >= 3 && c.aj / c.total >= 0.6) tendidos.add(k)

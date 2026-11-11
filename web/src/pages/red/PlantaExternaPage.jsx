@@ -594,7 +594,7 @@ export default function PlantaExternaPage() {
         <div className="flex flex-wrap gap-2">
           {edita && (
             <Button icon={FileUp} onClick={() => setImportar(true)}>
-              Importar KMZ
+              Importar KMZ / Excel
             </Button>
           )}
           <Button
