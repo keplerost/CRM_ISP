@@ -89,3 +89,15 @@ export function esVisible(x, clase, interruptores, capas = new Map()) {
   if (x.capa_id && capas.has(x.capa_id)) return interruptores[`k:${x.capa_id}`] !== false
   return interruptores[`${clase}:${x.tipo}`] !== false
 }
+
+/** El color de una ONU por su potencia (o su estado, si está caída). */
+export function colorOnu(o) {
+  if (!o) return '#cbd5e1'
+  if (o.estado === 'los') return '#111827'
+  if (o.estado === 'offline') return '#64748b'
+  const rx = o.rx_power_dbm == null ? null : Number(o.rx_power_dbm)
+  if (rx == null) return '#cbd5e1'
+  if (rx >= -24) return '#16a34a'
+  if (rx >= -27) return '#f59e0b'
+  return '#dc2626'
+}

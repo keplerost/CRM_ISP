@@ -6089,3 +6089,85 @@ test('un proyecto: se diseña, se vuelve obra con su material, y al aprobarla qu
   await sesion(db, null)
   await db.exec(sql)
 })
+
+/** Migración 239: estado de la red por caja, y tramos levantados con GPS. */
+test('el tramo con GPS entra al mapa con sus postes; el estado cuenta ONUs caídas y alertas', async () => {
+  await sesion(db, null)
+  const TEC_AUTH = 'a2390000-0000-0000-0000-000000000001'
+  const AJENO_AUTH = 'a2390000-0000-0000-0000-000000000002'
+  const TEC = 'b2390000-0000-0000-0000-000000000001'
+  const CU = 'd2390000-0000-0000-0000-000000000001'
+  const OBRA = 'f2390000-0000-0000-0000-000000000001'
+  await db.exec(`
+      INSERT INTO auth.users (id, email) VALUES ('${TEC_AUTH}', 't239@demo.ec'), ('${AJENO_AUTH}', 'x239@demo.ec');
+      INSERT INTO tecnicos (id, nombre, activo) VALUES ('${TEC}', 'Tec 239', true);
+      INSERT INTO cuadrillas (id, nombre) VALUES ('${CU}', 'C239');
+      INSERT INTO cuadrilla_miembros (cuadrilla_id, tecnico_id, rol) VALUES ('${CU}', '${TEC}', 'lider');
+      INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo, tecnico_id) VALUES
+        ('c2390000-0000-0000-0000-000000000001', '${TEC_AUTH}', 't239', 't239@demo.ec', 'Tec', 'GPS', 'tecnico', '["soporte.asignados"]'::jsonb, true, '${TEC}'),
+        ('c2390000-0000-0000-0000-000000000002', '${AJENO_AUTH}', 'x239', 'x239@demo.ec', 'Ajeno', 'X', 'tecnico', '["soporte.asignados"]'::jsonb, true, NULL);
+      INSERT INTO obras_red (id, titulo, cuadrilla_id, tipo) VALUES ('${OBRA}', 'Tendido 239', '${CU}', 'expansion');
+  `)
+  const sql = readFileSync(join(fileURLToPath(new URL('..', import.meta.url)), 'migracion-239-cobertura-estado-y-tramos-de-campo.sql'), 'utf8')
+  await db.exec(sql)
+  assert.equal((await fila(db, `SELECT radio_cobertura_m FROM planta_optica`)).radio_cobertura_m, 200)
+
+  const datos = JSON.stringify({
+    nombre: 'Tendido calle 5',
+    tipo: 'distribucion',
+    hilos: 12,
+    ruta: [[-0.93, -79.22], [-0.9305, -79.22], [-0.931, -79.22]],
+    marcas: [
+      { tipo: 'poste', herraje: 'A', lat: -0.93, lng: -79.22 },
+      { tipo: 'poste', herraje: 'J', lat: -0.9305, lng: -79.22 },
+      { tipo: 'reserva', metros: 20, lat: -0.931, lng: -79.22 },
+    ],
+    precision_m: 6,
+  })
+  // Quien no está en la cuadrilla, no.
+  await sesion(db, AJENO_AUTH)
+  await assert.rejects(db.query(`SELECT registrar_tramo_obra('${OBRA}', '${datos}')`), /no está asignada a tu cuadrilla/)
+
+  await sesion(db, TEC_AUTH)
+  const CLAVE = 'f2390000-0000-0000-0000-0000000000aa'
+  const { id: CABLE } = await fila(db, `SELECT registrar_tramo_obra('${OBRA}', '${datos}', '${CLAVE}') AS id`)
+  const c = await fila(db, `SELECT nombre, verificacion, estado, longitud_m, hilos FROM planta_cables WHERE id = '${CABLE}'`)
+  assert.deepEqual([c.nombre, c.verificacion, c.estado, c.hilos], ['Tendido calle 5', 'campo', 'existente', 12])
+  assert.equal(Number(c.longitud_m), 111.2)
+  const marcas = await db.query(`SELECT tipo, herraje, metros, icono FROM planta_elementos WHERE nombre LIKE 'Poste %' OR nombre LIKE 'Reserva %' ORDER BY nombre`)
+  const deObra = marcas.rows.filter((r) => r.herraje || r.metros)
+  assert.ok(deObra.some((r) => r.tipo === 'poste' && r.herraje === 'A' && r.icono === 'poste_a'))
+  assert.ok(deObra.some((r) => r.tipo === 'reserva' && Number(r.metros) === 20))
+  // El reintento no duplica.
+  const { id: OTRA } = await fila(db, `SELECT registrar_tramo_obra('${OBRA}', '${datos}', '${CLAVE}') AS id`)
+  assert.equal(OTRA, CABLE)
+  assert.equal((await fila(db, `SELECT COUNT(*)::int AS n FROM obra_tramos WHERE obra_id = '${OBRA}'`)).n, 1)
+  await assert.rejects(db.query(`SELECT registrar_tramo_obra('${OBRA}', '{"ruta":[[0,0]]}')`), /al menos dos puntos/)
+
+  // El estado: ONUs caídas y alerta de la caja.
+  await sesion(db, null)
+  await db.exec(`
+      INSERT INTO planta_elementos (id, tipo, nombre, latitud, longitud) VALUES ('e2390000-0000-0000-0000-000000000001', 'nap', 'NAP 239', -0.93, -79.22);
+  `)
+  const punto = (await fila(db, `SELECT punto_id FROM planta_elementos WHERE id = 'e2390000-0000-0000-0000-000000000001'`)).punto_id
+  await db.exec(`
+      INSERT INTO olts (id, nombre, marca, ip_host, usuario, password_encrypted) VALUES ('f2390000-0000-0000-0000-000000000002', 'OLT 239', 'Huawei', '10.0.0.239', 'u', 'x');
+      INSERT INTO onus (olt_id, sn, puerto, onu_index, estado, rx_power_dbm, nap_id) VALUES
+        ('f2390000-0000-0000-0000-000000000002', 'SN2391', 1, 1, 'online', -20, '${punto}'),
+        ('f2390000-0000-0000-0000-000000000002', 'SN2392', 1, 2, 'los', NULL, '${punto}'),
+        ('f2390000-0000-0000-0000-000000000002', 'SN2393', 1, 3, 'offline', -22, '${punto}');
+      INSERT INTO alerta_eventos (regla, entidad, entidad_id, etiqueta) VALUES ('degradacion', 'nap', '${punto}', 'NAP 239');
+  `)
+  await db.exec(`INSERT INTO auth.users (id, email) VALUES ('a2390000-0000-0000-0000-000000000003', 'o239@demo.ec');
+                 INSERT INTO usuarios_sistema (id, auth_id, usuario, email, nombre, apellido, rol, permisos, activo) VALUES
+                   ('c2390000-0000-0000-0000-000000000003', 'a2390000-0000-0000-0000-000000000003', 'o239', 'o239@demo.ec', 'O', 'P', 'admin', '[]'::jsonb, true);`)
+  await sesion(db, 'a2390000-0000-0000-0000-000000000003')
+  const est = await fila(db, `SELECT onus, caidas, los, rx_promedio, alertas FROM v_planta_estado WHERE elemento_id = 'e2390000-0000-0000-0000-000000000001'`)
+  assert.deepEqual([est.onus, est.caidas, est.los, Number(est.rx_promedio), est.alertas], [3, 2, 1, -21, 1])
+  // Un técnico sin monitoreo no la ve.
+  await sesion(db, TEC_AUTH)
+  assert.equal((await db.query(`SELECT * FROM v_planta_estado`)).rows.length, 0)
+
+  await sesion(db, null)
+  await db.exec(sql)
+})

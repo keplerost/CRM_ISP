@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { AlertTriangle, Download, FileUp, FolderKanban, Gauge, Layers, Pencil, Plus, Search, X } from 'lucide-react'
+import { AlertTriangle, Crosshair, Download, FileUp, FolderKanban, Gauge, Layers, Pencil, Plus, Search, X } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
 import { usePermisos } from '../../lib/AuthContext'
 import { ETIQUETA, armarKmz, largoRuta } from '../../lib/kmz'
-import { DASH, ESTILOS_BASE, ICONO_POR_TIPO, esVisible, kmlColor, resolverEstilo } from '../../lib/planta'
+import { DASH, ESTILOS_BASE, ICONO_POR_TIPO, colorOnu, esVisible, kmlColor, resolverEstilo } from '../../lib/planta'
 import { archivoIcono, svgIcono } from '../../lib/iconos'
 import { IconoSvg } from '../../components/planta/SelectorIcono'
 import { Button, ErrorBanner, Select } from '../../components/ui'
@@ -44,6 +44,9 @@ import { armarRed, presupuestoCaja } from '../../lib/hilos'
 const CENTRO = [-0.93, -79.22]
 // El color de cada caja cuando se colorea por presupuesto óptico.
 const COLOR_PRESUPUESTO = { bien: '#16a34a', atencion: '#f59e0b', mal: '#dc2626', sin_camino: '#94a3b8' }
+
+/** Cobertura de una caja: verde con lugar, ámbar casi llena, rojo llena, gris sin puertos cargados. */
+const colorCobertura = (e) => (e.libres == null ? '#94a3b8' : e.libres === 0 ? '#dc2626' : e.libres <= 2 ? '#f59e0b' : '#16a34a')
 // Desde este zoom los puntos se dibujan con su ícono; más lejos, como puntos
 // (cientos de íconos amontonados no se leen y pesan).
 const ZOOM_ICONOS = 15
@@ -98,14 +101,18 @@ export default function PlantaExternaPage() {
   const [proyectos, setProyectos] = useState([])
   const [proyectoActivo, setProyectoActivo] = useState(null)
   const [soloProyecto, setSoloProyecto] = useState(null)
+  // Fase 4 (migración 239): estado de cada caja, ONUs y la consulta de lugar.
+  const [estadoRed, setEstadoRed] = useState(new Map())
+  const [onus, setOnus] = useState(new Map())
+  const [consulta, setConsulta] = useState(null) // { lat, lng, filas, cargando }
 
   const capas = useMemo(() => new Map(capasLista.map((c) => [c.id, c])), [capasLista])
 
   const recargar = useCallback(async () => {
-    const [e, c, a, i, k, s, sp, po, un, op, me, ol, ac, pr] = await Promise.all([
+    const [e, c, a, i, k, s, sp, po, un, op, me, ol, ac, pr, er, on] = await Promise.all([
       supabase.from('v_planta_elementos').select('*').neq('estado', 'retirado'),
       supabase.from('planta_cables').select('*').neq('estado', 'retirado'),
-      supabase.from('clientes').select('id,nombre,latitud,longitud,nap_id,puerto_nap').not('latitud', 'is', null),
+      supabase.from('clientes').select('id,nombre,latitud,longitud,nap_id,puerto_nap,onu_id').not('latitud', 'is', null),
       supabase.from('planta_importaciones').select('*').order('creado_at', { ascending: false }),
       // Sin la 235 no hay capas ni estilos: el mapa usa los de siempre.
       supabase.from('planta_capas').select('*').order('orden').order('nombre'),
@@ -119,6 +126,8 @@ export default function PlantaExternaPage() {
       supabase.from('olts').select('id,nombre').order('nombre'),
       supabase.from('clientes').select('id,nombre,nap_id,puerto_nap').not('nap_id', 'is', null),
       supabase.from('planta_proyectos').select('*').order('creado_at', { ascending: false }),
+      supabase.from('v_planta_estado').select('*'),
+      supabase.from('onus').select('id,estado,rx_power_dbm,ultima_lectura'),
     ])
     setError(e.error ?? c.error ?? null)
     setElementos(e.data ?? [])
@@ -135,6 +144,8 @@ export default function PlantaExternaPage() {
     setOlts(ol.data ?? [])
     setAbonadosCaja(ac.data ?? [])
     setProyectos(pr.error ? [] : (pr.data ?? []))
+    setEstadoRed(new Map((er.error ? [] : (er.data ?? [])).map((x) => [x.elemento_id, x])))
+    setOnus(new Map((on.error ? [] : (on.data ?? [])).map((x) => [x.id, x])))
   }, [])
 
   useEffect(() => {
@@ -251,6 +262,16 @@ export default function PlantaExternaPage() {
     g.clearLayers()
     const napPorId = new Map(elementos.filter((e) => e.punto_id).map((e) => [e.punto_id, e]))
 
+    // Cobertura: hasta dónde llega cada caja que existe, con su color de lugar.
+    if (sw.cobertura) {
+      const radio = Number(optica.radio_cobertura_m) || 200
+      for (const e of elementos) {
+        if (e.tipo !== 'nap' || e.estado === 'retirado' || (e.estado === 'proyectado' && e.proyecto_id !== proyectoActivo)) continue
+        const col = colorCobertura(e)
+        L.circle([e.latitud, e.longitud], { radius: radio, color: col, weight: 1, opacity: 0.5, fillColor: col, fillOpacity: 0.12, interactive: false }).addTo(g)
+      }
+    }
+
     for (const c of cables) {
       if (!visibleC(c)) continue
       const st = estiloDe(c, 'c')
@@ -334,7 +355,59 @@ export default function PlantaExternaPage() {
         })
         .addTo(g)
     }
-  }, [elementos, cables, abonados, sw.abonados, sw.presupuesto, presupuestos, visibleE, visibleC, sel, zoom, estiloDe])
+
+    // ONU por potencia: cada abonado ubicado con el color de lo que recibe.
+    if (sw.onus) {
+      for (const a of abonados) {
+        const o = a.onu_id ? onus.get(a.onu_id) : null
+        L.circleMarker([a.latitud, a.longitud], { radius: 5, color: '#fff', weight: 1.5, fillColor: colorOnu(o), fillOpacity: 1 })
+          .bindTooltip(
+            `${a.nombre} · ${
+              !o ? 'sin ONU vinculada' : o.estado === 'los' ? 'LOS (sin luz)' : o.estado === 'offline' ? 'apagada' : o.rx_power_dbm != null ? `${o.rx_power_dbm} dBm` : 'sin lectura'
+            }`,
+          )
+          .addTo(g)
+      }
+    }
+
+    // Estado de la red: anillo rojo si hay corte, alerta o la mitad de las ONUs caídas; ámbar si alguna cayó.
+    if (sw.estado) {
+      for (const e of elementos) {
+        const st = estadoRed.get(e.id)
+        if (!st) continue
+        const grave = st.cortes > 0 || st.alertas > 0 || (st.onus > 0 && st.caidas / st.onus >= 0.5)
+        if (!grave && !st.caidas) continue
+        L.circleMarker([e.latitud, e.longitud], {
+          radius: 13,
+          color: grave ? '#dc2626' : '#f59e0b',
+          weight: 3,
+          fill: false,
+          dashArray: grave ? null : '4 3',
+        })
+          .bindTooltip(
+            [
+              e.nombre,
+              st.cortes && `${st.cortes} corte(s) masivo(s)`,
+              st.alertas && 'potencia degradándose',
+              st.onus && `${st.caidas} de ${st.onus} ONUs caídas${st.los ? ` (${st.los} en LOS)` : ''}`,
+              st.rx_promedio != null && `promedio ${st.rx_promedio} dBm`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          )
+          .addTo(g)
+      }
+    }
+
+    // La consulta de lugar.
+    if (consulta) {
+      L.circleMarker([consulta.lat, consulta.lng], { radius: 8, color: '#0f172a', weight: 3, fillColor: '#fff', fillOpacity: 1 }).addTo(g)
+      for (const f of consulta.filas ?? []) {
+        const e = napPorId.get(f.id)
+        if (e) L.polyline([[consulta.lat, consulta.lng], [e.latitud, e.longitud]], { color: '#0f172a', weight: 1.5, dashArray: '4 4' }).addTo(g)
+      }
+    }
+  }, [sw.cobertura, sw.onus, sw.estado, onus, estadoRed, optica, consulta, proyectoActivo, elementos, cables, abonados, sw.abonados, sw.presupuesto, presupuestos, visibleE, visibleC, sel, zoom, estiloDe])
 
   // El borrador de lo que se está dibujando.
   useEffect(() => {
@@ -381,6 +454,12 @@ export default function PlantaExternaPage() {
     } else if (m.accion === 'cable' || m.accion === 'ruta') {
       const primero = !m.puntos?.length
       setModo({ ...m, puntos: [...(m.puntos ?? []), p], desde: primero ? (sobre?.id ?? null) : m.desde, hasta: sobre?.id ?? null })
+    } else if (m.accion === 'consulta') {
+      setModo(null)
+      setConsulta({ lat: p[0], lng: p[1], filas: null })
+      const { data, error: e } = await supabase.rpc('cobertura_cercana', { p_lat: p[0], p_lng: p[1], p_tecnologia: 'ftth', p_limite: 5 })
+      if (e) setError(e)
+      setConsulta({ lat: p[0], lng: p[1], filas: data ?? [] })
     } else if (m.accion === 'mover') {
       setModo(null)
       const { error: e } = await supabase.from('planta_elementos').update({ latitud: p[0], longitud: p[1] }).eq('id', m.id)
@@ -518,6 +597,16 @@ export default function PlantaExternaPage() {
               Importar KMZ
             </Button>
           )}
+          <Button
+            icon={Crosshair}
+            onClick={() => {
+              setSel(null)
+              setModo({ accion: 'consulta' })
+            }}
+            disabled={!elementos?.length}
+          >
+            ¿Hay lugar aquí?
+          </Button>
           <Button icon={Gauge} onClick={() => setVerPresupuesto(true)} disabled={!elementos?.length}>
             Presupuesto óptico
           </Button>
@@ -563,6 +652,7 @@ export default function PlantaExternaPage() {
               <span className="rounded-lg bg-sky-500/10 px-3 py-1.5 text-[12px] text-sky-300">
                 {modo.accion === 'punto' && `Tocá el mapa donde va ${ETIQUETA[modo.tipo].toLowerCase()}.`}
                 {modo.accion === 'mover' && 'Tocá el mapa en la nueva ubicación.'}
+                {modo.accion === 'consulta' && 'Tocá la casa del interesado: se buscan las cajas más cercanas con lugar.'}
                 {(modo.accion === 'cable' || modo.accion === 'ruta') &&
                   `Tocá cada punto del recorrido (${modo.puntos?.length ?? 0}). Doble clic o "Terminar" para cerrar. Tocar una caja la conecta.`}
               </span>
@@ -680,6 +770,44 @@ export default function PlantaExternaPage() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {consulta && (
+            <div className="space-y-1.5 rounded-lg border border-slate-700 p-2 text-[12px]">
+              <p className="flex items-center justify-between font-semibold text-slate-200">
+                ¿Hay lugar aquí?
+                <button type="button" onClick={() => setConsulta(null)} className="text-slate-500" aria-label="Cerrar">
+                  <X size={14} />
+                </button>
+              </p>
+              {!consulta.filas ? (
+                <p className="text-slate-500">Buscando…</p>
+              ) : !consulta.filas.length ? (
+                <p className="text-rose-400">No hay cajas cargadas cerca.</p>
+              ) : (
+                consulta.filas.map((f) => {
+                  const e = (elementos ?? []).find((x) => x.punto_id === f.id)
+                  const pr = e ? presupuestos.get(e.id) : null
+                  const lejos = f.distancia_m > (Number(optica.radio_cobertura_m) || 200)
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => e && ir({ ...e, clase: 'e' })}
+                      className="block w-full rounded px-1 py-1 text-left hover:bg-slate-800/40"
+                    >
+                      <span className="text-slate-100">{f.nombre}</span>
+                      <span className={`block ${lejos ? 'text-amber-400' : 'text-slate-400'}`}>
+                        a {f.distancia_m} m{lejos ? ' (más lejos que la acometida típica)' : ''} ·{' '}
+                        {f.disponibles == null ? 'puertos sin cargar' : f.disponibles > 0 ? `${f.disponibles} libre(s)` : 'llena'}
+                        {pr?.ok ? ` · llegaría ${pr.rxAbonado} dBm` : ''}
+                      </span>
+                    </button>
+                  )
+                })
+              )}
+              <p className="text-[11px] text-slate-500">Descuenta las instalaciones ya agendadas, igual que la verificación de ventas.</p>
+            </div>
           )}
 
           {elegido ? (
@@ -802,6 +930,23 @@ export default function PlantaExternaPage() {
                       etiqueta={`Abonados (${abonados.length}): verde con caja, rojo sin caja`}
                     />
                     <Interruptor activo={soloRevisar} onCambio={setSoloRevisar} etiqueta="Solo lo que hay que revisar" />
+                  </Grupo>
+                  <Grupo titulo="Mapas de operación">
+                    <Interruptor
+                      activo={sw.cobertura}
+                      onCambio={(v) => setSw((c) => ({ ...c, cobertura: v }))}
+                      etiqueta={`Cobertura (${Number(optica.radio_cobertura_m) || 200} m por caja): verde con lugar, ámbar casi llena, rojo llena`}
+                    />
+                    <Interruptor
+                      activo={sw.onus}
+                      onCambio={(v) => setSw((c) => ({ ...c, onus: v }))}
+                      etiqueta="ONU por potencia: verde ≥ −24, ámbar hasta −27, rojo peor, negro LOS, gris apagada"
+                    />
+                    <Interruptor
+                      activo={sw.estado}
+                      onCambio={(v) => setSw((c) => ({ ...c, estado: v }))}
+                      etiqueta="Estado de la red: anillo rojo corte/alerta/mitad caídas, ámbar alguna caída"
+                    />
                     <Interruptor
                       activo={sw.presupuesto}
                       onCambio={(v) => setSw((c) => ({ ...c, presupuesto: v }))}

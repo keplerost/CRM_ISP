@@ -54,3 +54,13 @@ test('el catálogo de íconos: todos dibujan, el color se valida', async () => {
   assert.doesNotMatch(svgIcono('nap', '"><script>'), /script/)
   assert.equal(archivoIcono('nap', '#DC2626'), 'iconos/nap-dc2626.png')
 })
+
+test('el color de la ONU: por potencia, o negro/gris si está caída', async () => {
+  const { colorOnu } = await import('../../web/src/lib/planta.js')
+  assert.equal(colorOnu({ estado: 'online', rx_power_dbm: -20 }), '#16a34a')
+  assert.equal(colorOnu({ estado: 'online', rx_power_dbm: -25.5 }), '#f59e0b')
+  assert.equal(colorOnu({ estado: 'online', rx_power_dbm: -28 }), '#dc2626')
+  assert.equal(colorOnu({ estado: 'los', rx_power_dbm: -20 }), '#111827')
+  assert.equal(colorOnu({ estado: 'offline' }), '#64748b')
+  assert.equal(colorOnu(null), '#cbd5e1')
+})

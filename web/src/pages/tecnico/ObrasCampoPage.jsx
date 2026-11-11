@@ -10,6 +10,7 @@ import {
   LocateFixed,
   Package,
   RadioTower,
+  Route,
   Star,
 } from 'lucide-react'
 
@@ -21,6 +22,7 @@ import { usePrepararIngreso } from '../../components/tecnico/IngresoGrupal'
 import DetalleObra, { AvanceMetas, EncabezadoObra, useObra } from '../../components/obras/ObraDetalle'
 import { subirFotoObra } from '../../components/obras/fotos'
 import PuertosCaja from '../../components/obras/PuertosCaja'
+import LevantarTramo from '../../components/obras/LevantarTramo'
 
 /**
  * Las obras de mi cuadrilla (migración 232), en el celular.
@@ -127,7 +129,7 @@ function ObraCampo({ fila, abiertaDeInicio, onCambio }) {
 
       {abierta && !modo && (
         <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <button type="button" onClick={() => setModo('parte')} className={`${BOTON} border-sky-500/50 text-sky-300`}>
               <ClipboardList size={14} /> Parte del día
             </button>
@@ -136,6 +138,10 @@ function ObraCampo({ fila, abiertaDeInicio, onCambio }) {
             </button>
             <button type="button" onClick={() => setModo('material')} className={`${BOTON} border-slate-700 text-slate-200`}>
               <Package size={14} /> Material
+            </button>
+            {/* Caminar el tendido con el GPS (239): queda en el mapa de planta. */}
+            <button type="button" onClick={() => setModo('tramo')} className={`${BOTON} border-orange-500/50 text-orange-300`}>
+              <Route size={14} /> Tramo con GPS
             </button>
           </div>
           {o.puedo_entregar ? (
@@ -201,6 +207,9 @@ function ObraCampo({ fila, abiertaDeInicio, onCambio }) {
             </ul>
           )}
         </section>
+      )}
+      {modo === 'tramo' && (
+        <LevantarTramo obra={o} onCancelar={() => setModo(null)} onListo={() => listo('Tramo guardado: ya está en el mapa de la red.')} />
       )}
       {modo === 'material' && d && (
         <FormMaterial
