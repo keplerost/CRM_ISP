@@ -27,6 +27,8 @@ import { completarIngreso } from '../../lib/servicio'
 import { usePrepararIngreso } from '../tecnico/IngresoGrupal'
 import { llamarRegistrando, registrarLlamada } from '../tecnico/RutaDelDia'
 import NoSePudoTicket from './NoSePudoTicket'
+import ReabrirTicket from './ReabrirTicket'
+import { usePermisos } from '../../lib/AuthContext'
 import AvisoIncidencia from '../tecnico/AvisoIncidencia'
 import { Aviso, Button, Card, Field, Input, Textarea } from '../ui'
 import FirmaDigital from './FirmaDigital'
@@ -79,6 +81,9 @@ function Dato({ etiqueta, valor, mono = false }) {
 
 export default function TicketFicha({ ticket, onCambio, onError }) {
   const confirmar = useConfirmar()
+  const { puede } = usePermisos()
+  // Reabrir un resuelto es de la oficina (240): la base vuelve a controlarlo.
+  const reabre = puede('soporte.asignar') || puede('soporte.ruta')
   const prepararIngreso = usePrepararIngreso()
   const plazos = usePlazosAtencion()
   const [pedirJustificacion, ventanaJustificacion] = useJustificarDemora()
@@ -914,6 +919,17 @@ export default function TicketFicha({ ticket, onCambio, onError }) {
                 className="w-full max-w-xs rounded-lg border border-slate-700 bg-white"
               />
             </div>
+          )}
+
+          {reabre && (
+            <ReabrirTicket
+              t={t}
+              onError={onError}
+              onHecho={async () => {
+                await recargar()
+                await onCambio?.()
+              }}
+            />
           )}
         </Card>
       )}

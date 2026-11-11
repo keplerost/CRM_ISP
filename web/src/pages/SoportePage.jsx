@@ -37,6 +37,49 @@ const PESO_PRIORIDAD = { alta: 0, media: 1, baja: 2 }
 const fecha = (f) =>
   f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString() : null
 
+const fechaHoraCorta = (f) =>
+  f ? new Date(f).toLocaleString('es-EC', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+
+/** "2026-11-11" de una fecha local (no UTC: a las 20:00 en Ecuador ya es mañana en UTC). */
+const diaLocal = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** Los atajos de fecha para los cerrados. */
+function rangoRapido(clave) {
+  const hoy = new Date()
+  const dia = (n) => {
+    const d = new Date(hoy)
+    d.setDate(d.getDate() + n)
+    return diaLocal(d)
+  }
+  if (clave === 'hoy') return { desde: dia(0), hasta: dia(0) }
+  if (clave === 'ayer') return { desde: dia(-1), hasta: dia(-1) }
+  if (clave === 'semana') return { desde: dia(-((hoy.getDay() + 6) % 7)), hasta: dia(0) }
+  if (clave === 'mes') return { desde: diaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: dia(0) }
+  if (clave === 'mes_pasado') {
+    return {
+      desde: diaLocal(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)),
+      hasta: diaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), 0)),
+    }
+  }
+  return null
+}
+
+const ATAJOS = [
+  ['hoy', 'Hoy'],
+  ['ayer', 'Ayer'],
+  ['semana', 'Esta semana'],
+  ['mes', 'Este mes'],
+  ['mes_pasado', 'Mes pasado'],
+]
+
+// Lo que hace falta para la lista de cerrados: sin la firma ni el checklist,
+// que pesan y acá no se muestran (pueden ser cientos de tickets).
+const COLUMNAS_CERRADOS =
+  'id,numero,codigo,nombre,identificacion,telefono,telefono_whatsapp,direccion,sector,tecnologia,tipo_incidencia,' +
+  'incidencia_otro,descripcion,prioridad,estado,fecha_visita,tecnico_id,cuadrilla_id,tecnico,cuadrilla,cerrado_at,' +
+  'updated_at,created_at,horas_abierto,visita_atrasada,minutos_en_sitio,solucion,motivo_cancelacion'
+
 export default function SoportePage() {
   const navegar = useNavigate()
 
@@ -59,6 +102,12 @@ export default function SoportePage() {
   const [asignadoA, setAsignadoA] = useState('todos')
   const [miembros, setMiembros] = useState([])
   const [listaTecnicos, setListaTecnicos] = useState([])
+  // Resueltos y cancelados: se traen de la base por fecha de cierre, no de los
+  // últimos 300, para poder mirar cualquier mes.
+  const [rango, setRango] = useState(() => rangoRapido('mes'))
+  const [cerrados, setCerrados] = useState([])
+  const [cargandoCerrados, setCargandoCerrados] = useState(false)
+  const verCerrados = filtro === 'resuelto' || filtro === 'cancelado'
   const { puede, perfil } = usePermisos()
   // Un técnico ve los suyos y los de su cuadrilla: puede separarlos.
   const esTecnico = !puede('soporte.ver') && Boolean(perfil?.tecnico_id)
@@ -106,6 +155,37 @@ export default function SoportePage() {
     recargar()
   }, [recargar])
 
+  const cargarCerrados = useCallback(async () => {
+    if (!verCerrados || !rango?.desde || !rango?.hasta) return
+    setCargandoCerrados(true)
+    // El cancelado no guarda la hora de cierre: se usa la última modificación.
+    const campo = filtro === 'resuelto' ? 'cerrado_at' : 'updated_at'
+    const hastaExcl = new Date(`${rango.hasta}T00:00:00`)
+    hastaExcl.setDate(hastaExcl.getDate() + 1)
+    let consulta = supabase
+      .from('v_tickets')
+      .select(COLUMNAS_CERRADOS)
+      .eq('estado', filtro)
+      .gte(campo, new Date(`${rango.desde}T00:00:00`).toISOString())
+      .lt(campo, hastaExcl.toISOString())
+    if (!puede('soporte.ver')) {
+      const yo = perfil?.tecnico_id ?? NADIE
+      const { data: cuadrillas } = await supabase.rpc('mis_cuadrillas')
+      const ids = (cuadrillas ?? []).map((c) => (typeof c === 'string' ? c : c.mis_cuadrillas))
+      consulta = ids.length
+        ? consulta.or(`tecnico_id.eq.${yo},cuadrilla_id.in.(${ids.join(',')})`)
+        : consulta.eq('tecnico_id', yo)
+    }
+    const { data, error: err } = await consulta.order(campo, { ascending: false }).limit(2000)
+    if (err) setError(err)
+    setCerrados(data ?? [])
+    setCargandoCerrados(false)
+  }, [verCerrados, filtro, rango, puede, perfil])
+
+  useEffect(() => {
+    cargarCerrados()
+  }, [cargarCerrados])
+
   useEffect(() => {
     if (!puede('soporte.ver')) return
     supabase
@@ -125,25 +205,28 @@ export default function SoportePage() {
      cuadrillas que aparecen en los tickets. */
   const opcionesAsignado = useMemo(() => {
     const cuadrillas = new Map()
-    for (const t of tickets) {
+    for (const t of [...tickets, ...cerrados]) {
       if (t.cuadrilla_id && t.cuadrilla) cuadrillas.set(t.cuadrilla_id, t.cuadrilla)
     }
     return {
       tecnicos: listaTecnicos.map((t) => [t.id, t.nombre]),
       cuadrillas: [...cuadrillas.entries()].sort((a, b) => a[1].localeCompare(b[1])),
     }
-  }, [tickets, listaTecnicos])
+  }, [tickets, cerrados, listaTecnicos])
 
   const visibles = useMemo(() => {
     const abiertos = (t) => !['resuelto', 'cancelado'].includes(t.estado)
 
     const buscando = busqueda.trim() !== ''
-    const filtrados = tickets.filter((t) => {
+    // Viendo resueltos o cancelados, la lista es la del rango de fechas.
+    const fuente = verCerrados && !buscando ? cerrados : tickets
+    const filtrados = fuente.filter((t) => {
       if (!esDeAsignado(t, asignadoA, miembros)) return false
       if (!conFicha || deQuienVer === 'todos' || deQuien(t, perfil?.tecnico_id) === deQuienVer) {
         // Buscando, se busca en TODOS los estados: el que busca "¿le creé el
         // ticket a esta persona?" no sabe si ya se cerró.
         if (buscando) return coincideTicket(t, busqueda)
+        if (verCerrados) return true
         if (filtro === 'pendientes') return abiertos(t)
         if (filtro === 'todos') return true
         return t.estado === filtro
@@ -151,13 +234,30 @@ export default function SoportePage() {
       return false
     })
 
+    if (verCerrados && !buscando) return filtrados // ya vienen del más reciente al más viejo
+
     return filtrados.sort(
       (a, b) =>
         Number(b.visita_atrasada) - Number(a.visita_atrasada) ||
         (PESO_PRIORIDAD[a.prioridad] ?? 9) - (PESO_PRIORIDAD[b.prioridad] ?? 9) ||
         Number(b.horas_abierto) - Number(a.horas_abierto),
     )
-  }, [tickets, filtro, busqueda, deQuienVer, conFicha, perfil?.tecnico_id, asignadoA, miembros])
+  }, [tickets, cerrados, verCerrados, filtro, busqueda, deQuienVer, conFicha, perfil?.tecnico_id, asignadoA, miembros])
+
+  /* Cuántos cerró cada uno en el rango, por la cuadrilla o el técnico
+     asignado. Sin el filtro de "Asignado a", para poder compararlos. */
+  const porResponsable = useMemo(() => {
+    if (!verCerrados) return []
+    const m = new Map()
+    for (const t of cerrados) {
+      const clave = t.cuadrilla_id ? `c:${t.cuadrilla_id}` : t.tecnico_id ? `t:${t.tecnico_id}` : 'sin_asignar'
+      const nombre = t.cuadrilla ? `Cuadrilla ${t.cuadrilla}` : (t.tecnico ?? 'Sin asignar')
+      const x = m.get(clave) ?? { clave, nombre, total: 0 }
+      x.total += 1
+      m.set(clave, x)
+    }
+    return [...m.values()].sort((a, b) => b.total - a.total)
+  }, [verCerrados, cerrados])
 
   const abiertos = tickets.filter((t) => !['resuelto', 'cancelado'].includes(t.estado))
   const atrasados = abiertos.filter((t) => t.visita_atrasada)
@@ -300,14 +400,91 @@ export default function SoportePage() {
         ))}
       </div>
 
-      {cargando ? (
+      {/* Resueltos y cancelados: por fecha de cierre, y cuántos cerró cada uno. */}
+      {verCerrados && !busqueda.trim() && (
+        <Card>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-xs text-slate-500">
+                {filtro === 'resuelto' ? 'Resueltos desde' : 'Cancelados desde'}
+                <Input
+                  type="date"
+                  value={rango.desde}
+                  max={rango.hasta}
+                  onChange={(e) => setRango((r) => ({ ...r, desde: e.target.value }))}
+                  className="mt-1 w-40"
+                />
+              </label>
+              <label className="text-xs text-slate-500">
+                hasta
+                <Input
+                  type="date"
+                  value={rango.hasta}
+                  min={rango.desde}
+                  onChange={(e) => setRango((r) => ({ ...r, hasta: e.target.value }))}
+                  className="mt-1 w-40"
+                />
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {ATAJOS.map(([k, label]) => {
+                  const r = rangoRapido(k)
+                  const activo = r.desde === rango.desde && r.hasta === rango.hasta
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setRango(r)}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                        activo
+                          ? 'border-sky-500/60 bg-sky-500/15 text-sky-200'
+                          : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {porResponsable.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-xs text-slate-500">
+                  {cerrados.length} {filtro === 'resuelto' ? 'resueltos' : 'cancelados'} en esas fechas · tocá uno para
+                  ver solo los suyos
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {porResponsable.map((x) => (
+                    <button
+                      key={x.clave}
+                      type="button"
+                      onClick={() => setAsignadoA(asignadoA === x.clave ? 'todos' : x.clave)}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs transition ${
+                        asignadoA === x.clave
+                          ? 'border-violet-500/60 bg-violet-500/15 text-violet-200'
+                          : 'border-slate-700 text-slate-300 hover:border-slate-600'
+                      }`}
+                    >
+                      {x.nombre} <b className="ml-1">{x.total}</b>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {cargando || (verCerrados && cargandoCerrados) ? (
         <p className="p-4 text-sm text-slate-500">Cargando tickets…</p>
       ) : visibles.length === 0 ? (
         <Card>
           <p className="py-8 text-center text-sm text-slate-500">
             {busqueda.trim()
               ? `Ningún ticket coincide con "${busqueda.trim()}", ni abierto ni cerrado.`
-              : `No hay tickets ${filtro === 'pendientes' ? 'sin resolver' : 'en este estado'}.`}
+              : verCerrados
+                ? `No hay tickets ${filtro === 'resuelto' ? 'resueltos' : 'cancelados'} en esas fechas${asignadoA !== 'todos' ? ' para ese técnico o cuadrilla' : ''}.`
+                : `No hay tickets ${filtro === 'pendientes' ? 'sin resolver' : 'en este estado'}.`}
           </p>
         </Card>
       ) : (
@@ -360,7 +537,16 @@ export default function SoportePage() {
                   </p>
 
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                    <span className="text-slate-500">{haceCuanto(t.horas_abierto)}</span>
+                    {t.estado === 'resuelto' && t.cerrado_at ? (
+                      <span className="text-emerald-400">
+                        resuelto {fechaHoraCorta(t.cerrado_at)}
+                        {t.minutos_en_sitio != null && ` · ${Math.round(t.minutos_en_sitio)} min en sitio`}
+                      </span>
+                    ) : t.estado === 'cancelado' ? (
+                      <span className="text-rose-400">cancelado {fechaHoraCorta(t.updated_at)}</span>
+                    ) : (
+                      <span className="text-slate-500">{haceCuanto(t.horas_abierto)}</span>
+                    )}
                     {t.tecnico || t.cuadrilla ? (
                       <span className="text-slate-400">→ {t.tecnico ?? t.cuadrilla}</span>
                     ) : (
