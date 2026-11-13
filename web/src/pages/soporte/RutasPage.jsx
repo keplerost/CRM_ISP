@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Camera, Check, Hammer, ListOrdered, PhoneOff, Route, Wand2 } from 'lucide-react'
 
 import { supabase } from '../../lib/supabaseClient'
-import { etiquetaIncidencia } from '../../lib/soporte'
+import { FRANJAS, etiquetaIncidencia } from '../../lib/soporte'
 import { largoDeRuta, ordenarRutaAutomatica } from '../../lib/ruta'
 import { estadoPlazo } from '../../lib/plazos'
 import { duracion } from '../../lib/alertas'
-import { Badge, Button, Card, ErrorBanner, Input, Modal, SkeletonTabla } from '../../components/ui'
+import { Badge, Button, Card, ErrorBanner, Input, Modal, Select, SkeletonTabla } from '../../components/ui'
 import ConfirmarVisita from '../../components/soporte/ConfirmarVisita'
 import { useConfirmaciones } from '../../components/soporte/useConfirmaciones'
 import { diaAnterior, etiquetaLlamada, horaCorta } from '../../lib/confirmaciones'
@@ -619,11 +619,24 @@ function RutaCard({
 
 function Reprogramar({ t, llamada, onVerFoto, onHecho, onError }) {
   const [fecha, setFecha] = useState('')
+  // Lo que pidió el cliente: mañana, tarde o una hora exacta. Sin franja, la
+  // ruta lo acomoda donde le quede mejor.
+  const [franja, setFranja] = useState('')
+  const [horaVisita, setHoraVisita] = useState('')
   const [guardando, setGuardando] = useState(false)
+
+  const listo = fecha && (franja !== 'exacta' || horaVisita)
 
   async function guardar() {
     setGuardando(true)
-    const { error } = await supabase.from('tickets').update({ fecha_visita: fecha }).eq('id', t.id)
+    const { error } = await supabase
+      .from('tickets')
+      .update({
+        fecha_visita: fecha,
+        franja: franja || null,
+        hora_visita: franja === 'exacta' ? horaVisita : null,
+      })
+      .eq('id', t.id)
     setGuardando(false)
     if (error) return onError(error)
     onHecho()
@@ -669,7 +682,22 @@ function Reprogramar({ t, llamada, onVerFoto, onHecho, onError }) {
       <div className="w-40">
         <Input type="date" value={fecha} min={hoyLocal()} onChange={(e) => setFecha(e.target.value)} />
       </div>
-      <Button variante="primario" icon={CalendarClock} onClick={guardar} cargando={guardando} disabled={!fecha}>
+      <div className="w-48">
+        <Select value={franja} onChange={(e) => setFranja(e.target.value)} aria-label="Franja">
+          <option value="">Cualquier hora</option>
+          {Object.entries(FRANJAS).map(([valor, label]) => (
+            <option key={valor} value={valor}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {franja === 'exacta' && (
+        <div className="w-28">
+          <Input type="time" value={horaVisita} onChange={(e) => setHoraVisita(e.target.value)} aria-label="Hora" />
+        </div>
+      )}
+      <Button variante="primario" icon={CalendarClock} onClick={guardar} cargando={guardando} disabled={!listo}>
         Reprogramar
       </Button>
     </li>
